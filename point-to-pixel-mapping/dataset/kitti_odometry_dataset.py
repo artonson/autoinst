@@ -48,6 +48,7 @@ class KittiOdometryDataset(Dataset):
         self.sequence_path: os.PathLike = os.path.join(
             self.ds_path, "sequences", self.seq_str, ""
         )
+        self.calib_path: os.PathLike  = os.path.join(self.sequence_path, "calib.txt")
 
         # class members
         self.camera_names = ("cam0", "cam1", "cam2", "cam3")
@@ -107,6 +108,57 @@ class KittiOdometryDataset(Dataset):
 
         files, get = camera_func[camera_name]
         return get(index) if len(files) > index else None
+    
+    def get_calib_dict(self):
+        """
+        Read in a calibration file and parse into a dictionary.
+        Ref: https://github.com/utiasSTARS/pykitti/blob/master/pykitti/utils.py
+        """
+        data_dict = {}
+        with open(self.calib_path, 'r') as f:
+            for line in f.readlines():
+                line = line.rstrip()
+                if len(line) == 0: continue
+                key, value = line.split(':', 1)
+                # The only non-float values in these files are dates, which
+                # we don't care about anyway
+                try:
+                    data_dict[key] = np.array([float(x) for x in value.split()])
+                except ValueError:
+                    pass
+
+        return data_dict
+    
+    def project_velo_to_cam(self, calib, cam: str):
+        '''
+        Return projection matrix from velodyne coordinates to cam coordinate system
+
+        Args:
+            calib: Calibration dict for the cameras
+            cam: Camera name ("cam0", "cam1", "cam2", "cam3")
+
+        Explanation:
+            P0/P2 (grey / color) denotes the left and P1/P3 (grey / color) denotes the right camera. 
+            Tr transforms a point from velodyne coordinates into the left rectified camera coordinate 
+            system. In order to map a point X from the velodyne scanner to a point x in the i'th image 
+            plane, you thus have to transform it like:  
+            x = P_i * Tr * X
+        '''
+        if cam == "cam0":
+            calib_index = "P0"
+        elif cam == "cam1":
+            calib_index = "P1"
+        elif cam == "cam2":
+            calib_index = "P2"
+        elif cam == "cam3":
+            calib_index = "P3"
+        else:
+            raise ValueError("Invalid camera name")
+        
+        P_velo2cam_ref = np.vstack((calib['Tr'].reshape(3, 4), np.array([0., 0., 0., 1.])))  # velo2ref_cam
+        P_rect2cam2 = calib[calib_index].reshape((3, 4))
+        proj_mat = P_rect2cam2 @ P_velo2cam_ref
+        return proj_mat
 
     @staticmethod
     def _correct_scan_calibration(scan: np.ndarray):
