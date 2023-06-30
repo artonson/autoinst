@@ -1,6 +1,18 @@
 # Transformation on point clouds
 import numpy as np
+import open3d as o3d
 
+def get_pcd(points: np.array):
+    """
+    Convert numpy array to open3d point cloud
+    Args:
+        points: 3D points in camera coordinate [npoints, 3]
+    Returns:
+        pcd: open3d point cloud
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points[:, :3])
+    return pcd
 
 def project_pcd(points, projection_matrix):
     """
@@ -11,37 +23,9 @@ def project_pcd(points, projection_matrix):
     Returns:
         points:              3D points in coordinate system 2 [npoints, 3]
     """
-    num_pts = points.shape[0]
-
-    # Change to homogenous coordinate
-    points = np.vstack((points.transpose(), np.ones((1, num_pts))))
-    points = projection_matrix @ points
-    points[:2, :] /= points[2, :]
-
-    return points.transpose()
-
-
-def filter_points_fov(points_camframe, points_velo, img_width, img_height):
-    """
-    Filter points to be within the image FOV
-    Args:
-        points_camframe:    3D points in camera coordinate [3, npoints]
-        points_velo:        3D points in velo coordinate [3, npoints]
-        img_width:          Image width
-        img_height:         Image height
-    Returns:
-        points_camframe_fov:    3D points in camera coordinate within image FOV [3, npoints]
-    """
-
-    # Filter lidar points to be within image FOV
-    inds = np.where((points_camframe[0, :] < img_width) & (points_camframe[0, :] >= 0) &
-                    (points_camframe[1, :] < img_height) & (points_camframe[1, :] >= 0) &
-                    (points_velo[0,:] > 0)
-                    )[0]
-
-    # Filter out pixels points
-    points_camframe_fov = points_camframe[:, inds]
-    return points_camframe_fov, inds
+    pcd = get_pcd(points)
+    transformed_pcd = pcd.transform(projection_matrix)
+    return np.asarray(transformed_pcd.points)
 
 def filter_points_from_dict(points, filter_dict):
     """

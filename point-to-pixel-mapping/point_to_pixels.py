@@ -1,24 +1,32 @@
-# Function that take point clouds and calibration dict as input and return a dict that maps point indices to pixel coordinates
-import numpy as np
-from point_cloud_utils import filter_points_fov
+# Function that take point clouds and calibration dict as input and
+# return a dict that maps point indices to pixel coordinates
 
-def point_to_pixel(points_camframe: np.array, points_velo: np.array, proj_velo2cam: np.array, img_height: int, img_width: int):    
+import numpy as np
+
+def point_to_pixel(points_camframe: np.array, cam_intrinsics: np.array,
+                   img_height: int, img_width: int):
     """
-    Function that takes point clouds and calibration dict as input and return a dict that maps point indices to pixel coordinates
+    Function that takes point clouds and calibration dict as input and return a 
+    dict that maps point indices to pixel coordinates
     Args:
         points_camframe:    3D points in camera coordinate [npoints, 3]
-        points_velo:        3D points in velo coordinate [npoints, 3]
-        proj_velo2cam:      Projection matrix from velo to cam [3, 4]
+        cam_intrinsics:     Camera intrinsics [3, 3]
         img_width:          Image width
         img_height:         Image height
     Returns:
         point_to_pixel_dict: dict that maps point indices to pixel coordinates
     """
 
-    filtered_points, inds = filter_points_fov(points_camframe.transpose(), points_velo.transpose(), img_width, img_height)
+    points_imgframe = cam_intrinsics @ points_camframe.transpose()
+    points_imgframe[:2, :] /= points_imgframe[2, :]
 
-    point_to_pixel_dict = {}
-    for i in range(filtered_points.shape[1]):
-        point_to_pixel_dict[inds[i]] = [int(np.round(filtered_points[0,i])), int(np.round(filtered_points[1,i]))]
+    inds = np.where((points_imgframe[0, :] < img_width) & (points_imgframe[0, :] >= 0) &
+                    (points_imgframe[1, :] < img_height) & (points_imgframe[1, :] >= 0) &
+                    (points_imgframe[2, :] > 0)
+                    )[0]
 
-    return point_to_pixel_dict
+    point_ind_to_pixel_dict = {}
+    for ind in inds:
+        point_ind_to_pixel_dict[ind] = points_imgframe[:2, ind].astype(int)
+
+    return point_ind_to_pixel_dict

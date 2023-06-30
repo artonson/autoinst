@@ -48,40 +48,22 @@ class KittiOdometryDataset(Dataset):
         self.sequence_path: os.PathLike = os.path.join(
             self.ds_path, "sequences", self.seq_str, ""
         )
-        self.calib_path: os.PathLike  = os.path.join(self.sequence_path, "calib.txt")
 
         # class members
         self.camera_names = ("cam0", "cam1", "cam2", "cam3")
         self.dataset: pykitti.odometry = pykitti.odometry(self.ds_path, self.seq_str)
         self._poses = self.__parse_poses()
-        self._calib_dict = self.__parse_calib_dict()
 
     def __parse_poses(self) -> NDArray[Shape["*, 4, 4"], Float]:
         t_cam_velo = self.dataset.calib.T_cam0_velo
         t_velo_cam = np.linalg.inv(t_cam_velo)
-        poses = t_velo_cam @ self.dataset.poses @ t_cam_velo
+        # Poses only available for sequence 00-10
+        try:    
+            poses = t_velo_cam @ self.dataset.poses @ t_cam_velo
+        except:
+            poses = None
 
         return poses
-    
-    def __parse_calib_dict(self):
-        """
-        Read in a calibration file and parse into a dictionary.
-        Ref: https://github.com/utiasSTARS/pykitti/blob/master/pykitti/utils.py
-        """
-        data_dict = {}
-        with open(self.calib_path, 'r') as f:
-            for line in f.readlines():
-                line = line.rstrip()
-                if len(line) == 0: continue
-                key, value = line.split(':', 1)
-                # The only non-float values in these files are dates, which
-                # we don't care about anyway
-                try:
-                    data_dict[key] = np.array([float(x) for x in value.split()])
-                except ValueError:
-                    pass
-
-        return data_dict
 
     def __len__(self) -> int:
         return len(self._poses)
@@ -130,46 +112,28 @@ class KittiOdometryDataset(Dataset):
         files, get = camera_func[camera_name]
         return get(index) if len(files) > index else None
     
-    def get_calib_dict(self):
-        
-        return self._calib_dict
        
-    def project_velo_to_cam(self, cam: str):
-        """Load and compute intrinsic and extrinsic calibration parameters.
-           Copied and modified from 
-           https://github.com/utiasSTARS/pykitti/blob/d3e1bb81676e831886726cc5ed79ce1f049aef2c/pykitti/odometry.py#L145"""
-
-        # We'll build the calibration parameters as a dictionary, then
-        # convert it to a namedtuple to prevent it from being modified later
+    def get_projection_matrices(self, cam: str):
+        """
+        Retrieves the extriniscs and intrinsics matrix of the specified camera
+        """
 
         if cam == "cam0":
-            calib_index = "P0"
+            T = self.dataset.calib.T_cam0_velo
+            K = self.dataset.calib.K_cam0
         elif cam == "cam1":
-            calib_index = "P1"
+            T = self.dataset.calib.T_cam1_velo
+            K = self.dataset.calib.K_cam1
         elif cam == "cam2":
-            calib_index = "P2"
+            T = self.dataset.calib.T_cam2_velo
+            K = self.dataset.calib.K_cam2
         elif cam == "cam3":
-            calib_index = "P3"
+            T = self.dataset.calib.T_cam3_velo
+            K = self.dataset.calib.K_cam3
         else:
             raise ValueError("Invalid camera name")
 
-
-        # Create 3x4 projection matrices
-        P_rect_i0 = np.reshape(self._calib_dict[calib_index], (3, 4))
-
-        # Compute the rectified extrinsics from cam0 to camN
-        T_i = np.eye(4)
-        T_i[0, 3] = P_rect_i0[0, 3] / P_rect_i0[0, 0]
-
-        # Compute the velodyne to rectified camera coordinate transforms
-        T_cam0_velo = np.vstack((self._calib_dict['Tr'].reshape(3, 4), np.array([0., 0., 0., 1.])))
-        T_cam_i_velo = T_i.dot(T_cam0_velo)
-        T_cam_i_velo = T_cam_i_velo[0:3, :]
-
-        # Compute the camera intrinsics
-        K_cam_i = P_rect_i0[0:3, 0:3]
-
-        return T_cam_i_velo, K_cam_i
+        return T, K
 
     @staticmethod
     def _correct_scan_calibration(scan: np.ndarray):
