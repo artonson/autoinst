@@ -113,7 +113,7 @@ class KittiOdometryDataset(Dataset):
         return get(index) if len(files) > index else None
     
        
-    def get_projection_matrices(self, cam: str):
+    def get_calibration_matrices(self, cam: str):
         """
         Retrieves the extriniscs and intrinsics matrix of the specified camera
         """

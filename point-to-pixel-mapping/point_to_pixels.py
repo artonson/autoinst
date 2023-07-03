@@ -30,8 +30,6 @@ def point_to_pixel(points_camframe: np.array, cam_intrinsics: np.array,
         point_ind_to_pixel_dict[ind] = {}
         point_ind_to_pixel_dict[ind]['pixels'] = np.round(points_imgframe[:2, ind]).astype(int)
         
-        distance = points_imgframe[:2, ind] - np.round(points_imgframe[:2, ind])
-        distance_norm = np.linalg.norm(distance)
-        point_ind_to_pixel_dict[ind]['distance'] = distance_norm
+        point_ind_to_pixel_dict[ind]['depth'] = points_imgframe[2, ind]
 
     return point_ind_to_pixel_dict

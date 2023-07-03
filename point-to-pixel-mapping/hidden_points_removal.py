@@ -7,11 +7,11 @@ def hidden_point_removal_o3d(points_np: np.array, camera: list, radius_factor=10
     """
     Removes points that are not visible from the camera
     Args:
-        points_np: 3D points in camera coordinate [npoints, 3]
-        camera:    Camera position [3]
+        points_np:      3D points in camera coordinate [npoints, 3]
+        camera:         Camera position [3]
         radius_factor:  Factor to determine the radius of the sphere
     Returns:
-        pt_map:    Mask of visible points
+        pt_map:         Mask of visible points
     """
     assert(len(camera) == 3)
 
@@ -24,34 +24,27 @@ def hidden_point_removal_o3d(points_np: np.array, camera: list, radius_factor=10
     
     return pt_map
 
-
-class BiasuttiVisibility:
-    # An implementation of
-    # Biasutti, Pierre, et al. "Visibility estimation in point clouds with
-    # variable density." International Conference on Computer Vision Theory and
-    # Applications (VISAPP). 2019.
-
-    #it assumes self.view.depth is a [u v z] array of 
-    #point coordinates (obtained after performing perspective projection
-
-    def __init__(self, depth, n_neighbours=64, n_jobs=4, vis_type='mean'):  
-        self._n_neighbours = n_neighbours
-        self._n_jobs = n_jobs
-        self._type = vis_type
-        self._depth = depth
-
-    def at_image(self):
-        depth = self._depth
+def hidden_point_removal_biasutti(points: np.array, n_neighbours=64, n_jobs=4, vis_type='mean'):
+        """
+        Removes points that are not visible from the camera
+        Args:
+            points:        3D points in camera coordinate [npoints, 3]
+            n_neighbours:  Number of neighbours to consider for cKDTree
+            n_jobs:        Number of jobs to run in parallel
+            vis_type:      Type of visibility score
+        Returns:
+            pt_map:    Mask of visible points
+        """
 
         # take UV coordinates of the pixel in the image space
-        uv, z = depth[:, :2], depth[:, 2]
+        uv, z = points[:, :2], points[:, 2]
 
         # index for fast neighbour queries
         kdt = cKDTree(uv)
         _, indexes = kdt.query(
             uv,
-            k=self._n_neighbours + 1,
-            workers=self._n_jobs)
+            k=n_neighbours + 1,
+            workers=n_jobs)
 
         # take groups of points around each query point
         z_nbr = z[indexes[:, 1:]]
@@ -68,12 +61,12 @@ class BiasuttiVisibility:
         # score -> 1 (small d_p) means foreground/visible
         visible_score = np.exp(-(z_point - z_min) ** 2 / (z_max - z_min) ** 2)
 
-        if 'mean' == self._type:
+        if vis_type == 'mean':
             thr = np.mean(visible_score)
         else:
-            assert isinstance(self._type, float)
-            thr = self._type
+            assert isinstance(vis_type, float)
+            thr = vis_type
 
-        visibility_mask = (visible_score > thr).astype(bool)
+        pt_map = (visible_score > thr).astype(bool)
 
-        return visibility_mask
+        return pt_map
