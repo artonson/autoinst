@@ -1,0 +1,11 @@
+# This file may be used to create an environment using:
+# $ conda create --name <env> --file <this file>
+# platform: linux-64
+numpy=1.24.3
+open3d=0.17.0
+pillow=9.5.0
+pip=23.0.1
+pykitti=0.3.1
+python=3.9.16
+opencv-python=4.7.0.72
+nptyping=2.5.0
