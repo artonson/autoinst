@@ -6,6 +6,7 @@ from typing import Union
 
 import numpy as np
 import pykitti
+import pykitti.utils as utils
 from nptyping import Float, NDArray, Shape
 from PIL import Image
 
@@ -111,6 +112,33 @@ class KittiOdometryDataset(Dataset):
 
         files, get = camera_func[camera_name]
         return get(index) if len(files) > index else None
+    
+    def get_sam_label(self, camera_name: str, index: int) -> Union[Image.Image, None]:
+        """
+        Retrieves the SAM label of the specified index and camera
+
+        Args:
+            camera_name (str): name of the camera (cam0, cam1, cam2, cam3)
+            index (int): frame index, from 0 to size of the sequence
+
+        Returns:
+            corresponding label
+        """
+        file = self.sequence_path
+        index_file = str(index).zfill(6) + '.png'
+
+        if camera_name == "cam0":
+            file = os.path.join(file, "sam_image_0" , index_file)
+        elif camera_name == "cam1":
+            file = os.path.join(file, "sam_image_1" , index_file)
+        elif camera_name == "cam2":
+            file = os.path.join(file, "sam_image_2" , index_file)
+        elif camera_name == "cam3":
+            file = os.path.join(file, "sam_image_3" , index_file)
+        else:
+            raise ValueError("Invalid camera name")
+
+        return utils.load_image(file, mode='RGB')
     
        
     def get_calibration_matrices(self, cam: str):

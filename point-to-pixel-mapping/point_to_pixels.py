@@ -20,8 +20,8 @@ def point_to_pixel(points_camframe: np.array, cam_intrinsics: np.array,
     points_imgframe = cam_intrinsics @ points_camframe.transpose()
     points_imgframe[:2, :] /= points_imgframe[2, :]
 
-    inds = np.where((points_imgframe[0, :] < img_width) & (points_imgframe[0, :] >= 0) &
-                    (points_imgframe[1, :] < img_height) & (points_imgframe[1, :] >= 0) &
+    inds = np.where((points_imgframe[0, :] < img_width - 1) & (points_imgframe[0, :] >= 0) &
+                    (points_imgframe[1, :] < img_height - 1) & (points_imgframe[1, :] >= 0) &
                     (points_imgframe[2, :] > 0)
                     )[0]
 
@@ -33,3 +33,29 @@ def point_to_pixel(points_camframe: np.array, cam_intrinsics: np.array,
         point_ind_to_pixel_dict[ind]['depth'] = points_imgframe[2, ind]
 
     return point_ind_to_pixel_dict
+
+
+def pixel_to_point_from_point_to_pixel(point_to_pixel: dict):
+    '''
+    Args:
+        point_to_pixel: dict that maps point indices to pixel coordinates
+        multiple_points_per_pixel: if True, multiple points per pixel are allowed
+    Returns:
+        pixel_to_point: dict that maps pixel coordinates to point indices
+    '''
+
+    pixel_to_point = {}
+
+    for index, point_data in point_to_pixel.items():
+        pixel = point_data['pixels']
+        pixel_tpl = (pixel[0], pixel[1])
+        depth = point_data['depth']
+
+        if pixel_tpl not in pixel_to_point.keys():
+            # Add the pixel and point index to the dictionary
+            pixel_to_point[pixel_tpl] = {'index': index, 'depth': depth}
+        elif depth < pixel_to_point[pixel_tpl]['depth']:
+            # Update the dictionary with the new point index and depth
+            pixel_to_point[pixel_tpl] = {'index': index, 'depth': depth}
+        
+    return pixel_to_point
