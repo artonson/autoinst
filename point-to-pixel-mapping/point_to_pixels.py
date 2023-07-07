@@ -39,7 +39,6 @@ def pixel_to_point_from_point_to_pixel(point_to_pixel: dict):
     '''
     Args:
         point_to_pixel: dict that maps point indices to pixel coordinates
-        multiple_points_per_pixel: if True, multiple points per pixel are allowed
     Returns:
         pixel_to_point: dict that maps pixel coordinates to point indices
     '''
