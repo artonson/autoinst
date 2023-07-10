@@ -19,7 +19,7 @@ def point_to_pixel(points_camframe: np.array, cam_intrinsics: np.array,
 
     points_imgframe = cam_intrinsics @ points_camframe.transpose()
     points_imgframe[:2, :] /= points_imgframe[2, :]
-    points_imgframe = np.round(points_imgframe).astype(int)
+    points_imgframe[:2, :] = np.round(points_imgframe[:2, :])
 
     inds = np.where((points_imgframe[0, :] < img_width) & (points_imgframe[0, :] >= 0) &
                     (points_imgframe[1, :] < img_height) & (points_imgframe[1, :] >= 0) &
@@ -29,7 +29,7 @@ def point_to_pixel(points_camframe: np.array, cam_intrinsics: np.array,
     point_ind_to_pixel_dict = {}
     for ind in inds:
         point_ind_to_pixel_dict[ind] = {}
-        point_ind_to_pixel_dict[ind]['pixels'] = points_imgframe[:2, ind]
+        point_ind_to_pixel_dict[ind]['pixels'] = (points_imgframe[:2, ind]).astype(int)
         point_ind_to_pixel_dict[ind]['depth'] = points_imgframe[2, ind]
 
     return point_ind_to_pixel_dict
