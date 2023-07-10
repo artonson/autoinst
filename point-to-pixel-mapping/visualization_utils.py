@@ -2,9 +2,13 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import open3d as o3d
+
+from point_cloud_utils import get_pcd
+from point_to_pixels import pixel_to_point_from_point_to_pixel
 
 
-def unite_pcd_and_img(point_to_pixel_matches: dict, img, coloring='depth'):
+def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, coloring='depth'):
     '''
     Function that takes a dict that maps point indices to pixel coordinates and returns 
     an image with projected point clouds    
@@ -12,7 +16,7 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, coloring='depth'):
         point_to_pixel_matches: dict that maps point indices to pixel coordinates
         pcd_camframe:           point clouds in camera frame
         img:                    image to be colored
-        coloring:               color scheme, 'depth'
+        coloring:               color scheme, 'depth' or 'label_map'
     Returns:
         img_with_pc:            image with projected point clouds
     '''
@@ -21,40 +25,54 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, coloring='depth'):
         cmap = plt.cm.get_cmap('hsv', 256)
         cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
 
-    max_depth = 0
+        max_depth = 0
+        for _, point_data in point_to_pixel_matches.items():
+            depth = point_data['depth']
+            if depth > max_depth:
+                max_depth = depth
+
+    if coloring == 'label_map':
+        assert(label_map is not None)
 
     ### Iterate over point_to_pixel_matches values and color image accordingly
     img_with_pc = img.copy()
 
     ### Initalize a dict, in which the closest point to each pixel is stored
-    pixel_to_point_matches = {}
-
-    for index, point_data in point_to_pixel_matches.items():
-        pixel = point_data['pixels']
-        pixel_tpl = (pixel[0], pixel[1])
-        depth = point_data['depth']
-
-        if depth > max_depth:
-            max_depth = depth
-
-        if pixel_tpl not in pixel_to_point_matches.keys():
-            # Add the pixel and point index to the dictionary
-            pixel_to_point_matches[pixel_tpl] = {'index': index, 'depth': depth}
-        elif depth < pixel_to_point_matches[pixel_tpl]['depth']:
-            # Update the dictionary with the new point index and depth
-            pixel_to_point_matches[pixel_tpl] = {'index': index, 'depth': depth}
-        
+    pixel_to_point_matches = pixel_to_point_from_point_to_pixel(point_to_pixel_matches)
 
     for pixel, pixel_data in pixel_to_point_matches.items():
-        index = pixel_data['index']
 
         if coloring == 'depth':
             depth = pixel_data['depth']
             id = min(int(255), int(255 * depth / max_depth))
             color = cmap[id, :]
+        elif coloring == 'label_map':
+            color = label_map[pixel[1], pixel[0]].tolist()
         else:
             color = (255,0,0)
 
         cv2.circle(img_with_pc, (pixel[0], pixel[1]), 2, color=tuple(color), thickness=1)
     
     return img_with_pc
+
+
+def color_pcd_with_labels(points: np.array, point_to_pixel_matches: dict, label_map):
+    '''
+    Args:
+        points:                  3D points in camera coordinate [npoints, 3]
+        point_to_pixel_matches:  dict that maps point indices to pixel coordinates
+        label_map:               label map of the image
+    Returns:
+        colored_pcd:             colored point cloud
+    '''
+    colored_pcd = get_pcd(points)
+
+    colors = []
+    for pixel_data in point_to_pixel_matches.values():
+        pixel = pixel_data['pixels']
+        color = (label_map[pixel[1], pixel[0]] / 255).tolist()
+        colors.append(color)
+
+    colored_pcd.colors = o3d.utility.Vector3dVector(colors)
+
+    return colored_pcd

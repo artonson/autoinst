@@ -19,7 +19,7 @@ def transform_pcd(points, T):
     Apply the perspective projection
     Args:
         points:              3D points in coordinate system 1 [npoints, 3]
-        T:                   Transformation matrix from coordinate system 1 to 2 [3, 4]
+        T:                   Transformation matrix in homogeneous coordinates [4, 4]
     Returns:
         points:              3D points in coordinate system 2 [npoints, 3]
     """
