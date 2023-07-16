@@ -56,23 +56,44 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, colorin
     return img_with_pc
 
 
-def color_pcd_with_labels(points: np.array, point_to_pixel_matches: dict, label_map):
+def color_pcd_with_labels(points: np.array, point_to_label: dict):
     '''
     Args:
         points:                  3D points in camera coordinate [npoints, 3]
-        point_to_pixel_matches:  dict that maps point indices to pixel coordinates
-        label_map:               label map of the image
+        point_to_label:          dict that maps point indices to instance label color
     Returns:
         colored_pcd:             colored point cloud
     '''
     colored_pcd = get_pcd(points)
 
     colors = []
-    for pixel_data in point_to_pixel_matches.values():
-        pixel = pixel_data['pixels']
-        color = (label_map[pixel[1], pixel[0]] / 255).tolist()
-        colors.append(color)
+    for color in point_to_label.values():
+        colors.append(list(color))
 
     colored_pcd.colors = o3d.utility.Vector3dVector(colors)
 
     return colored_pcd
+
+def visualize_associations_in_img(_label, associations):
+    '''
+    Args:
+        _label:             label map of image
+        associations:       dict that maps original label colors to associated label colors
+    Returns:
+        label:              label map of image with instance labels
+    '''
+
+    label = _label.copy()
+    for i in range(label.shape[0]):
+        for j in range(label.shape[1]):
+            color_norm = tuple(label[i,j]/255.0)
+
+            association = associations.get(color_norm)
+
+            if association is not None:
+                color = list(association)
+                label[i,j] = [i * 255.0 for i in color]
+
+            else:
+                label[i,j] = [0,0,0]
+    return label
