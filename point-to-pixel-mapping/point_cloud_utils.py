@@ -56,3 +56,18 @@ def point_to_label(point_to_pixel: dict, label_map):
         point_to_label_dict[index] = color
     
     return point_to_label_dict
+
+def change_point_indices(point_to_X: dict, indices: list):
+    '''
+    Args:
+        point_to_X: dict that maps point indices to X
+        indices: list of indices
+    Returns:
+        point_to_X: dict that maps point indices to X
+    '''
+    point_to_X_new = {}
+    for old_index in point_to_X.keys():
+        new_index = indices[old_index]
+        point_to_X_new[new_index] = point_to_X[old_index]
+    
+    return point_to_X_new
