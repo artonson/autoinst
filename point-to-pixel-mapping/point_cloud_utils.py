@@ -40,6 +40,20 @@ def filter_points_from_dict(points, filter_dict):
     inds = np.array(list(filter_dict.keys()))
     return points[inds]
 
+
+def filter_points_from_list(points, filter_list):
+    """
+    Filter points based on a dict
+    Args:
+        points:      3D points in camera coordinate [npoints, 3]
+        filter_dict: dict that maps point indices to pixel coordinates
+    Returns:
+        points:    3D points in camera coordinate within image FOV [npoints, 3]
+    """
+
+    inds = np.array(list(filter_list))
+    return points[inds]
+
 def point_to_label(point_to_pixel: dict, label_map):
     '''
     Args:
