@@ -1,10 +1,12 @@
-import numpy as np
-import torch
 import glob
 import os
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+
+import numpy as np
+import torch
 from PIL import Image
+from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from tqdm import tqdm
+
 
 class Adapter():
     def __init__(

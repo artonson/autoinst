@@ -1,6 +1,7 @@
-from adapter import Adapter
-from argparse import ArgumentParser
 import os
+from argparse import ArgumentParser
+
+from adapter import Adapter
 
 if __name__ == "__main__":
     parser = ArgumentParser()
