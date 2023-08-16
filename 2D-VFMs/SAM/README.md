@@ -16,7 +16,7 @@ To run the container use the following command:
 docker run --gpus all \
     -v <IMAGES_PATH>:/input \
     -v <OUTPUT_PATH>:/output \
-    sam
+    sam [OPTIONAL_ARGS]
 ```
 Here `<IMAGES_PATH>` is the path where your image dataset is stored on the host machine. `<OUTPUT_PATH>` is the path where the masks will be saved.
 
