@@ -49,6 +49,9 @@ class KittiOdometryDataset(Dataset):
         self.sequence_path: os.PathLike = os.path.join(
             self.ds_path, "sequences", self.seq_str, ""
         )
+        self.sam_label_path: os.PathLike = os.path.join(
+            self.ds_path, "sam_pred", self.seq_str, ""
+        )
 
         # class members
         self.camera_names = ("cam0", "cam1", "cam2", "cam3")
@@ -124,17 +127,17 @@ class KittiOdometryDataset(Dataset):
         Returns:
             corresponding label
         """
-        file = self.sequence_path
+        file = self.sam_label_path
         index_file = str(index).zfill(6) + '.png'
 
         if camera_name == "cam0":
-            file = os.path.join(file, "sam_image_0" , index_file)
+            file = os.path.join(file, "image_0/overlays" , index_file)
         elif camera_name == "cam1":
-            file = os.path.join(file, "sam_image_1" , index_file)
+            file = os.path.join(file, "image_1/overlays" , index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "sam_image_2" , index_file)
+            file = os.path.join(file, "image_2/overlays" , index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "sam_image_3" , index_file)
+            file = os.path.join(file, "image_3/overlays" , index_file)
         else:
             raise ValueError("Invalid camera name")
 
