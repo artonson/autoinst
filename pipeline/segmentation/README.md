@@ -15,7 +15,7 @@ Dependencies are located inside segmentation/voxel_clustering_dependencies/. Pyt
 ## Build the python bindings 
 
 ```sh 
-cd segmentation//voxel_clustering_dependencies
+cd segmentation/voxel_clustering_dependencies
 mkdir build && cd build 
 cmake ..
 make -j{$nproc}
