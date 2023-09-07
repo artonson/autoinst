@@ -126,7 +126,7 @@ std::vector<int> CVC::most_frequent_value(std::vector<int> values) {
 
 std::vector<int>  CVC::cluster(std::unordered_map<int, Voxel> &map_in,const std::vector<PointAPR>& vapr){
      int current_cluster = 0;
-     printf("Doing CVC cluster");
+     //printf("Doing CVC cluster");
      std::vector<int> cluster_indices = std::vector<int>(vapr.size(), -1);
 
      for(int i = 0; i< vapr.size(); ++i){

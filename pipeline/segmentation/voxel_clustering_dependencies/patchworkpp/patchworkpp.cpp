@@ -21,6 +21,7 @@ void PatchWorkpp::addCloud(vector<PointXYZ> &cloud, vector<PointXYZ> &add)
 }
 
 void PatchWorkpp::flush_patches(vector<Zone> &czm) {
+    
 
     for (int k = 0; k < params_.num_zones; k++) {
         for (int i = 0; i < params_.num_rings_each_zone[k]; i++) {
@@ -142,13 +143,15 @@ void PatchWorkpp::estimateGround(Eigen::MatrixXf cloud_in) {
     
     cloud_ground_.clear();
     cloud_nonground_.clear();
+    point_dict.clear();
+    nonground_idcs.clear();
+    ground_idcs.clear();
 
     if (params_.verbose) cout << "\033[1;32m" << "PatchWorkpp::estimateGround() - Estimation starts !" << "\033[0m" << endl;
 
     clock_t beg = clock();
     
     // 1. Reflected Noise Removal (RNR)
-    std::cout << "pnr removal " << std::endl;
     if (params_.enable_RNR) reflected_noise_removal(cloud_in);
 
     clock_t t1 = clock();
@@ -476,6 +479,10 @@ void PatchWorkpp::temporal_ground_revert(std::vector<double> ring_flatness, std:
                     cout << "\033[1;32m" << "REVERT TRUE" << "\033[0m" << endl;
                 }
                 addCloud(cloud_ground_, candidate.regionwise_ground);
+                for (auto &p : candidate.regionwise_ground) {
+                        int idx = point_dict[p];
+                        ground_idcs.push_back(idx);
+                    }
             }
             else
             {
@@ -484,6 +491,10 @@ void PatchWorkpp::temporal_ground_revert(std::vector<double> ring_flatness, std:
                     cout << "\033[1;31m" << "FINAL REJECT" << "\033[0m" << endl;
                 }
                 addCloud(cloud_nonground_, candidate.regionwise_ground);
+                for (auto &p : candidate.regionwise_ground) {
+                        int idx = point_dict[p];
+                        nonground_idcs.push_back(idx);
+                    }
             }                
         }
     }

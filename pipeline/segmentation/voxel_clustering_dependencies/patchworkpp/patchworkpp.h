@@ -32,8 +32,11 @@ struct PointXYZ {
 // Define the hash function for Point3D
 struct PointXYZHash {
     std::size_t operator()(const PointXYZ& point) const {
-        // You can use a simple hash function for illustration purposes
-        return std::hash<int>()(point.x) ^ std::hash<int>()(point.y) ^ std::hash<int>()(point.z);
+        std::size_t hash = 17;
+        hash = hash * 31 + std::hash<float>()(point.x);
+        hash = hash * 31 + std::hash<float>()(point.y);
+        hash = hash * 31 + std::hash<float>()(point.z);
+        return hash;
     }
 };
 

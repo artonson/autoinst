@@ -11,18 +11,23 @@ sys.path.insert(0, lib_path+ "clustering")
 sys.path.insert(0, lib_path+ "patchworkpp")
 import pycluster
 import pypatchworkpp
+import random
 
 class VoxelClusterSegmentation(AbstractSegmentation):
-    def __init__(self):
-        #self.dataset = dataset
+    def __init__(self,dataset):
+        self.dataset = dataset
         params = pypatchworkpp.Parameters()
-        params.verbose = True
+        params.verbose = False 
 
         self.PatchworkPLUSPLUS = pypatchworkpp.patchworkpp(params) #ground segmentation class
         params = [2,0.4,1.5]
         self.cvc = pycluster.CVC_cluster(params) #clustering class 
 
     def segment_instances(self, index):
+        capr = None
+        hash_table = None
+        cluster_indices = None
+        cluster_id = None
         points = self.dataset.get_point_cloud(index,intensity=True)  #patchwork ++ requires points 
         #points = np.fromfile('segmentation/test.bin',dtype=np.float32).reshape(-1,4)
         pcd = o3d.geometry.PointCloud()
@@ -53,10 +58,16 @@ class VoxelClusterSegmentation(AbstractSegmentation):
         labels[ground_idcs] = 1 
         
         for i in range(len(cluster_id)): 
+                color = [random.random(),random.random(),random.random()]
                 for j in range(len(cluster_indices)):
                         if cluster_indices[j] == cluster_id[i]:
                                 ##append point to cloud with certain colour 
                                 labels[nonground_idcs[j]] = cluster_id[i] 
+                                #pt_colors[nonground_idcs[j]] = color  
+        
+        #colors = np.vstack(pt_colors)
+        #pcd.colors = o3d.utility.Vector3dVector(colors)
+        #o3d.visualization.draw_geometries([pcd])
         return labels
     
 
