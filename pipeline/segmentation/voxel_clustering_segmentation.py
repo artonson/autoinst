@@ -2,12 +2,13 @@ import numpy as np
 import open3d as o3d
 
 
-from abstract_segmentation import AbstractSegmentation
+from segmentation.abstract_segmentation import AbstractSegmentation
 import sys 
 import os
 
-lib_path = os.path.expanduser('~') + '/Thesis-Code/numpy_lidar_segementation_wrapper/build/'  ##need to add the build dependencies in a seperate folder 
-sys.path.insert(0, lib_path)
+lib_path = os.path.expanduser('~') + '/unsup_3d_instances/pipeline/segmentation/voxel_clustering_dependencies/build/'  
+sys.path.insert(0, lib_path+ "clustering")
+sys.path.insert(0, lib_path+ "patchworkpp")
 import pycluster
 import pypatchworkpp
 
@@ -51,21 +52,11 @@ class VoxelClusterSegmentation(AbstractSegmentation):
         labels = np.zeros(points.shape[0])
         labels[ground_idcs] = 1 
         
-        #colors = [[0,0,0] for i in range(points.shape[0])]
-        
-        #for idx in nonground_idcs : 
-        #    colors[idx]  = [1,0,0]
-            
         for i in range(len(cluster_id)): 
                 for j in range(len(cluster_indices)):
                         if cluster_indices[j] == cluster_id[i]:
                                 ##append point to cloud with certain colour 
                                 labels[nonground_idcs[j]] = cluster_id[i] 
-                                
-        
-        #pcd.colors = o3d.utility.Vector3dVector(np.vstack(colors)) 
-        #o3d.visualization.draw_geometries([pcd])
-
         return labels
     
 
