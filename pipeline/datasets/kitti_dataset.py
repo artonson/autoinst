@@ -23,8 +23,11 @@ class KittiDataset(AbstractDataset):
     def get_pose(self, index):
         return self.poses[index]
 
-    def get_point_cloud(self, index):
-        points = self.dataset.get_velo(index)[:, :3]
+    def get_point_cloud(self, index,intensity=False):
+        points = self.dataset.get_velo(index)
+        if intensity == False : 
+            points = points[:, :3]
+        
         return points
     
     def get_available_cameras(self):
