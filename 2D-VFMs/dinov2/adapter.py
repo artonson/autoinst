@@ -46,7 +46,7 @@ class Adapter():
         return pre_features
     
 
-    def _post_process_features(self, features: list, image_path: str) -> np.ndarray:
+    def _post_process_features(self, features: list) -> np.ndarray:
         features = features.cpu().numpy()
         pre_features = features.reshape((self.num_patches[0], self.num_patches[1], self.feature_dim))
         return pre_features
