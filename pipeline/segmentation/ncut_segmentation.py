@@ -3,6 +3,7 @@ import open3d as o3d
 
 from scipy.spatial.distance import cdist
 from segmentation.abstract_segmentation import AbstractSegmentation
+from reprojection.aggregate_pointcloud import aggregate_pointcloud 
 from reprojection.reproject_pointcloud import reproject_points_to_label, merge_associations
 from normalized_cut.normalized_cut import normalized_cut
 
@@ -35,13 +36,15 @@ class nCutSegmentation(AbstractSegmentation):
         return feature_diff
 
     def segment_instances(self, index):
+
         points_full = self.dataset.get_point_cloud(index)
         pcd_full = o3d.geometry.PointCloud()
         pcd_full.points = o3d.utility.Vector3dVector(points_full)
         labels_full = np.zeros(points_full.shape[0])
         T_pcd = self.dataset.get_pose(index)
+        
+        pcd, T_pcd = aggregate_pointcloud(self.dataset, index, (index + 5))
 
-        pcd = pcd_full
         pcd = pcd.select_by_index(np.where(np.asarray(pcd.points)[:,0] > self.lower_bound)[0])
         pcd = pcd.select_by_index(np.where(np.asarray(pcd.points)[:,0] < self.upper_bound)[0])
         pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
