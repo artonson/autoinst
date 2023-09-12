@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import open3d as o3d
+import random
 
 from point_cloud_utils import get_pcd
 from point_to_pixels import pixel_to_point_from_point_to_pixel
@@ -97,3 +98,10 @@ def visualize_associations_in_img(_label, associations):
             else:
                 label[i,j] = [0,0,0]
     return label
+
+def generate_random_colors(N):
+    colors = []
+    for _ in range(N):
+        colors.append([random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)])
+
+    return colors
