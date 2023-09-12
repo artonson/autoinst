@@ -7,9 +7,10 @@ from reprojection.reproject_pointcloud import reproject_points_to_label, merge_a
 from normalized_cut.normalized_cut import normalized_cut
 
 class nCutSegmentation(AbstractSegmentation):
-    def __init__(self, dataset, ncut_threshold, lower_bound, upper_bound):
+    def __init__(self, dataset, ncut_threshold, voxel_size, lower_bound, upper_bound):
         self.dataset = dataset
         self.T = ncut_threshold
+        self.voxel_size = voxel_size   
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
 
@@ -43,14 +44,15 @@ class nCutSegmentation(AbstractSegmentation):
         pcd = pcd_full
         pcd = pcd.select_by_index(np.where(np.asarray(pcd.points)[:,0] > self.lower_bound)[0])
         pcd = pcd.select_by_index(np.where(np.asarray(pcd.points)[:,0] < self.upper_bound)[0])
-        pcd = pcd.voxel_down_sample(voxel_size=0.25)
+        pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
         points = np.asarray(pcd.points)
         num_points = points.shape[0]
 
         cam_name = "cam2"
         point_to_label_reprojections = []
 
-        for points_index in range(index, index+5):
+        start_ind = max(0, index-5)
+        for points_index in range(start_ind, start_ind+10):
             masks = self.dataset.get_image_instances(cam_name, points_index)
             label = self.__masks_to_image(masks)
 
@@ -62,7 +64,7 @@ class nCutSegmentation(AbstractSegmentation):
 
         association_matrix = merge_associations(point_to_label_reprojections, len(pcd.points))
 
-        proximity_threshold = 1 # meters that points can be apart froim each other and still be considered neighbors
+        proximity_threshold = 2 # meters that points can be apart froim each other and still be considered neighbors
         alpha = 6.0 # weight of the spatial proximity term
         beta = 1.0 # weight of the feature similarity term
 
@@ -80,9 +82,12 @@ class nCutSegmentation(AbstractSegmentation):
         A = A[isolated_mask][:, isolated_mask]
         pcd = pcd.select_by_index(np.where(isolated_mask == True)[0])
         num_points = np.asarray(pcd.points).shape[0]
+        print("num_points:", num_points)
 
         grouped_labels = normalized_cut(A, np.arange(num_points), T = self.T)
         labels = np.zeros(num_points)
+
+        print("num_labels:", len(grouped_labels))
 
         for i, s in enumerate(grouped_labels):
             for j in s:

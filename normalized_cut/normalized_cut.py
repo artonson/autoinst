@@ -45,7 +45,7 @@ def normalized_cut(w, labels, T = 0.01):
 
         A = D2 * (D - W) * D2
 
-        eigvals, eigvecs = sparse.linalg.eigsh(A, 2, sigma = 1e-7, which='LM')
+        eigvals, eigvecs = sparse.linalg.eigsh(A, 2, sigma = 1e-10, which='LM')
 
         index2 = np.argsort(eigvals)[1]
 
