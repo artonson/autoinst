@@ -40,7 +40,7 @@ def filter_points_from_dict(points, filter_dict):
     inds = np.array(list(filter_dict.keys()))
     return points[inds]
 
-def point_to_label(point_to_pixel: dict, label_map):
+def point_to_label(point_to_pixel: dict, label_map, label_is_color=True):
     '''
     Args:
         point_to_pixel: dict that maps point indices to pixel coordinates
@@ -50,10 +50,16 @@ def point_to_label(point_to_pixel: dict, label_map):
     '''
     point_to_label_dict = {}
 
-    for index, point_data in point_to_pixel.items():
-        pixel = point_data['pixels']
-        color = tuple((label_map[pixel[1], pixel[0]] / 255))
-        point_to_label_dict[index] = color
+    if label_is_color:
+        for index, point_data in point_to_pixel.items():
+            pixel = point_data['pixels']
+            color = tuple((label_map[pixel[1], pixel[0]] / 255))
+            point_to_label_dict[index] = color
+    else:
+        for index, point_data in point_to_pixel.items():
+            pixel = point_data['pixels']
+            label = label_map[pixel[1], pixel[0]]
+            point_to_label_dict[index] = label
     
     return point_to_label_dict
 
