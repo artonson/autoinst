@@ -42,7 +42,7 @@ class Adapter():
         image_batch, _ = model.preprocess(image_path)
         features = model.extract_descriptors(image_batch.to(self.device), layer=self.layer, facet=self.facet, bin=False)
         self.num_patches = model.num_patches
-        pre_features = self._post_process_features(features, image_path)
+        pre_features = self._post_process_features(features)
         return pre_features
     
 
