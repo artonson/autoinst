@@ -5,7 +5,7 @@ from point_cloud_utils import transform_pcd, get_pcd, point_to_label, change_poi
 from point_to_pixels import point_to_pixel
 from hidden_points_removal import hidden_point_removal_o3d
 
-def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_point_removal=True):
+def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_point_removal=True, label_is_color=True):
     '''
     Args:
         pcd:            point cloud in camera coordinate [npoints, 3]
@@ -27,7 +27,7 @@ def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_po
 
     point_to_pixel_dict = point_to_pixel(pcd_camframe, K, label.shape[0], label.shape[1])
 
-    point_to_label_dict = point_to_label(point_to_pixel_dict, label)
+    point_to_label_dict = point_to_label(point_to_pixel_dict, label, label_is_color=label_is_color)
 
     if hidden_point_removal:
         point_to_label_dict = change_point_indices(point_to_label_dict, hpr_mask)
@@ -61,3 +61,30 @@ def merge_associations(associations, num_points):
         num_iteration += 1
 
     return association_matrix
+
+def merge_features(feature_reprojections, num_points):
+    '''
+    Args:
+        feature_reprojections: list of dicts that map point indices to feature vectors
+        num_points:            number of points in point cloud
+    Returns:
+        features:              matrix that stores mean feature vector for each point
+    '''
+
+    num_features = feature_reprojections[0][next(iter(feature_reprojections[0]))].shape[0]
+
+    feature_list = [[] for i in range(num_points)]
+
+    for reprojection in feature_reprojections:
+        for index, feature_vec in reprojection.items():
+            feature_list[index].append(feature_vec)
+
+    features = np.zeros((num_points, num_features))
+
+    i = 0
+    for feature in feature_list:
+        if len(feature) > 0:
+            features[i, :] = np.mean(feature, axis=0)
+        i += 1
+
+    return features
