@@ -6,7 +6,7 @@ from segmentation.abstract_segmentation import AbstractSegmentation
 import sys 
 import os
 
-lib_path = os.path.expanduser('~') + '/unsup_3d_instances/pipeline/segmentation/voxel_clustering_dependencies/build/'  
+lib_path = os.path.expanduser('~') + '/unsup_3d_instances/pipeline/segmentation/utils/voxel_clustering_dependencies/build/'  
 sys.path.insert(0, lib_path+ "clustering")
 sys.path.insert(0, lib_path+ "patchworkpp")
 import pycluster

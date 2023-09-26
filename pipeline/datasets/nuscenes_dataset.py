@@ -1,10 +1,22 @@
-import numpy as np
-import os
-import pykitti
-
 from datasets.abstract_dataset import AbstractDataset
+#from nuscenes import NuScenes
+#from nuscenes.utils.data_classes import LidarPointCloud
+import numpy as np 
+#from nuscenes.utils.geometry_utils import view_points, transform_matrix
+from pyquaternion import Quaternion
+from functools import reduce
+from typing import Tuple, List, Dict
+import os.path as osp
+import pykitti
+import os 
 
-class KittiDataset(AbstractDataset):
+'''
+Due to the use of the conversion tool "nuscenes2kitti" the dataset is currently the 
+same as the kitti dataset. 
+'''
+
+
+class NuScenesDataset(AbstractDataset):
     def __init__(self, dataset_path, sequence, image_instances_path):
         self.dataset_path = dataset_path
         self.sequence = sequence
