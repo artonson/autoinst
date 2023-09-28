@@ -27,10 +27,11 @@ def generate_random_colors(N):
     return colors
 
 class AggregationClustering(): 
-    def __init__(self,dataset_name='kitti',clusterer='dbscan',sequence='00'): 
+    def __init__(self,dataset_name='kitti',clusterer='dbscan',sequence='00',dataset=None): 
         params = pypatchworkpp.Parameters()
         params.verbose = False
 
+        self.dataset = dataset
         self.PatchworkPLUSPLUS = pypatchworkpp.patchworkpp(params)
         self.eps = 0.7 
         self.min_samples = 20 
@@ -80,7 +81,7 @@ class AggregationClustering():
 
         return calib
 
-    def load_poses(self,calib_fname, poses_fname):
+    def load_poses_kitti(self,calib_fname, poses_fname):
         calibration = self.parse_calibration(calib_fname)
         poses_file = open(poses_fname)
 
@@ -127,7 +128,7 @@ class AggregationClustering():
 
         # load poses
         datapath = data_batch[0].split('velodyne')[0]
-        poses = self.load_poses(os.path.join(datapath, 'calib.txt'), 
+        poses = self.load_poses_kitti(os.path.join(datapath, 'calib.txt'), 
                         os.path.join(datapath.split('sequences')[0] + 'poses' ,self.sequence + '.txt'))
         
         for t in range(len(data_batch)):
@@ -182,6 +183,66 @@ class AggregationClustering():
 
         return points_set, ground_label, pcd_parse_idx
 
+    
+    def aggregate_pcds_nuscenes(self,data_batch):
+        # load empty pcd point cloud to aggregate
+        
+        points_set = np.empty((0,4))
+        self.ground_idcs = []
+
+        # define a delimiter to divide the aggregated pcd
+        p_delimiter = np.asarray([[-np.inf, -np.inf, -np.inf, -np.inf]])
+        ground_label = np.empty((0,1))
+        g_delimiter = np.asarray([[-np.inf]])
+
+
+
+        for t in range(len(data_batch)):
+            p_set = self.dataset.get_point_cloud(data_batch[t],pose_correction=True)
+            # aggregate a delimiter and the next scan
+            points_set = np.vstack([points_set, p_delimiter, p_set])
+
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(p_set[:,:3])
+            labels = np.ones((p_set.shape[0],1))
+            
+            self.PatchworkPLUSPLUS.estimateGround(p_set)
+            ground      = self.PatchworkPLUSPLUS.getGround()
+            nonground   = self.PatchworkPLUSPLUS.getNonground()
+            time_taken  = self.PatchworkPLUSPLUS.getTimeTaken()
+            ground_idcs = self.PatchworkPLUSPLUS.get_ground_idcs()
+            self.ground_idcs.append(ground_idcs)
+            nonground_idcs = self.PatchworkPLUSPLUS.get_nonground_idcs()
+
+            # Get centers and normals for patches
+            centers     = self.PatchworkPLUSPLUS.getCenters()
+            normals     = self.PatchworkPLUSPLUS.getNormals()
+            
+            inliers = ground_idcs 
+            #_, inliers = pcd.segment_plane(distance_threshold=0.25, ransac_n=3, num_iterations=200)
+            g_set = np.ones((len(p_set),1)) * 251
+            g_set[inliers] = 9
+            
+            labels[ground_idcs] = 0 
+
+            
+            #self.visualize_pcd_clusters(p_set[:,:3],labels)
+
+            # aggregate a delimiter and the next scan
+            ground_label = np.vstack([ground_label, g_delimiter, g_set])
+
+        ground_label = np.vstack([ground_label, g_delimiter])
+        points_set = np.vstack([points_set, p_delimiter])
+
+        # get start position of each aggregated pcd
+        pcd_parse_idx = np.unique(np.argwhere(ground_label == g_delimiter)[:,0])
+
+        points_set[pcd_parse_idx] = p_delimiter
+        
+        
+
+        return points_set, ground_label, pcd_parse_idx
+
     #@profile
     def clusters_hdbscan(self,points_set, n_clusters=50):
         
@@ -218,6 +279,8 @@ class AggregationClustering():
 
         clusters_labels = cluster_info[::-1][:n_clusters, 0]
         labels[np.in1d(labels, clusters_labels, invert=True)] = -1
+        
+        #self.visualize_pcd_clusters(non_inf_points[:,:3],labels)
         
         del clusterer
         del labels_clustered
