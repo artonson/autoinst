@@ -2,7 +2,7 @@ from point_cloud_utils import get_pcd, transform_pcd
 from merge_pointclouds import merge_pointclouds
 import numpy as np
 
-def aggregate_pointcloud(dataset, ind_start, ind_end, clip_to_imageframe=False, remove_backward_points=False):
+def aggregate_pointcloud(dataset, ind_start, ind_end, clip_to_imageframe=False, remove_backward_points=False, return_poses=False):
     '''
     Args:
         dataset:                dataset object
@@ -18,10 +18,11 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, clip_to_imageframe=False, 
     '''
 
     first_pose = dataset.get_pose(ind_start)
+    poses = [first_pose]
     pcd_merge = None
 
     for points_index in range(ind_start, ind_end):
-        pcd_o3d = get_pcd(dataset.get_point_cloud(points_index))
+        pcd_o3d = get_pcd(dataset[points_index].point_cloud)
 
         if clip_to_imageframe:
             T_lidar2leftcam, K_leftcam = dataset.get_calibration_matrices("cam2")
@@ -50,6 +51,10 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, clip_to_imageframe=False, 
             pcd_merge = pcd_o3d
         else:
             pose = dataset.get_pose(points_index)
+            poses.append(pose)
             pcd_merge = merge_pointclouds(pcd_merge, pcd_o3d, first_pose, pose)
 
-    return pcd_merge, first_pose
+    if return_poses:
+        return pcd_merge, first_pose, poses
+    else:
+        return pcd_merge, first_pose

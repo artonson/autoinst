@@ -197,15 +197,10 @@ class KittiOdometryDataset(Dataset):
    
         decompressed_data = zlib.decompress(compressed_data)
         loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
-        loaded_array = loaded_array.reshape(-1,198)
         tarl_dim = 96
+        point_features = loaded_array.reshape(-1,tarl_dim)
 
-        points = loaded_array[:,:3]
-        mean_features = loaded_array[:,4:4+tarl_dim] #TARL feats averaged over the cluster
-        point_features = loaded_array[:,4+tarl_dim:4+2*tarl_dim] #these are TARL per point feats
-        cluster_indices = loaded_array[:,4+2*tarl_dim:4+2*tarl_dim+1]
-
-        return points, mean_features, point_features, cluster_indices
+        return point_features
     
        
     def get_calibration_matrices(self, cam: str):
