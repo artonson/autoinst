@@ -9,6 +9,7 @@ from functools import reduce
 from typing import Tuple, List, Dict
 import os.path as osp
 import pykitti
+from PIL import Image
 import os 
 
 class NuScenesDataset(AbstractDataset):
@@ -18,7 +19,8 @@ class NuScenesDataset(AbstractDataset):
         if sequence > len(self.dataset.scene): 
             raise ValueError('Invalid sequence number')
         self.scene = self.dataset.scene[sequence]
-        self.tokens = {'LIDAR_TOP':[]}
+        self.tokens = {'LIDAR_TOP':[],"CAM_FRONT":[],"CAM_FRONT_LEFT":[],"CAM_FRONT_RIGHT":[]}
+        self.close_pts_range = 2.0
         self.get_files()
         
 
@@ -33,14 +35,19 @@ class NuScenesDataset(AbstractDataset):
             #Get lidar, semantic and panoptic filenames
             lidar_token = sample['data']['LIDAR_TOP']
             self.tokens['LIDAR_TOP'].append(lidar_token)
+            self.tokens['CAM_FRONT'].append(sample['data']['CAM_FRONT'])
+            self.tokens['CAM_FRONT_LEFT'].append(sample['data']['CAM_FRONT_LEFT'])
+            self.tokens['CAM_FRONT_RIGHT'].append(sample['data']['CAM_FRONT_RIGHT'])
             
             #velodyne bin file
-        print(self.tokens)
             
     def apply_transform(self,points, pose):
+        '''
+        used in point cloud aggregation function 
+        '''
+        
         hpoints = np.hstack((points[:, :3], np.ones_like(points[:, :1])))
         return np.sum(np.expand_dims(hpoints, 2) * pose.T, axis=1)
-    
     
     def __parse_poses(self):
         poses = None
@@ -63,6 +70,19 @@ class NuScenesDataset(AbstractDataset):
         car_to_velo = self.get_lidar_calib(index)
         pose = np.dot(pose_car, car_to_velo)
         return pose
+    
+    def remove_close_points(self,points, radius: float) -> None:
+        """
+        Stolen from nuscenes-devkit.
+        Removes point too close within a certain radius from origin.
+        :param radius: Radius below which points are removed.
+        """
+
+        x_filt = np.abs(points[:,0]) < radius
+        y_filt = np.abs(points[:,1]) < radius
+        not_close = np.logical_not(np.logical_and(x_filt, y_filt))
+        points = points[not_close, :]
+        return points, not_close
 
     def get_point_cloud(self, index,intensity=False,pose_correction=False):
         lidar_token = self.tokens['LIDAR_TOP'][index]
@@ -70,6 +90,9 @@ class NuScenesDataset(AbstractDataset):
         scan = np.fromfile(os.path.join(self.dataset_path, lidar_data["filename"]), dtype=np.float32)
         #Save scan
         points = scan.reshape((-1, 5))[:, :4]
+        
+        points, _ = self.remove_close_points(points, self.close_pts_range)
+        
         if pose_correction == True:
             pose = self.get_lidar_pose(index)
             points = self.apply_transform(points,pose)
@@ -77,6 +100,7 @@ class NuScenesDataset(AbstractDataset):
         
         if intensity == False:
             points = points[:,:3]
+        
         return points 
     
     def get_lidar_calib(self,index): 
@@ -87,7 +111,12 @@ class NuScenesDataset(AbstractDataset):
         return car_to_velo
 
     def get_panoptic_labels(self,index):
+        ##requires getting point cloud as well to find the indeces to remove from range filter
         lidar_token = self.tokens['LIDAR_TOP'][index]
+        lidar_data = self.dataset.get('sample_data', lidar_token)
+        scan = np.fromfile(os.path.join(self.dataset_path, lidar_data["filename"]), dtype=np.float32).reshape((-1, 5))
+        _,idcs = self.remove_close_points(scan[:,:3],self.close_pts_range)
+        
         sem_lab_f = self.dataset.get('lidarseg',lidar_token)['filename']
         sem_lab = np.fromfile(os.path.join(self.dataset_path,sem_lab_f),dtype=np.uint8)
         pan_lab_f = self.dataset.get('panoptic',lidar_token)['filename']
@@ -98,32 +127,38 @@ class NuScenesDataset(AbstractDataset):
         ins_lab = pan_lab % 1000
         #Kitti style panoptic labels for the point cloud
         panoptic_labels = sem_lab.reshape(-1, 1) + ((ins_lab.astype(np.uint32) << 16) & 0xFFFF0000).reshape(-1,1)
-        return panoptic_labels.reshape(-1,)
+        return panoptic_labels[idcs].reshape(-1,)
     
     def get_available_cameras(self):
-        return ['cam2', 'cam3']
+        return ['CAM_FRONT', 'CAM_FRONT_LEFT','CAM_FRONT_RIGHT']
 
-    def get_image(self, cam_name, index):
-        camera_func = {
-            'cam2': (self.dataset.cam2_files, self.dataset.get_cam2),
-            'cam3': (self.dataset.cam3_files, self.dataset.get_cam3),
-        }
+    def get_image(self, index):
+        cam_token_front = self.tokens['CAM_FRONT'][index]
+        cam_token_front_left = self.tokens['CAM_FRONT_LEFT'][index]
+        cam_token_front_right = self.tokens['CAM_FRONT_RIGHT'][index]
+        
+        image_data_front = self.dataset.get('sample_data', cam_token_front)
+        image_data_front_left = self.dataset.get('sample_data', cam_token_front_left)
+        image_data_front_right = self.dataset.get('sample_data', cam_token_front_right)
+        
+        image_front = Image.open(os.path.join(self.dataset_path, image_data_front["filename"])) # open jpg.
+        image_front_left = Image.open(os.path.join(self.dataset_path, image_data_front_left["filename"])) # open jpg.
+        image_front_right = Image.open(os.path.join(self.dataset_path, image_data_front_right["filename"])) # open jpg.
+        return {'CAM_FRONT':image_front,'CAM_FRONT_LEFT':image_front_left,'CAM_FRONT_RIGHT':image_front_right}
 
-        files, get = camera_func[cam_name]
-        return get(index) if len(files) > index else None
-    
-    def get_image_instances(self, cam_name, index):
-        masks_path = os.path.join(self.image_instances_path, cam_name, '{}.npz'.format(str(index).zfill(6)))
-        return np.load(masks_path, allow_pickle=True)['masks']
+    def get_image_instances(self, index):
+        raise NotImplementedError
 
-    def get_calibration_matrices(self, cam_name):
-        if cam_name == 'cam2':
-            T = self.dataset.calib.T_cam2_velo
-            K = self.dataset.calib.K_cam2
-        elif cam_name == 'cam3':
-            T = self.dataset.calib.T_cam3_velo
-            K = self.dataset.calib.K_cam3
-        else:
-            raise ValueError('Invalid camera name')
-
-        return T, K
+    def get_calibration_matrices(self, index):
+        cam_token_front = self.tokens['CAM_FRONT'][index]
+        cam_token_front_left = self.tokens['CAM_FRONT_LEFT'][index]
+        cam_token_front_right = self.tokens['CAM_FRONT_RIGHT'][index]
+        
+        image_data_front = self.dataset.get('sample_data', cam_token_front)
+        image_data_front_left = self.dataset.get('sample_data', cam_token_front_left)
+        image_data_front_right = self.dataset.get('sample_data', cam_token_front_right)
+        
+        calib_data_front = self.dataset.get("calibrated_sensor", image_data_front["calibrated_sensor_token"])
+        calib_data_front_left = self.dataset.get("calibrated_sensor", image_data_front_left["calibrated_sensor_token"])
+        calib_data_front_right = self.dataset.get("calibrated_sensor", image_data_front_right["calibrated_sensor_token"])
+        return {'CAM_FRONT':calib_data_front,'CAM_FRONT_LEFT':calib_data_front_left,'CAM_FRONT_RIGHT':calib_data_front_right}
