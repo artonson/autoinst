@@ -161,9 +161,9 @@ class AggregationClustering():
             inliers = ground_idcs 
             #_, inliers = pcd.segment_plane(distance_threshold=0.25, ransac_n=3, num_iterations=200)
             g_set = np.ones((len(p_set),1)) * 251
-            g_set[inliers] = 9
+            g_set[inliers] = -10
             
-            labels[ground_idcs] = 0 
+            labels[ground_idcs] = -10
 
             
             #self.visualize_pcd_clusters(p_set[:,:3],labels)
@@ -195,18 +195,19 @@ class AggregationClustering():
         ground_label = np.empty((0,1))
         g_delimiter = np.asarray([[-np.inf]])
 
-
-
         for t in range(len(data_batch)):
             p_set = self.dataset.get_point_cloud(data_batch[t],pose_correction=True)
+            p_set_orig = self.dataset.get_point_cloud(data_batch[t],pose_correction=False)
             # aggregate a delimiter and the next scan
             points_set = np.vstack([points_set, p_delimiter, p_set])
 
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(p_set[:,:3])
+            #pcd = o3d.geometry.PointCloud()
+            #pcd.points = o3d.utility.Vector3dVector(p_set[:,:3])
+            #colors = np.zeros((p_set.shape[0], 3))
+            
             labels = np.ones((p_set.shape[0],1))
             
-            self.PatchworkPLUSPLUS.estimateGround(p_set)
+            self.PatchworkPLUSPLUS.estimateGround(p_set_orig)
             ground      = self.PatchworkPLUSPLUS.getGround()
             nonground   = self.PatchworkPLUSPLUS.getNonground()
             time_taken  = self.PatchworkPLUSPLUS.getTimeTaken()
@@ -221,9 +222,14 @@ class AggregationClustering():
             inliers = ground_idcs 
             #_, inliers = pcd.segment_plane(distance_threshold=0.25, ransac_n=3, num_iterations=200)
             g_set = np.ones((len(p_set),1)) * 251
-            g_set[inliers] = 9
+            g_set[inliers] = -10
             
-            labels[ground_idcs] = 0 
+            #colors[nonground_idcs] = np.array([0,1,0])
+            
+            labels[ground_idcs] = -10 
+            
+            #pcd.colors = o3d.utility.Vector3dVector(colors) 
+            #o3d.visualization.draw_geometries([pcd])
 
             
             #self.visualize_pcd_clusters(p_set[:,:3],labels)
@@ -279,7 +285,6 @@ class AggregationClustering():
 
         clusters_labels = cluster_info[::-1][:n_clusters, 0]
         labels[np.in1d(labels, clusters_labels, invert=True)] = -1
-        
         #self.visualize_pcd_clusters(non_inf_points[:,:3],labels)
         
         del clusterer
@@ -295,7 +300,7 @@ class AggregationClustering():
         pcd.points = o3d.utility.Vector3dVector(points[:, :3])
 
         # instead of ransac use patchwork
-        inliers = list(np.where(ground == 9)[0])
+        inliers = list(np.where(ground == -10)[0])
         
         #print('inliers',len(inliers)) 
         pcd_ = pcd.select_by_index(inliers, invert=True)
@@ -307,8 +312,10 @@ class AggregationClustering():
         mask[inliers] = False
 
         labels[mask] = labels_.reshape(-1,)
+        labels[inliers] = -10
         
         #pcd = o3d.geometry.PointCloud()
+
         
         #inf_rows = np.all(points == -np.inf, axis=1)
         #points = points[~inf_rows]

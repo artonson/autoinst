@@ -84,7 +84,7 @@ class NuScenesDataset(AbstractDataset):
         points = points[not_close, :]
         return points, not_close
 
-    def get_point_cloud(self, index,intensity=False,pose_correction=False):
+    def get_point_cloud(self, index,intensity=True,pose_correction=False):
         lidar_token = self.tokens['LIDAR_TOP'][index]
         lidar_data = self.dataset.get('sample_data', lidar_token)
         scan = np.fromfile(os.path.join(self.dataset_path, lidar_data["filename"]), dtype=np.float32)

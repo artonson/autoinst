@@ -25,8 +25,8 @@ After successfull compilation, the python bindings are located inside ```segment
 In order to import the libraries ```lib_path``` in ```segmentation/voxel_clustering_segmentation.py``` needs to be set to this build directory. 
 
 ## Running nuScenes Comparison 
+Please compile the dependencies by following the steps above first in order ot run the code. 
 
 Currently, the evaluation only uses a scene of the smaller nuScenes 'mini' dataset. 
-The preprocessed dataset is provided [here](https://drive.google.com/file/d/1G7ZWEFguPPTmyRtbk2Xd_hzVS00HN6FA/view?usp=sharing) for download. 
+The preprocessed dataset is provided [here](https://drive.google.com/file/d/1n4jOrY4qFXwFza7kYoJb2OeOr4CWuXhT/view?usp=sharing) for download. 
 
-It is a converted version of the [nuScenes mini dataset](https://www.nuscenes.org/nuscenes#data-annotation), pre-processed using [nuscenes2kitti](https://github.com/PRBonn/nuscenes2kitti). 
