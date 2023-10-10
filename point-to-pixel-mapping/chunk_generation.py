@@ -56,11 +56,8 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, poses, first_position, indices
                 rot = np.linalg.inv(T_pcd[:3,:3])
                 pos_pcd = rot @ pos_pcd
 
-                rot = np.linalg.inv(T_pcd[:3,:3]) @ (pose[:3,:3])
-                rot_chunk = np.abs(rot @ chunk_size)
-
-                max_position = pos_pcd + (0.5 * rot_chunk)
-                min_position = pos_pcd - (0.5 * np.array([rot_chunk[0], rot_chunk[1], 4.4])) # 4.4 to cut away points below street -> artefacts
+                max_position = pos_pcd + (0.5 * chunk_size)
+                min_position = pos_pcd - (0.5 * np.array([chunk_size[0], chunk_size[1], 4.4])) # 4.4 to cut away points below street -> artefacts
 
                 mask = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
                 pcd_cut = pcd.select_by_index(mask)
@@ -102,7 +99,7 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
 
     num_points = np.asarray(pcd.points).shape[0]
 
-    for points_index in global_indices[max(0,center_index-10):min(len(global_indices)-1,center_index+10)]:
+    for points_index in global_indices[max(0,center_index-11):min(len(global_indices)-1,center_index+11)]:
         
         # Load the TARL features & points
         tarl_features = dataset.get_tarl_features(points_index)
@@ -118,13 +115,9 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
         T_lidar2world = dataset.get_pose(points_index)
         T_local2global_pcd = np.linalg.inv(T_pcd) @ T_lidar2world
         coords = transform_pcd(coords, T_local2global_pcd)
-
-        pose = dataset.get_pose(points_index)
-        rot = np.linalg.inv(T_pcd[:3,:3]) @ (pose[:3,:3])
-        rot_chunk = np.abs(rot @ chunk_size)
         
-        max_position = center_position + (0.5 * rot_chunk)
-        min_position = center_position - (0.5 * np.array([rot_chunk[0], rot_chunk[1], 4.4])) # 4.4 to cut away points below street -> artefacts
+        max_position = center_position + (0.5 * chunk_size)
+        min_position = center_position - (0.5 * np.array([chunk_size[0], chunk_size[1], 4.4])) # 4.4 to cut away points below street -> artefacts
 
         mask = np.where(np.all(coords > min_position, axis=1) & np.all(coords < max_position, axis=1))[0]
 
@@ -159,7 +152,7 @@ def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id
 
     first_index = global_indices.index(first_id)
 
-    for points_index in global_indices[max(0,first_index-8):first_index+1]:
+    for points_index in global_indices[max(0,first_index-8):first_index+5]:
 
         # Load the SAM label
         label_PIL = dataset.get_sam_label(cams[cam_id], points_index)
