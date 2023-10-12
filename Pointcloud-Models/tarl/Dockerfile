@@ -14,12 +14,20 @@ ARG ALGORITHM_FOLDER=tarl
 # Install dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    git ninja-build cmake build-essential libopenblas-dev curl \
-    xterm xauth openssh-server tmux wget mate-desktop-environment-core  \
-    python3-dev \
-    python3-pip \ 
     build-essential \
-    libopenblas-dev \ 
+    cmake \
+    curl \
+    git \
+    libopenblas-dev \
+    mate-desktop-environment-core \
+    ninja-build \
+    openssh-server \
+    python3-dev \
+    python3-pip \
+    tmux \
+    wget \
+    xauth \
+    xterm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
