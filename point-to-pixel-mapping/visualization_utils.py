@@ -9,7 +9,7 @@ from point_cloud_utils import get_pcd
 from point_to_pixels import pixel_to_point_from_point_to_pixel
 
 
-def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, coloring='depth'):
+def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, coloring='depth', radius=2):
     '''
     Function that takes a dict that maps point indices to pixel coordinates and returns 
     an image with projected point clouds    
@@ -52,7 +52,7 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, colorin
         else:
             color = (255,0,0)
 
-        cv2.circle(img_with_pc, (pixel[0], pixel[1]), 2, color=tuple(color), thickness=1)
+        cv2.circle(img_with_pc, (pixel[0], pixel[1]), radius, color=tuple(color), thickness=-1)
     
     return img_with_pc
 
