@@ -6,6 +6,8 @@ from datasets.abstract_dataset import AbstractDataset
 
 class KittiDataset(AbstractDataset):
     def __init__(self, dataset_path, sequence, image_instances_path):
+        self.dataset_path = dataset_path
+        self.sequence = sequence
         self.dataset = pykitti.odometry(dataset_path, sequence)
         self.image_instances_path = image_instances_path
         self.poses = self.__parse_poses()
