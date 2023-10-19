@@ -40,6 +40,19 @@ def filter_points_from_dict(points, filter_dict):
     inds = np.array(list(filter_dict.keys()))
     return points[inds]
 
+def filter_points_from_list(points, filter_list):
+    """
+    Filter points based on a dict
+    Args:
+        points:      3D points in camera coordinate [npoints, 3]
+        filter_dict: dict that maps point indices to pixel coordinates
+    Returns:
+        points:    3D points in camera coordinate within image FOV [npoints, 3]
+    """
+
+    inds = np.array(list(filter_list))
+    return points[inds]
+
 def point_to_label(point_to_pixel: dict, label_map, label_is_color=True):
     '''
     Args:
@@ -50,16 +63,13 @@ def point_to_label(point_to_pixel: dict, label_map, label_is_color=True):
     '''
     point_to_label_dict = {}
 
-    if label_is_color:
-        for index, point_data in point_to_pixel.items():
-            pixel = point_data['pixels']
+    for index, point_data in point_to_pixel.items():
+        pixel = point_data['pixels']
+        if label_is_color:
             color = tuple((label_map[pixel[1], pixel[0]] / 255))
             point_to_label_dict[index] = color
-    else:
-        for index, point_data in point_to_pixel.items():
-            pixel = point_data['pixels']
-            label = label_map[pixel[1], pixel[0]]
-            point_to_label_dict[index] = label
+        else:
+            point_to_label_dict[index] = label_map[pixel[1], pixel[0]]
     
     return point_to_label_dict
 
@@ -77,3 +87,19 @@ def change_point_indices(point_to_X: dict, indices: list):
         point_to_X_new[new_index] = point_to_X[old_index]
     
     return point_to_X_new
+
+def transformation_matrix(rotation: np.array, translation: np.array):
+    """
+    Create a transformation matrix from rotation and translation
+    Args:
+        rotation:    Rotation matrix [3, 3]
+        translation: Translation vector [3, 1]
+    Returns:
+        T:           Transformation matrix in homogeneous coordinates [4, 4]
+    """
+
+    T = np.eye(4)
+    T[:3, :3] = rotation
+    T[:3, 3] = translation
+    return T
+

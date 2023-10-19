@@ -3,6 +3,7 @@
 import os
 from dataclasses import dataclass
 from typing import Union
+import zlib
 
 import numpy as np
 import pykitti
@@ -48,6 +49,16 @@ class KittiOdometryDataset(Dataset):
         self.ds_path: DatasetPathLike = self.config.dataset_path
         self.sequence_path: os.PathLike = os.path.join(
             self.ds_path, "sequences", self.seq_str, ""
+        )
+        self.sam_label_path: os.PathLike = os.path.join(
+            self.ds_path, "sam_pred", self.seq_str, ""
+        )
+        self.dinov2_features_path: os.PathLike = os.path.join(
+            self.ds_path, "dinov2_features", self.seq_str, ""
+        )
+
+        self.tarl_features_path: os.PathLike = os.path.join(
+            self.ds_path, "tarl_features", self.seq_str, ""
         )
 
         # class members
@@ -124,21 +135,72 @@ class KittiOdometryDataset(Dataset):
         Returns:
             corresponding label
         """
-        file = self.sequence_path
+        file = self.sam_label_path
         index_file = str(index).zfill(6) + '.png'
 
         if camera_name == "cam0":
-            file = os.path.join(file, "sam_image_0" , index_file)
+            file = os.path.join(file, "image_0/overlays" , index_file)
         elif camera_name == "cam1":
-            file = os.path.join(file, "sam_image_1" , index_file)
+            file = os.path.join(file, "image_1/overlays" , index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "sam_image_2" , index_file)
+            file = os.path.join(file, "image_2/overlays" , index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "sam_image_3" , index_file)
+            file = os.path.join(file, "image_3/overlays" , index_file)
         else:
             raise ValueError("Invalid camera name")
 
         return utils.load_image(file, mode='RGB')
+
+    def get_dinov2_features(self, camera_name: str, index: int):
+        """
+        Retrieves the dinov2 features of the specified index and camera
+
+        Args:
+            camera_name (str): name of the camera (cam0, cam1, cam2, cam3)
+            index (int): frame index, from 0 to size of the sequence
+
+        Returns:
+            corresponding dinov2 features
+        """
+        file = self.dinov2_features_path
+        index_file = str(index).zfill(6) + '.npz'
+
+        if camera_name == "cam0":
+            file = os.path.join(file, "cam0" , index_file)
+        elif camera_name == "cam1":
+            file = os.path.join(file, "cam1" , index_file)
+        elif camera_name == "cam2":
+            file = os.path.join(file, "cam2" , index_file)
+        elif camera_name == "cam3":
+            file = os.path.join(file, "cam3" , index_file)
+        else:
+            raise ValueError("Invalid camera name")
+
+        return  np.load(file, allow_pickle=True)["feature_map"]
+
+    def get_tarl_features(self, index: int):
+        """
+        Retrieves the tarl features for the specified point cloud
+
+        Args:
+            index (int): frame index, from 0 to size of the sequence
+
+        Returns:
+            corresponding tarl features
+        """
+        file = self.tarl_features_path
+        index_file = str(index).zfill(6) + '.bin'
+        file = os.path.join(file, index_file)
+
+        with open(file, 'rb') as f_in:
+            compressed_data = f_in.read()
+   
+        decompressed_data = zlib.decompress(compressed_data)
+        loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
+        tarl_dim = 96
+        point_features = loaded_array.reshape(-1,tarl_dim)
+
+        return point_features
     
        
     def get_calibration_matrices(self, cam: str):
