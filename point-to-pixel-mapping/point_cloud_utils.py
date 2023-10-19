@@ -40,7 +40,6 @@ def filter_points_from_dict(points, filter_dict):
     inds = np.array(list(filter_dict.keys()))
     return points[inds]
 
-
 def filter_points_from_list(points, filter_list):
     """
     Filter points based on a dict
@@ -90,7 +89,6 @@ def change_point_indices(point_to_X: dict, indices: list):
     return point_to_X_new
 
 def transformation_matrix(rotation: np.array, translation: np.array):
-
     """
     Create a transformation matrix from rotation and translation
     Args:
@@ -104,3 +102,4 @@ def transformation_matrix(rotation: np.array, translation: np.array):
     T[:3, :3] = rotation
     T[:3, 3] = translation
     return T
+
