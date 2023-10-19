@@ -37,7 +37,7 @@ def subsample_positions(positions, voxel_size=1):
 
     return subsampled_indices
 
-def chunks_from_pointcloud(pcd, T_pcd, positions, poses, first_position, indices, chunk_size, overlap):
+def chunks_from_pointcloud(pcd, T_pcd, positions, poses, first_position, indices, chunk_size, overlap, min_z=4.4):
 
     points = np.asarray(pcd.points)
 
@@ -57,7 +57,7 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, poses, first_position, indices
                 pos_pcd = rot @ pos_pcd
 
                 max_position = pos_pcd + (0.5 * chunk_size)
-                min_position = pos_pcd - (0.5 * np.array([chunk_size[0], chunk_size[1], 4.4])) # 4.4 to cut away points below street -> artefacts
+                min_position = pos_pcd - (0.5 * np.array([chunk_size[0], chunk_size[1], min_z])) # min_z to cut away points below street -> artefacts
 
                 mask = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
                 pcd_cut = pcd.select_by_index(mask)
@@ -90,7 +90,7 @@ def indices_per_patch(T_pcd, center_positions, positions, first_position, global
 
     return patchwise_indices
 
-def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, global_indices, chunk_size, search_radius):
+def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, global_indices, chunk_size, search_radius, adjacent_frames=11):
 
     concatenated_tarl_points = np.zeros((0, 3))
     concatenated_tarl_features = np.zeros((0, 96))
@@ -99,7 +99,7 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
 
     num_points = np.asarray(pcd.points).shape[0]
 
-    for points_index in global_indices[max(0,center_index-11):min(len(global_indices)-1,center_index+11)]:
+    for points_index in global_indices[max(0,center_index-adjacent_frames):min(len(global_indices)-1,center_index+adjacent_frames)]:
         
         # Load the TARL features & points
         tarl_features = dataset.get_tarl_features(points_index)
@@ -145,14 +145,14 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
 
     return tarl_features
 
-def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id, cams, cam_id):
+def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id, cams, cam_id, adjacent_frames=(8,5)):
 
     point_to_sam_label_reprojections = []
     point_to_dinov2_feature_reprojections = []
 
     first_index = global_indices.index(first_id)
 
-    for points_index in global_indices[max(0,first_index-8):first_index+5]:
+    for points_index in global_indices[max(0,first_index-adjacent_frames[0]):first_index+adjacent_frames[1]]:
 
         # Load the SAM label
         label_PIL = dataset.get_sam_label(cams[cam_id], points_index)

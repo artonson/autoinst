@@ -88,3 +88,19 @@ def change_point_indices(point_to_X: dict, indices: list):
         point_to_X_new[new_index] = point_to_X[old_index]
     
     return point_to_X_new
+
+def transformation_matrix(rotation: np.array, translation: np.array):
+
+    """
+    Create a transformation matrix from rotation and translation
+    Args:
+        rotation:    Rotation matrix [3, 3]
+        translation: Translation vector [3, 1]
+    Returns:
+        T:           Transformation matrix in homogeneous coordinates [4, 4]
+    """
+
+    T = np.eye(4)
+    T[:3, :3] = rotation
+    T[:3, 3] = translation
+    return T
