@@ -90,7 +90,7 @@ def indices_per_patch(T_pcd, center_positions, positions, first_position, global
 
     return patchwise_indices
 
-def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, global_indices, chunk_size, search_radius, adjacent_frames=11):
+def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, global_indices, chunk_size, search_radius, adjacent_frames=11, min_z=4.4):
 
     concatenated_tarl_points = np.zeros((0, 3))
     concatenated_tarl_features = np.zeros((0, 96))
@@ -117,7 +117,7 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
         coords = transform_pcd(coords, T_local2global_pcd)
         
         max_position = center_position + (0.5 * chunk_size)
-        min_position = center_position - (0.5 * np.array([chunk_size[0], chunk_size[1], 4.4])) # 4.4 to cut away points below street -> artefacts
+        min_position = center_position - (0.5 * np.array([chunk_size[0], chunk_size[1], min_z])) # min_z to cut away points below street -> artefacts
 
         mask = np.where(np.all(coords > min_position, axis=1) & np.all(coords < max_position, axis=1))[0]
 
@@ -145,10 +145,11 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
 
     return tarl_features
 
-def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id, cams, cam_id, adjacent_frames=(8,5)):
+def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id, cams, cam_id, adjacent_frames=(8,5), hpr_radius=1000, return_hpr_masks=False):
 
     point_to_sam_label_reprojections = []
     point_to_dinov2_feature_reprojections = []
+    hpr_masks = []
 
     first_index = global_indices.index(first_id)
 
@@ -169,9 +170,17 @@ def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id
         T_world2cam = T_lidar2cam @ T_world2lidar
         
         # Compute the SAM label reporjections
-        point_to_sam_label_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, label, T_world2cam, K, hidden_point_removal=True))
+        if return_hpr_masks:
+            sam_reprojection, hpr_mask = reproject_points_to_label(np.array(pcd.points), T_pcd, label, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=return_hpr_masks)
+            point_to_sam_label_reprojections.append(sam_reprojection)
+            hpr_masks.append(hpr_mask)
+        else:
+            point_to_sam_label_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, label, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=return_hpr_masks))
 
         # Compute the DINOV2 feature map reprojections
-        point_to_dinov2_feature_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, dinov2_feature_map_zoomed, T_world2cam, K, hidden_point_removal=True, label_is_color=False))
+        point_to_dinov2_feature_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, dinov2_feature_map_zoomed, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, label_is_color=False))
 
-    return point_to_sam_label_reprojections, point_to_dinov2_feature_reprojections
+    if return_hpr_masks:
+        return point_to_sam_label_reprojections, point_to_dinov2_feature_reprojections, hpr_masks
+    else:
+        return point_to_sam_label_reprojections, point_to_dinov2_feature_reprojections

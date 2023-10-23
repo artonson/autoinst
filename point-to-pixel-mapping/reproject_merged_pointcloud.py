@@ -5,7 +5,7 @@ from point_cloud_utils import transform_pcd, get_pcd, point_to_label, change_poi
 from point_to_pixels import point_to_pixel
 from hidden_points_removal import hidden_point_removal_o3d
 
-def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_point_removal=True, label_is_color=True):
+def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_point_removal=True, hpr_radius = 1000, label_is_color=True, return_hpr_mask=False):
     '''
     Args:
         pcd:            point cloud in camera coordinate [npoints, 3]
@@ -22,7 +22,7 @@ def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_po
     pcd_camframe = transform_pcd(pcd, T_pcd2cam)
 
     if hidden_point_removal:
-        hpr_mask = hidden_point_removal_o3d(pcd_camframe, camera=[0,0,0], radius_factor=1000)
+        hpr_mask = hidden_point_removal_o3d(pcd_camframe, camera=[0,0,0], radius_factor=hpr_radius)
         pcd_camframe = pcd_camframe[hpr_mask] 
 
     point_to_pixel_dict = point_to_pixel(pcd_camframe, K, label.shape[0], label.shape[1])
@@ -32,7 +32,10 @@ def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_po
     if hidden_point_removal:
         point_to_label_dict = change_point_indices(point_to_label_dict, hpr_mask)
 
-    return point_to_label_dict
+    if return_hpr_mask:
+        return point_to_label_dict, hpr_mask
+    else:
+        return point_to_label_dict
 
 
 def merge_associations(associations, num_points):

@@ -103,3 +103,32 @@ def transformation_matrix(rotation: np.array, translation: np.array):
     T[:3, 3] = translation
     return T
 
+def kDTree_1NN_feature_reprojection(features_to, pcd_to, features_from, pcd_from):
+    '''
+    Args:
+        pcd_from: point cloud to be projected
+        pcd_to: point cloud to be projected to
+        search_method: search method ("radius", "knn")
+        search_param: search parameter (radius or k)
+    Returns:
+        features_to: features projected on pcd_to
+    '''
+    from_tree = o3d.geometry.KDTreeFlann(pcd_from)
+    i=0
+
+    for point in np.asarray(pcd_to.points):
+
+        [_, idx, _] = from_tree.search_knn_vector_3d(point, 1)
+        features_to[i,:] = features_from[idx[0]]
+        i+=1
+    
+    return features_to
+
+
+def remove_isolated_points(pcd, adjacency_matrix):
+
+    isolated_mask = ~np.all(adjacency_matrix == 0, axis=1)
+    adjacency_matrix = adjacency_matrix[isolated_mask][:, isolated_mask]
+    pcd = pcd.select_by_index(np.where(isolated_mask == True)[0])
+
+    return pcd, adjacency_matrix
