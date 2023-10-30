@@ -169,7 +169,7 @@ def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id
         T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
         T_world2cam = T_lidar2cam @ T_world2lidar
         
-        # Compute the SAM label reporjections
+        # Compute the SAM label reprojections
         if return_hpr_masks:
             sam_reprojection, hpr_mask = reproject_points_to_label(np.array(pcd.points), T_pcd, label, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=return_hpr_masks)
             point_to_sam_label_reprojections.append(sam_reprojection)

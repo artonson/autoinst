@@ -48,19 +48,18 @@ def merge_associations(associations, num_points):
     '''
 
     instance_ids = []
-    num_features = 0
     for association in associations:
         instance_ids.append(list(set(association.values())))
-        num_features += len(instance_ids[-1])
 
-    association_matrix = lil_matrix((num_points, num_features), dtype=np.int32)
-    
-    offset = 0
+    num_views = len(associations)
+
+    association_matrix = np.ones((num_points, num_views), dtype=np.int32)
+    association_matrix *= -1 # -1 indicates no association
+
     num_iteration = 0
     for association in associations:
         for index, instance_id in association.items():
-            association_matrix[index, offset + instance_ids[num_iteration].index(instance_id)] = 1
-        offset += len(instance_ids[num_iteration])
+            association_matrix[index, num_iteration] = instance_ids[num_iteration].index(instance_id)
         num_iteration += 1
 
     return association_matrix
