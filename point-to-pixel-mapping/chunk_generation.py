@@ -62,8 +62,11 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, poses, first_position, indices
 
                 mask = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
                 pcd_cut = pcd.select_by_index(mask)
+
+                cl, ind = pcd_cut.remove_statistical_outlier(nb_neighbors=30, std_ratio=10.0)
+                inliers = cl.select_by_index(ind)
         
-                pcd_chunks.append(pcd_cut)                
+                pcd_chunks.append(inliers)                
                 center_pos.append(pos_pcd)
                 center_ids.append(index)
                 
