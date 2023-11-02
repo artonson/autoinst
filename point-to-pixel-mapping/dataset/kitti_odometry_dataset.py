@@ -151,6 +151,23 @@ class KittiOdometryDataset(Dataset):
 
         return utils.load_image(file, mode='RGB')
 
+    def get_sam_mask(self, camera_name, index):
+        file = self.sam_label_path
+        index_file = '{}.npz'.format(str(index).zfill(6))
+        
+        if camera_name == "cam0":
+            file = os.path.join(file, "image_0/masks" , index_file)
+        elif camera_name == "cam1":
+            file = os.path.join(file, "image_1/masks" , index_file)
+        elif camera_name == "cam2":
+            file = os.path.join(file, "image_2/masks" , index_file)
+        elif camera_name == "cam3":
+            file = os.path.join(file, "image_3/masks" , index_file)
+        else:
+            raise ValueError("Invalid camera name")
+
+        return np.load(file, allow_pickle=True)['masks']
+
     def get_dinov2_features(self, camera_name: str, index: int):
         """
         Retrieves the dinov2 features of the specified index and camera

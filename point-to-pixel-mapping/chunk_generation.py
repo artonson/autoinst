@@ -4,6 +4,7 @@ import open3d as o3d
 import os
 from point_cloud_utils import transform_pcd, get_pcd
 from reproject_merged_pointcloud import reproject_points_to_label
+from image_utils import masks_to_image
 import cv2
 import scipy
 
@@ -156,12 +157,12 @@ def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id
     for points_index in global_indices[max(0,first_index-adjacent_frames[0]):first_index+adjacent_frames[1]]:
 
         # Load the SAM label
-        label_PIL = dataset.get_sam_label(cams[cam_id], points_index)
-        label = cv2.cvtColor(np.array(label_PIL), cv2.COLOR_RGB2BGR)
+        sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
+        sam_labels = masks_to_image(sam_masks)
 
         # Load the DINOV2 feature map
         dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
-        dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (label.shape[0] / dinov2_feature_map.shape[0], label.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
+        dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (sam_labels.shape[0] / dinov2_feature_map.shape[0], sam_labels.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
         
         # Load the calibration matrices
         T_lidar2world = dataset.get_pose(points_index)
@@ -171,11 +172,11 @@ def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id
         
         # Compute the SAM label reprojections
         if return_hpr_masks:
-            sam_reprojection, hpr_mask = reproject_points_to_label(np.array(pcd.points), T_pcd, label, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=return_hpr_masks)
+            sam_reprojection, hpr_mask = reproject_points_to_label(np.array(pcd.points), T_pcd, sam_labels, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=True, label_is_color=False, is_instance=True)
             point_to_sam_label_reprojections.append(sam_reprojection)
             hpr_masks.append(hpr_mask)
         else:
-            point_to_sam_label_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, label, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=return_hpr_masks))
+            point_to_sam_label_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, sam_labels, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=False, label_is_color=False, is_instance=True))
 
         # Compute the DINOV2 feature map reprojections
         point_to_dinov2_feature_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, dinov2_feature_map_zoomed, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, label_is_color=False))

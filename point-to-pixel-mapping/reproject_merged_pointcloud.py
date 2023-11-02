@@ -5,7 +5,7 @@ from point_cloud_utils import transform_pcd, get_pcd, point_to_label, change_poi
 from point_to_pixels import point_to_pixel
 from hidden_points_removal import hidden_point_removal_o3d
 
-def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_point_removal=True, hpr_radius = 1000, label_is_color=True, return_hpr_mask=False):
+def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_point_removal=True, hpr_radius = 1000, label_is_color=True, return_hpr_mask=False, is_instance=False):
     '''
     Args:
         pcd:            point cloud in camera coordinate [npoints, 3]
@@ -27,7 +27,7 @@ def reproject_points_to_label(pcd, T_pcd2world, label, T_world2cam, K, hidden_po
 
     point_to_pixel_dict = point_to_pixel(pcd_camframe, K, label.shape[0], label.shape[1])
 
-    point_to_label_dict = point_to_label(point_to_pixel_dict, label, label_is_color=label_is_color)
+    point_to_label_dict = point_to_label(point_to_pixel_dict, label, label_is_color=label_is_color, label_is_instance=is_instance)
 
     if hidden_point_removal:
         point_to_label_dict = change_point_indices(point_to_label_dict, hpr_mask)

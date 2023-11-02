@@ -8,8 +8,15 @@ import random
 from point_cloud_utils import get_pcd
 from point_to_pixels import pixel_to_point_from_point_to_pixel
 
+def generate_random_colors(N):
+    colors = []
+    for _ in range(N):
+        colors.append([random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)])
 
-def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, coloring='depth', radius=2):
+    return colors
+
+
+def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, is_instance = False, coloring='depth', radius=2):
     '''
     Function that takes a dict that maps point indices to pixel coordinates and returns 
     an image with projected point clouds    
@@ -17,6 +24,8 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, colorin
         point_to_pixel_matches: dict that maps point indices to pixel coordinates
         pcd_camframe:           point clouds in camera frame
         img:                    image to be colored
+        label_map:              label map of image
+        is_instance:            whether the label map contains instance labels or colors
         coloring:               color scheme, 'depth' or 'label_map'
     Returns:
         img_with_pc:            image with projected point clouds
@@ -34,6 +43,8 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, colorin
 
     if coloring == 'label_map':
         assert(label_map is not None)
+        if is_instance:
+            colors = generate_random_colors(len(np.unique(label_map))+1)
 
     ### Iterate over point_to_pixel_matches values and color image accordingly
     img_with_pc = img.copy()
@@ -48,7 +59,16 @@ def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, colorin
             id = min(int(255), int(255 * depth / max_depth))
             color = cmap[id, :]
         elif coloring == 'label_map':
-            color = label_map[pixel[1], pixel[0]].tolist()
+            if is_instance:
+                instance_label = int(label_map[pixel[1], pixel[0]])
+                if instance_label: # ignore unlabeled pixels
+                    color = colors[instance_label]
+                else: 
+                    continue
+            else:
+                color = label_map[pixel[1], pixel[0]].tolist()
+                if color == [70,70,70]: # ignore unlabeled pixels
+                    continue
         else:
             color = (255,0,0)
 
@@ -98,10 +118,3 @@ def visualize_associations_in_img(_label, associations):
             else:
                 label[i,j] = [0,0,0]
     return label
-
-def generate_random_colors(N):
-    colors = []
-    for _ in range(N):
-        colors.append([random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)])
-
-    return colors

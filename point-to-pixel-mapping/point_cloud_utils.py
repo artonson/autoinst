@@ -53,7 +53,7 @@ def filter_points_from_list(points, filter_list):
     inds = np.array(list(filter_list))
     return points[inds]
 
-def point_to_label(point_to_pixel: dict, label_map, label_is_color=True):
+def point_to_label(point_to_pixel: dict, label_map, label_is_color=True, label_is_instance=False):
     '''
     Args:
         point_to_pixel: dict that maps point indices to pixel coordinates
@@ -65,10 +65,21 @@ def point_to_label(point_to_pixel: dict, label_map, label_is_color=True):
 
     for index, point_data in point_to_pixel.items():
         pixel = point_data['pixels']
+
         if label_is_color:
-            color = tuple((label_map[pixel[1], pixel[0]] / 255))
-            point_to_label_dict[index] = color
-        else:
+            color = label_map[pixel[1], pixel[0]]
+            if color.tolist() == [70,70,70]: # ignore unlabeled pixels
+                continue
+            point_to_label_dict[index] = tuple((color / 255))
+
+        elif label_is_instance:
+            instance_label = int(label_map[pixel[1], pixel[0]])
+            if instance_label: # ignore unlabeled pixels
+                point_to_label_dict[index] = instance_label
+            else:
+                continue
+            
+        else: # label is continuous feature vector
             point_to_label_dict[index] = label_map[pixel[1], pixel[0]]
     
     return point_to_label_dict
