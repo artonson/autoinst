@@ -50,9 +50,16 @@ if __name__ == "__main__":
                 options: ['key' | 'query' | 'value' | 'token']"""
     )
 
+    parser.add_argument(
+        "--layer",
+        type=int,
+        default=11,
+        help="""ViT layer to extract features from."""
+    )
+
     args = parser.parse_args()
 
     if not os.path.exists(args.output_path):
         os.makedirs(args.output_path)
         
-    Adapter(args.image_path, args.image_format, args.output_path, args.model_type, args.stride, args.facet).run()
+    Adapter(args.image_path, args.image_format, args.output_path, args.model_type, args.stride, args.facet, args.layer).run()

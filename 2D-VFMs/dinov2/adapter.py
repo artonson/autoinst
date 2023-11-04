@@ -16,13 +16,18 @@ class Adapter():
             output_path: str,
             model_type: str,
             stride: int = 7,
-            facet: str = "token"
+            facet: str = "token",
+            layer: int = 11
             ) -> None:
-        self.image_path = glob.glob(image_path + "/*." + image_format)
+        if not image_path.endswith(image_format):
+            self.image_path = glob.glob(image_path + "/*." + image_format)
+        else:
+            self.image_path = [image_path]
         self.output_path = output_path
         self.model_type = model_type
         self.stride = stride
         self.facet = facet
+        self.layer = layer
         if torch.cuda.is_available():
             print("Using GPU")
             self.device = "cuda"
@@ -34,7 +39,8 @@ class Adapter():
     def _build_model(self) -> nn.Module:
         model = ViTExtractor(self.model_type, self.stride, model= None, device = self.device)
         self.feature_dim = model.model.num_features
-        self.layer = model.model.n_blocks - 1
+        self.max_layer = model.model.n_blocks - 1
+        assert self.layer <= self.max_layer, f"Layer {self.layer} does not exist. Please choose a layer between 0 and {self.max_layer}"
         return model
     
 
