@@ -37,6 +37,9 @@ optional arguments:
                         facet of feature map to extract. 
                         options: ['key' | 'query' | 'value' | 'token']
                         (default: token)
+  --layer INT
+                        ViT layer to extract features from. 
+                        (default: 10)
 ```
 More information of the model type can be found [here](https://github.com/facebookresearch/dinov2/blob/main/MODEL_CARD.md).
 
