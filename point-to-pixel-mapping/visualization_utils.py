@@ -4,6 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 import open3d as o3d
 import random
+import copy
 
 from point_cloud_utils import get_pcd
 from point_to_pixels import pixel_to_point_from_point_to_pixel
@@ -118,3 +119,15 @@ def visualize_associations_in_img(_label, associations):
             else:
                 label[i,j] = [0,0,0]
     return label
+
+
+def color_pcd_by_labels(pcd, labels):
+    
+    colors = generate_random_colors(500)
+    pcd_colored = copy.deepcopy(pcd)
+    pcd_colored.colors = o3d.utility.Vector3dVector(np.zeros(np.asarray(pcd.points).shape))
+
+    for i in range(len(pcd_colored.points)):
+        pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
+
+    return pcd_colored

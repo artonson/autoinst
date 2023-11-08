@@ -1,6 +1,7 @@
 # Transformation on point clouds
 import numpy as np
 import open3d as o3d
+import copy
 
 def get_pcd(points: np.array):
     """
@@ -143,3 +144,13 @@ def remove_isolated_points(pcd, adjacency_matrix):
     pcd = pcd.select_by_index(np.where(isolated_mask == True)[0])
 
     return pcd, adjacency_matrix
+
+
+def get_statistical_inlier_indices(pcd, nb_neighbors=20, std_ratio=2.0):
+    _, inlier_indices = copy.deepcopy(pcd).remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
+    return inlier_indices
+
+def get_subpcd(pcd, indices):
+    subpcd = o3d.geometry.PointCloud()
+    subpcd.points = o3d.utility.Vector3dVector(np.asarray(pcd.points)[indices])
+    return subpcd

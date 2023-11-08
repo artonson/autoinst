@@ -2,9 +2,11 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import open3d as o3d
 import os
-from point_cloud_utils import transform_pcd, get_pcd
-from reproject_merged_pointcloud import reproject_points_to_label
+from point_cloud_utils import transform_pcd, get_pcd, change_point_indices, get_statistical_inlier_indices, get_subpcd
 from image_utils import masks_to_image
+from hidden_points_removal import hidden_point_removal_o3d
+from point_to_pixels import point_to_pixel
+import copy
 import cv2
 import scipy
 
@@ -38,42 +40,43 @@ def subsample_positions(positions, voxel_size=1):
 
     return subsampled_indices
 
-def chunks_from_pointcloud(pcd, T_pcd, positions, poses, first_position, indices, chunk_size, overlap, min_z=4.4):
+def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap):
 
     points = np.asarray(pcd.points)
 
     pcd_chunks = []
+    chunk_indices = []
     center_pos = []
     center_ids = []
+    chunk_bounds = []
 
     distance = 0
     last_position = None
-    for (position, pose, index) in zip(positions, poses, indices):
+    for (position, index) in zip(positions, indices):
         if last_position is not None:
             distance += np.linalg.norm(position - last_position)
-            if distance > (chunk_size[0]-overlap): # New chunk
+            if distance > (R[0]-overlap): # New chunk
 
                 pos_pcd = position - first_position
                 rot = np.linalg.inv(T_pcd[:3,:3])
                 pos_pcd = rot @ pos_pcd
 
-                max_position = pos_pcd + (0.5 * chunk_size)
-                min_position = pos_pcd - (0.5 * np.array([chunk_size[0], chunk_size[1], min_z])) # min_z to cut away points below street -> artefacts
+                ids = np.where(np.all(points > (pos_pcd - 0.5 * R), axis=1) & np.all(points < (pos_pcd + 0.5 * R), axis=1))[0]
+                pcd_cut = pcd.select_by_index(ids)
 
-                mask = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
-                pcd_cut = pcd.select_by_index(mask)
-
-                cl, ind = pcd_cut.remove_statistical_outlier(nb_neighbors=30, std_ratio=10.0)
-                inliers = cl.select_by_index(ind)
+                inlier_indices = get_statistical_inlier_indices(pcd_cut)
+                pcd_cut_final = get_subpcd(pcd_cut, inlier_indices)
         
-                pcd_chunks.append(inliers)                
+                pcd_chunks.append(pcd_cut_final)      
+                chunk_indices.append(ids)
                 center_pos.append(pos_pcd)
                 center_ids.append(index)
+                chunk_bounds.append(((pos_pcd - 0.5 * R), (pos_pcd + 0.5 * R)))
                 
                 distance = 0
         last_position = position
 
-    return pcd_chunks, center_pos, center_ids
+    return pcd_chunks, chunk_indices, center_pos, center_ids, chunk_bounds
 
 def indices_per_patch(T_pcd, center_positions, positions, first_position, global_indices, chunk_size):
 
@@ -149,15 +152,29 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
 
     return tarl_features
 
-def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id, cams, cam_id, adjacent_frames=(8,5), hpr_radius=1000, return_hpr_masks=False):
 
-    point_to_sam_label_reprojections = []
-    point_to_dinov2_feature_reprojections = []
-    hpr_masks = []
+def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, global_indices, first_id, cams, cam_id, adjacent_frames=(8,5), hpr_radius=1000, num_dino_features = 384):
 
     first_index = global_indices.index(first_id)
+    cam_indices = global_indices[max(0,first_index-adjacent_frames[0]):first_index+adjacent_frames[1]]
 
-    for points_index in global_indices[max(0,first_index-adjacent_frames[0]):first_index+adjacent_frames[1]]:
+    num_points = np.asarray(pcd.points).shape[0]
+    point2sam = (-1) * np.ones((num_points, len(cam_indices)), dtype=int) # -1 indicates no association
+    point2dino = np.zeros((num_points, len(cam_indices), num_dino_features))
+
+    for i, points_index in enumerate(cam_indices):
+
+        # Load the calibration matrices
+        T_lidar2world = dataset.get_pose(points_index)
+        T_world2lidar = np.linalg.inv(T_lidar2world)
+        T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
+        T_world2cam = T_lidar2cam @ T_world2lidar
+        T_pcd2cam = T_world2cam @ T_pcd2world
+
+        #hidden point removal
+        pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
+        visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe.points), camera=[0,0,0], radius_factor=hpr_radius)
+        frame_indices = list(set(visible_indices) & set(chunk_indices))
 
         # Load the SAM label
         sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
@@ -166,25 +183,36 @@ def image_based_features_per_patch(dataset, pcd, T_pcd, global_indices, first_id
         # Load the DINOV2 feature map
         dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
         dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (sam_labels.shape[0] / dinov2_feature_map.shape[0], sam_labels.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
-        
-        # Load the calibration matrices
-        T_lidar2world = dataset.get_pose(points_index)
-        T_world2lidar = np.linalg.inv(dataset.get_pose(points_index))
-        T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
-        T_world2cam = T_lidar2cam @ T_world2lidar
-        
-        # Compute the SAM label reprojections
-        if return_hpr_masks:
-            sam_reprojection, hpr_mask = reproject_points_to_label(np.array(pcd.points), T_pcd, sam_labels, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=True, label_is_color=False, is_instance=True)
-            point_to_sam_label_reprojections.append(sam_reprojection)
-            hpr_masks.append(hpr_mask)
-        else:
-            point_to_sam_label_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, sam_labels, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, return_hpr_mask=False, label_is_color=False, is_instance=True))
 
-        # Compute the DINOV2 feature map reprojections
-        point_to_dinov2_feature_reprojections.append(reproject_points_to_label(np.array(pcd.points), T_pcd, dinov2_feature_map_zoomed, T_world2cam, K, hidden_point_removal=True, hpr_radius=hpr_radius, label_is_color=False))
+        #chunk generation
+        map_visible = get_subpcd(pcd_camframe, frame_indices)
+        points_to_pixels = point_to_pixel(np.asarray(map_visible.points), K, sam_labels.shape[0], sam_labels.shape[1])
 
-    if return_hpr_masks:
-        return point_to_sam_label_reprojections, point_to_dinov2_feature_reprojections, hpr_masks
-    else:
-        return point_to_sam_label_reprojections, point_to_dinov2_feature_reprojections
+        for point_id, pixel_id in points_to_pixels.items():
+            pixel = pixel_id["pixels"]
+            point2sam[frame_indices[point_id], i] = sam_labels[pixel[1], pixel[0]]
+            point2dino[frame_indices[point_id], i, :] = dinov2_feature_map_zoomed[pixel[1], pixel[0], :]
+
+    pcd_chunk = get_subpcd(pcd, chunk_indices)
+    point2sam_chunk = point2sam[chunk_indices]
+    point2dino_chunk = point2dino[chunk_indices]
+
+    inlier_indices = get_statistical_inlier_indices(pcd_chunk)
+    pcd_chunk_final = get_subpcd(pcd_chunk, inlier_indices)
+
+    point2sam_chunk_final = point2sam_chunk[inlier_indices]
+
+    point2dino_chunk_final = point2dino_chunk[inlier_indices]
+
+    return point2sam_chunk_final, point2dino_chunk_final, pcd_chunk_final
+
+
+def dinov2_mean(point2dino):
+    # Compute mean of DINOV2 features over number of views
+    point2dino_mean = np.zeros((point2dino.shape[0], point2dino.shape[2]))
+    non_zero_mask = point2dino.any(axis=2)
+    for i in range(point2dino.shape[0]):
+        features = point2dino[i][non_zero_mask[i]]
+        if features.shape[0] != 0:    
+            point2dino_mean[i] = np.mean(features, axis=0)
+    return point2dino_mean
