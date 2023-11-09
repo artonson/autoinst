@@ -61,7 +61,10 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
                 rot = np.linalg.inv(T_pcd[:3,:3])
                 pos_pcd = rot @ pos_pcd
 
-                ids = np.where(np.all(points > (pos_pcd - 0.5 * R), axis=1) & np.all(points < (pos_pcd + 0.5 * R), axis=1))[0]
+                max_position = pos_pcd + (0.5 * R)
+                min_position = pos_pcd - (0.5 * R) 
+
+                ids = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
                 pcd_cut = pcd.select_by_index(ids)
 
                 inlier_indices = get_statistical_inlier_indices(pcd_cut)
@@ -190,7 +193,9 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, glo
 
         for point_id, pixel_id in points_to_pixels.items():
             pixel = pixel_id["pixels"]
-            point2sam[frame_indices[point_id], i] = sam_labels[pixel[1], pixel[0]]
+            label = sam_labels[pixel[1], pixel[0]]
+            if label:
+                point2sam[frame_indices[point_id], i] = label
             point2dino[frame_indices[point_id], i, :] = dinov2_feature_map_zoomed[pixel[1], pixel[0], :]
 
     pcd_chunk = get_subpcd(pcd, chunk_indices)

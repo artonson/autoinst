@@ -128,6 +128,7 @@ def color_pcd_by_labels(pcd, labels):
     pcd_colored.colors = o3d.utility.Vector3dVector(np.zeros(np.asarray(pcd.points).shape))
 
     for i in range(len(pcd_colored.points)):
-        pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
+        if labels[i] != (-1):
+            pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
 
     return pcd_colored
