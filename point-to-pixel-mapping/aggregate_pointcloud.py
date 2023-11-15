@@ -1,7 +1,8 @@
 import open3d as o3d
 import numpy as np
+from open3d.pipelines import registration
 
-def aggregate_pointcloud(dataset, ind_start, ind_end):
+def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0.9):
     '''
     Args:
         dataset:    dataset object
@@ -23,6 +24,21 @@ def aggregate_pointcloud(dataset, ind_start, ind_end):
         poses.append(pose)
 
         transform = np.linalg.inv(first_pose) @ pose
+
+        if icp and i != ind_start:
+
+            map_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=30))
+            pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=30))
+
+            reg_p2l = registration.registration_icp(pcd, map_pcd, icp_threshold, transform, registration.TransformationEstimationPointToPlane(), registration.ICPConvergenceCriteria(max_iteration=1000))
+
+            transform = reg_p2l.transformation
+
         map_pcd += pcd.transform(transform)
+
+    if icp:
+        map_without_normals = o3d.geometry.PointCloud()
+        map_without_normals.points = map_pcd.points
+        return map_without_normals, poses
 
     return map_pcd, poses
