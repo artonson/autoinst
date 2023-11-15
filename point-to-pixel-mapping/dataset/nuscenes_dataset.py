@@ -45,7 +45,7 @@ class nuScenesOdometryDataset(Dataset):
         self.camera_names = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT")
 
         self.sam_label_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs/SAM_Overlays/")
+            self.ds_path, "outputs/SAM/")
         self.dinov2_features_path: os.PathLike = os.path.join(
             self.ds_path, "outputs/DINOV2/")
 
@@ -166,6 +166,33 @@ class nuScenesOdometryDataset(Dataset):
         file = os.path.join(self.sam_label_path, camera_name, camera_data["filename"].split('/')[-1].split('.')[0] + '.jpg')
 
         return utils.load_image(file, mode='RGB')
+
+    
+    def get_sam_mask(self, camera_name: str, index: int) -> Union[Image.Image, None]:
+        """
+        Retrieves the SAM label of the specified index and camera
+
+        Args:
+            camera_name (str): name of the camera (cam0, cam1, cam2, cam3)
+            index (int): frame index, from 0 to size of the sequence
+
+        Returns:
+            corresponding label
+        """
+        available_cams = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT")
+
+        if camera_name not in available_cams:
+            raise ValueError("Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT")
+
+        sample_token = self.sample_tokens[index]
+        sample = self.dataset.get('sample', sample_token)
+        camera_token = sample['data'][camera_name]
+        camera_data = self.dataset.get('sample_data', camera_token)
+
+        file = os.path.join(self.sam_label_path, camera_name, camera_data["filename"].split('/')[-1].split('.')[0] + '.npz')
+
+        return np.load(file, allow_pickle=True)['masks']
+
 
     def get_dinov2_features(self, camera_name: str, index: int):
         """
