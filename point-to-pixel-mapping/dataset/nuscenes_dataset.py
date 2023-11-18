@@ -117,6 +117,26 @@ class nuScenesOdometryDataset(Dataset):
 
         return points
 
+    def get_intensity(self, index: int) -> NDArray[Shape["*, 1"], Float]:
+        """
+        Retrieves the lidar scan of the specified index
+
+        Args:
+            index (int): scan index
+
+        Returns:
+            NDArray[Shape["*, 3"], Float]: (N, 3) homogeneous points
+        """
+
+        sample_token = self.sample_tokens[index]
+        sample = self.dataset.get('sample', sample_token)
+        lidar_token = sample['data']['LIDAR_TOP']
+        lidar_data = self.dataset.get('sample_data', lidar_token)
+        scan = np.fromfile(os.path.join(self.ds_path, lidar_data["filename"]), dtype=np.float32)
+        intensity = scan.reshape((-1, 5))[:, 3]
+
+        return intensity
+
     def get_image(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
         Retrieves the frame of the specified index and camera or None if not
@@ -283,6 +303,7 @@ class nuScenesOdometryDataset(Dataset):
             index,
             self.get_pose(index),
             self.get_point_cloud(index),
+            self.get_intensity(index),
             {
                 cam_name: self.get_image(cam_name, index)
                 for cam_name in self.camera_names
