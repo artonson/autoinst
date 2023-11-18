@@ -9,5 +9,6 @@ from dataset.types import DatasetPathLike
 @dataclass
 class DatasetConfig:
     dataset_path: DatasetPathLike
+    sam_folder_name: str
     filters: FilterListOrNone
     cache: bool

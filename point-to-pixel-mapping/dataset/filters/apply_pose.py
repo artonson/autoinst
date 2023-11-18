@@ -21,7 +21,7 @@ class ApplyPose(Filter):
         points = np.einsum("jk,ik->ij", pose, points)[:, :3]
 
         filtered_entry = DatasetEntry(
-            data_entry.index, data_entry.pose, points, data_entry.images
+            data_entry.index, data_entry.pose, points, data_entry.intensity, data_entry.images
         )
 
         return filtered_entry

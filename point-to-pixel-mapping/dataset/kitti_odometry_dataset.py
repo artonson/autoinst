@@ -51,7 +51,7 @@ class KittiOdometryDataset(Dataset):
             self.ds_path, "sequences", self.seq_str, ""
         )
         self.sam_label_path: os.PathLike = os.path.join(
-            self.ds_path, "sam_pred", self.seq_str, ""
+            self.ds_path, self.config.sam_folder_name, self.seq_str, ""
         )
         self.dinov2_features_path: os.PathLike = os.path.join(
             self.ds_path, "dinov2_features", self.seq_str, ""
@@ -101,6 +101,22 @@ class KittiOdometryDataset(Dataset):
             points = self._correct_scan_calibration(points)
 
         return points
+
+    def get_intensity(self, index: int) -> NDArray[Shape["*, 1"], Float]:
+        """
+        Retrieves the intensities of the lidar scan of the specified index
+
+        Args:
+            index (int): scan index
+
+        Returns:
+            NDArray[Shape["*, 3"], Float]: (N, 3) homogeneous points
+        """
+
+        points = self.dataset.get_velo(index)
+        intensity = points[:,3]
+        
+        return  intensity
 
     def get_image(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
@@ -279,6 +295,7 @@ class KittiOdometryDataset(Dataset):
             index,
             self.get_pose(index),
             self.get_point_cloud(index),
+            self.get_intensity(index),
             {
                 cam_name: self.get_image(cam_name, index)
                 for cam_name in self.camera_names

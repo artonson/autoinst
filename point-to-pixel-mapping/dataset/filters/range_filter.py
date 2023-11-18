@@ -17,6 +17,7 @@ class RangeFilter(Filter):
         self, data_entry: DatasetEntry, dataset: DatasetOrNone = None
     ) -> DatasetEntry:
         points = data_entry.point_cloud
+        intensities = data_entry.intensity
 
         # move points to the origin if they are transformed
         norm = np.linalg.norm(
@@ -27,9 +28,10 @@ class RangeFilter(Filter):
         )
         norm = np.logical_and(norm <= self.max_range, norm >= self.min_range)
         points_filtered = points[norm]
+        intensities_filtered = intensities[norm]
 
         filtered_entry = DatasetEntry(
-            data_entry.index, data_entry.pose, points_filtered, data_entry.images
+            data_entry.index, data_entry.pose, points_filtered, intensities_filtered, data_entry.images
         )
 
         return filtered_entry
