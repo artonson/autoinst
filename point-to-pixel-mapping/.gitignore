@@ -2,3 +2,4 @@
 example_generation.py
 o3d_vis.py
 /test_data
+/hpr_masks
