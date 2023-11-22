@@ -36,7 +36,7 @@ def hidden_points_removal(point_cloud_path, center_point, threshold, mesh = None
 
     # Creating rays from (0, 0, 0) to points with normalization
     pcd_points = np.asarray(pcd.points)
-    direction_vectors = pcd_points - center_point
+    direction_vectors = center_point - pcd_points
     distances_to_points = np.linalg.norm(direction_vectors, axis=1)
     rays = np.zeros((len(pcd_points), 6))
     rays[:, :3] = center_point
