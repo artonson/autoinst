@@ -39,11 +39,12 @@ if __name__ == "__main__":
 
     parser.add_argument("--point_cloud_path", default="/workspace/dataset" , help="path to cloud data")
     parser.add_argument("--center_point", type=str, default="[0, 0, 0]", help="center point")
-    parser.add_argument("--center_point_file", default="center_points.npy", help="file name of center point file")
+    parser.add_argument("--center_point_file", default=None, help="file name of center point file")
     parser.add_argument("--output_path", default="/workspace/output", help="path to output file")
     parser.add_argument("--point_cloud_output", default=False, help="if you want to save masked point cloud")
     parser.add_argument("--threshold", type=float, default=0.1, help="threshold")
     parser.add_argument("--mesh_output", default=False, help="if you want to save mesh")
+    parser.add_argument("--cast_on_mesh", default=True, help="if you want to cast rays on mesh")
 
     args = parser.parse_args()
     
@@ -73,7 +74,11 @@ if __name__ == "__main__":
         print(f"Perform HPR for {len(center_points)} center points")
 
         for center_point in center_points: 
-            masked_pcd, pt_map = HPR_mesh_based.hidden_points_removal(pcd, center_point, args.threshold, mesh)
+            if str2bool(args.cast_on_mesh):
+                masked_pcd, pt_map = HPR_mesh_based.hidden_points_removal_rt_mesh(pcd, center_point, args.threshold, mesh)
+            else:
+                masked_pcd, pt_map = HPR_mesh_based.hidden_points_removal(pcd, center_point, args.threshold, mesh)
+
             pt_masks.append(pt_map)
             pcds_out.append(masked_pcd)
 

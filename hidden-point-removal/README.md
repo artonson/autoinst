@@ -28,6 +28,7 @@ optional arguments:
   --threshold FLOAT     threshold for HPR, Unit meter (default: 0.1)
   --point_cloud_output  save output point cloud (default: False)
   --mesh_output         save output mesh (default: False)
+  --cast_on_mesh        cast rays on mesh instead of point cloud (default: True)
 ```
 ## Output Structure ##
 
