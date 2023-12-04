@@ -155,15 +155,27 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
 
     return tarl_features
 
-
-def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, global_indices, first_id, cams, cam_id, adjacent_frames=(8,5), hpr_radius=1000, num_dino_features = 384):
-
+def get_indices_feature_reprojection(global_indices, first_id, adjacent_frames=(8,5)):
+    
     first_index = global_indices.index(first_id)
-    cam_indices = global_indices[max(0,first_index-adjacent_frames[0]):first_index+adjacent_frames[1]]
+    cam_indices_global = global_indices[max(0,first_index-adjacent_frames[0]):first_index+adjacent_frames[1]]
+    indices = []
+    for global_i in cam_indices_global:
+        indices.append(global_indices.index(global_i))
+
+    return cam_indices_global, indices
+
+
+def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam_indices, cams, cam_id, hpr_radius=1000, num_dino_features = 384, hpr_masks=None, dino=True):
 
     num_points = np.asarray(pcd.points).shape[0]
     point2sam = (-1) * np.ones((num_points, len(cam_indices)), dtype=int) # -1 indicates no association
-    point2dino = np.zeros((num_points, len(cam_indices), num_dino_features))
+
+    if dino:
+        point2dino = np.zeros((num_points, len(cam_indices), num_dino_features))
+
+    if hpr_masks is not None:
+        assert len(cam_indices) == hpr_masks.shape[0]
 
     for i, points_index in enumerate(cam_indices):
 
@@ -176,7 +188,10 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, glo
 
         #hidden point removal
         pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
-        visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe.points), camera=[0,0,0], radius_factor=hpr_radius)
+        if hpr_masks is None:
+            visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe.points), camera=[0,0,0], radius_factor=hpr_radius)
+        else:
+            visible_indices = np.where(hpr_masks[i])[0]
         frame_indices = list(set(visible_indices) & set(chunk_indices))
 
         # Load the SAM label
@@ -184,8 +199,9 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, glo
         sam_labels = masks_to_image(sam_masks)
 
         # Load the DINOV2 feature map
-        dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
-        dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (sam_labels.shape[0] / dinov2_feature_map.shape[0], sam_labels.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
+        if dino:
+            dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
+            dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (sam_labels.shape[0] / dinov2_feature_map.shape[0], sam_labels.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
 
         #chunk generation
         map_visible = get_subpcd(pcd_camframe, frame_indices)
@@ -196,20 +212,25 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, glo
             label = sam_labels[pixel[1], pixel[0]]
             if label:
                 point2sam[frame_indices[point_id], i] = label
-            point2dino[frame_indices[point_id], i, :] = dinov2_feature_map_zoomed[pixel[1], pixel[0], :]
+            if dino:
+                point2dino[frame_indices[point_id], i, :] = dinov2_feature_map_zoomed[pixel[1], pixel[0], :]
 
     pcd_chunk = get_subpcd(pcd, chunk_indices)
     point2sam_chunk = point2sam[chunk_indices]
-    point2dino_chunk = point2dino[chunk_indices]
+    
+    if dino:
+        point2dino_chunk = point2dino[chunk_indices]
 
     inlier_indices = get_statistical_inlier_indices(pcd_chunk)
     pcd_chunk_final = get_subpcd(pcd_chunk, inlier_indices)
 
     point2sam_chunk_final = point2sam_chunk[inlier_indices]
 
-    point2dino_chunk_final = point2dino_chunk[inlier_indices]
-
-    return point2sam_chunk_final, point2dino_chunk_final, pcd_chunk_final
+    if dino:
+        point2dino_chunk_final = point2dino_chunk[inlier_indices]
+        return point2sam_chunk_final, point2dino_chunk_final, pcd_chunk_final
+    else:
+        return point2sam_chunk_final, pcd_chunk_final
 
 
 def dinov2_mean(point2dino):
