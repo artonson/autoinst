@@ -154,3 +154,66 @@ def get_subpcd(pcd, indices):
     subpcd = o3d.geometry.PointCloud()
     subpcd.points = o3d.utility.Vector3dVector(np.asarray(pcd.points)[indices])
     return subpcd
+
+def merge_chunks_unite_instances(chunks: list):
+    last_chunk = chunks[0] 
+    merge = o3d.geometry.PointCloud()
+    merge += last_chunk
+
+    for new_chunk in chunks[1:]:
+        points_1 = np.asarray(last_chunk.points)
+        points_2 = np.asarray(new_chunk.points)
+
+        colors_1 = np.asarray(last_chunk.colors)
+        colors_2 = np.asarray(new_chunk.colors)
+
+        unique_colors_1 = np.unique(colors_1, axis=0)
+        unique_colors_2 = np.unique(colors_2, axis=0)
+
+        instance2point_1 = {}
+        for i in range(unique_colors_1.shape[0]):
+            if not np.all(unique_colors_1[i] == 0.0): # Streets are black
+                instance2point_1[i] = {}
+                inds = np.where(np.all(colors_1 == unique_colors_1[i], axis=1))[0]
+                instance2point_1[i]["points"] = points_1[inds]
+                instance2point_1[i]["inds"] = inds
+
+        instance2point_2 = {}
+        for i in range(unique_colors_2.shape[0]):
+            if not np.all(unique_colors_2[i] == 0.0): # Streets are black
+                instance2point_2[i] = {}
+                inds = np.where(np.all(colors_2 == unique_colors_2[i], axis=1))[0]
+                instance2point_2[i]["points"] = points_2[inds]
+                instance2point_2[i]["inds"] = inds
+        
+        id_pairs = []
+        for id_1, entries_1 in instance2point_1.items():
+            points1 = entries_1["points"]
+            association = None
+            max_iou = 0
+            for id_2, entries_2 in instance2point_2.items():
+                points2 = entries_2["points"]
+                points1_tpl = [tuple(point) for point in points1]
+                points2_tpl = [tuple(point) for point in points2]
+                intersection = len(list(set(points1_tpl) & set(points2_tpl)))
+                if intersection > 0:
+                    union = len(np.unique(np.concatenate((points1, points2))))
+                    iou = float(intersection) / float(union)
+                    if iou > max_iou:
+                        max_iou = iou
+                        association = id_2
+            if association is not None:
+                id_pairs.append((id_1, association))
+        
+        for id1, id2 in id_pairs:
+            inds2 = instance2point_2[id2]["inds"]
+            colors_2[inds2] = unique_colors_1[id1]
+
+        new_chunk_recolored = o3d.geometry.PointCloud()
+        new_chunk_recolored.points = new_chunk.points
+        new_chunk_recolored.colors = o3d.utility.Vector3dVector(colors_2)
+
+        merge += new_chunk_recolored
+        merge.remove_duplicated_points()
+
+    return merge

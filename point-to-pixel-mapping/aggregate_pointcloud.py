@@ -7,8 +7,10 @@ lib_path = '/Users/laurenzheidrich/Documents/Studium/Hiwi_TUM.nosync/Programming
 sys.path.insert(0,lib_path)
 import pypatchworkpp
 
+
 def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0.9, ground_segmentation=None):
     '''
+    Returns aggregated point cloud from dataset in world coordinate system
     Args:
         dataset:    dataset object
         ind_start:  start index of point clouds to aggregate
@@ -18,8 +20,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
         poses:      list of poses of point clouds
     '''
     poses = []
-    first_pose = dataset.get_pose(ind_start)
-
+    world_pose = np.eye(4)
 
     if ground_segmentation is None:
 
@@ -31,7 +32,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             pose = dataset.get_pose(i)
             poses.append(pose)
 
-            transform = np.linalg.inv(first_pose) @ pose
+            transform = pose
 
             if icp and i != ind_start:
 
@@ -66,7 +67,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             pcd = get_pcd(dataset[i].point_cloud)
             pose = dataset.get_pose(i)
             poses.append(pose)
-            transform = np.linalg.inv(first_pose) @ pose
+            transform = pose
             
             if ground_segmentation == 'patchwork':
                 intensity = dataset[i].intensity
@@ -94,4 +95,4 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             map_pcd_ground += pcd_ground.transform(transform)
             map_pcd_nonground += pcd_nonground.transform(transform)
 
-        return map_pcd_ground, map_pcd_nonground, poses
+        return map_pcd_ground, map_pcd_nonground, poses, world_pose
