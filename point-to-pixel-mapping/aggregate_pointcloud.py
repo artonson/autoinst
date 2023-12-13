@@ -12,12 +12,18 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
     '''
     Returns aggregated point cloud from dataset in world coordinate system
     Args:
-        dataset:    dataset object
-        ind_start:  start index of point clouds to aggregate
-        ind_end:    end index of point clouds to aggregate
+        dataset:                dataset object
+        ind_start:              start index of point clouds to aggregate
+        ind_end:                end index of point clouds to aggregate
+        icp:                    whether to use icp for registration
+        icp_threshold:          threshold for icp
+        ground_segmentation:    None, 'patchwork' or 'open3d'
     Returns:    
-        map_pcd:    aggregated point cloud
-        poses:      list of poses of point clouds
+        map_pcd_ground:         Merged point cloud of ground points
+        map_pcd_nonground:      Merged point cloud of non-ground points
+        poses:                  List of poses of point clouds
+        world_pose:             Pose of world coordinate system, i.e. of aggregated point cloud
+
     '''
     poses = []
     world_pose = np.eye(4)
@@ -36,8 +42,8 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
 
             if icp and i != ind_start:
 
-                map_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=30))
-                pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=30))
+                map_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
+                pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
 
                 reg_p2l = registration.registration_icp(pcd, map_pcd, icp_threshold, transform, registration.TransformationEstimationPointToPlane(), registration.ICPConvergenceCriteria(max_iteration=1000))
 
@@ -84,15 +90,26 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             pcd_ground = get_subpcd(pcd, ground_idcs) 
             pcd_nonground = get_subpcd(pcd, nonground_idcs)
 
-            if icp and i != ind_start:
-                merge = map_pcd_ground + map_pcd_nonground
-                merge.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=30))
-                pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=30))
+            if icp:
+                if i != ind_start:
+                    merge = map_pcd_ground + map_pcd_nonground
+                    merge = merge.voxel_down_sample(voxel_size=0.3)
+                    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
 
-                reg_p2l = registration.registration_icp(pcd, merge, icp_threshold, transform, registration.TransformationEstimationPointToPlane(), registration.ICPConvergenceCriteria(max_iteration=1000))
-                transform = reg_p2l.transformation
+                    reg_p2l = registration.registration_icp(pcd, merge, icp_threshold, transform, registration.TransformationEstimationPointToPlane(), registration.ICPConvergenceCriteria(max_iteration=1000))
+                    transform = reg_p2l.transformation
+
+                pcd_ground.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
+                pcd_nonground.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
 
             map_pcd_ground += pcd_ground.transform(transform)
             map_pcd_nonground += pcd_nonground.transform(transform)
+
+        if icp:
+            map_without_normals_ground = o3d.geometry.PointCloud()
+            map_without_normals_ground.points = map_pcd_ground.points
+            map_without_normals_nonground = o3d.geometry.PointCloud()
+            map_without_normals_nonground.points = map_pcd_nonground.points
+            return map_without_normals_ground, map_without_normals_nonground, poses, world_pose
 
         return map_pcd_ground, map_pcd_nonground, poses, world_pose
