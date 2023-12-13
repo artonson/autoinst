@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import open3d as o3d
 import os
-from point_cloud_utils import transform_pcd, get_pcd, change_point_indices, get_statistical_inlier_indices, get_subpcd
+from point_cloud_utils import transform_pcd, get_pcd, change_point_indices, get_statistical_inlier_indices, angle_between, get_subpcd
 from image_utils import masks_to_image
 from hidden_points_removal import hidden_point_removal_o3d
 from point_to_pixels import point_to_pixel
@@ -165,11 +165,29 @@ def get_indices_feature_reprojection(global_indices, first_id, adjacent_frames=(
 
     return cam_indices_global, indices
 
+def is_perpendicular_and_upward(point, normal, boundary = 0.1):
+    '''
+    Args:
+        point: 3D point
+        normal: normal vector of 3D point
+        boundary: boundary around pi/2 to be considered perpendicular
+    Returns:
+        True if point is perpendicular to normal and pointing upwards, False otherwise
+    '''
+    angle = np.abs(angle_between(point, normal))
+    perpendicular = (angle > (np.pi / 2 - boundary) and  angle < (np.pi / 2 + boundary)) or (angle > (3 * np.pi / 2 - boundary) and  angle < (3 * np.pi / 2 + boundary))
+    upward = (normal[2]*normal[2]) > (normal[0]*normal[0] + normal[1]*normal[1])
 
-def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam_indices, cams, cam_id, hpr_radius=1000, num_dino_features = 384, hpr_masks=None, dino=True):
+    return (perpendicular and upward)
+
+
+def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam_indices, cams, cam_id, hpr_radius=1000, num_dino_features = 384, hpr_masks=None, dino=True, rm_perp=0.0):
 
     num_points = np.asarray(pcd.points).shape[0]
     point2sam = (-1) * np.ones((num_points, len(cam_indices)), dtype=int) # -1 indicates no association
+
+    if rm_perp:
+        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=200))
 
     if dino:
         point2dino = np.zeros((num_points, len(cam_indices), num_dino_features))
@@ -204,15 +222,29 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam
             dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (sam_labels.shape[0] / dinov2_feature_map.shape[0], sam_labels.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
 
         #chunk generation
-        map_visible = get_subpcd(pcd_camframe, frame_indices)
+        if rm_perp:
+            map_visible = get_subpcd(pcd_camframe, frame_indices, normals=True)
+            T_cam2pcd_orientation = np.linalg.inv(copy.deepcopy(T_pcd2cam))
+            T_cam2pcd_orientation[:3,3] = np.zeros(3) # We only want to fix the orientation, not the position
+            map_visible_fixed_orientation = copy.deepcopy(map_visible).transform(T_cam2pcd_orientation)
+            map_visible_points = np.asarray(map_visible_fixed_orientation.points)
+            map_visible_normals = np.asarray(map_visible_fixed_orientation.normals)
+        else:
+            map_visible = get_subpcd(pcd_camframe, frame_indices)
+
         points_to_pixels = point_to_pixel(np.asarray(map_visible.points), K, sam_labels.shape[0], sam_labels.shape[1])
+
 
         for point_id, pixel_id in points_to_pixels.items():
             pixel = pixel_id["pixels"]
             label = sam_labels[pixel[1], pixel[0]]
-            if label:
+            if rm_perp:
+                valid = not is_perpendicular_and_upward(map_visible_points[point_id], map_visible_normals[point_id], boundary=rm_perp)
+            else:
+                valid = True
+            if label and valid:
                 point2sam[frame_indices[point_id], i] = label
-            if dino:
+            if dino and valid:
                 point2dino[frame_indices[point_id], i, :] = dinov2_feature_map_zoomed[pixel[1], pixel[0], :]
 
     pcd_chunk = get_subpcd(pcd, chunk_indices)
@@ -239,6 +271,6 @@ def dinov2_mean(point2dino):
     non_zero_mask = point2dino.any(axis=2)
     for i in range(point2dino.shape[0]):
         features = point2dino[i][non_zero_mask[i]]
-        if features.shape[0] != 0:    
+        if features.shape[0] != 0:
             point2dino_mean[i] = np.mean(features, axis=0)
     return point2dino_mean
