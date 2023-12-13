@@ -150,9 +150,13 @@ def get_statistical_inlier_indices(pcd, nb_neighbors=20, std_ratio=2.0):
     _, inlier_indices = copy.deepcopy(pcd).remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
     return inlier_indices
 
-def get_subpcd(pcd, indices):
+def get_subpcd(pcd, indices, colors=False, normals=False):
     subpcd = o3d.geometry.PointCloud()
     subpcd.points = o3d.utility.Vector3dVector(np.asarray(pcd.points)[indices])
+    if colors:
+        subpcd.colors = o3d.utility.Vector3dVector(np.asarray(pcd.colors)[indices])
+    if normals:
+        subpcd.normals = o3d.utility.Vector3dVector(np.asarray(pcd.normals)[indices])
     return subpcd
 
 def merge_chunks_unite_instances(chunks: list):
@@ -217,3 +221,21 @@ def merge_chunks_unite_instances(chunks: list):
         merge.remove_duplicated_points()
 
     return merge
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0, 0), (0, 1, 0))
+            1.5707963267948966
+            >>> angle_between((1, 0, 0), (1, 0, 0))
+            0.0
+            >>> angle_between((1, 0, 0), (-1, 0, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
