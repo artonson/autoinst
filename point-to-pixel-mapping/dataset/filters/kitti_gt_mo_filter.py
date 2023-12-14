@@ -46,9 +46,12 @@ class KittiGTMovingObjectFilter(Filter):
         moving_index = SEMANTIC_KITTI_LABEL_INDICES["moving"]
         filtered_points = data_entry.point_cloud[labels < moving_index]
         filtered_intensity = data_entry.intensity[labels < moving_index]
+        panoptic_labels = data_entry.panoptic_labels[labels < moving_index]
+        semantic_labels = data_entry.semantic_labels[labels < moving_index]
+        instance_labels = data_entry.instance_labels[labels < moving_index]
 
         filtered_entry = DatasetEntry(
-            data_entry.index, data_entry.pose, filtered_points, filtered_intensity, data_entry.images
+            data_entry.index, data_entry.pose, filtered_points, filtered_intensity,panoptic_labels,semantic_labels,instance_labels,data_entry.images
         )
 
         return filtered_entry

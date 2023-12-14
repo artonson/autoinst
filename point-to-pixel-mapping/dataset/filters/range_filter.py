@@ -31,7 +31,9 @@ class RangeFilter(Filter):
         intensities_filtered = intensities[norm]
 
         filtered_entry = DatasetEntry(
-            data_entry.index, data_entry.pose, points_filtered, intensities_filtered, data_entry.images
+            data_entry.index, data_entry.pose, points_filtered, intensities_filtered,data_entry.panoptic_labels[norm],
+            data_entry.semantic_labels[norm], data_entry.instance_labels[norm],
+            data_entry.images
         )
 
         return filtered_entry

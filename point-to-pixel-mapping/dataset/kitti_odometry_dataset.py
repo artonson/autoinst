@@ -60,11 +60,45 @@ class KittiOdometryDataset(Dataset):
         self.tarl_features_path: os.PathLike = os.path.join(
             self.ds_path, "tarl_features", self.seq_str, ""
         )
+        self.labels_datapath = self.ds_path + "/sequences/" + str(seq_num).zfill(2) + "/labels/"
 
         # class members
         self.camera_names = ("cam0", "cam1", "cam2", "cam3")
         self.dataset: pykitti.odometry = pykitti.odometry(self.ds_path, self.seq_str)
         self._poses = self.__parse_poses()
+        
+    def get_panoptic_labels(self,index):
+        label_path = self.labels_datapath + str(index).zfill(6) + '.label'
+        labels_orig = np.fromfile(label_path, dtype=np.uint32).reshape((-1))
+        labels = labels_orig & 0xFFFF
+        instance_labels = labels_orig & 0xFFFF0000
+        instance_labels = instance_labels.reshape((-1,1))
+        
+        labels = labels.reshape((-1,1))
+        
+        #unlabeled = labels[:,0] == 0
+        indices = np.where(instance_labels == 0)
+        instance_labels[indices] = labels[indices]
+        
+        return instance_labels
+        
+    def get_semantic_labels(self,index):
+        label_path = self.labels_datapath + str(index).zfill(6) + '.label'
+        labels_orig = np.fromfile(label_path, dtype=np.uint32).reshape((-1))
+        labels = labels_orig & 0xFFFF
+
+        labels = labels.reshape((-1,1))
+        
+        return labels 
+    
+    def get_instance_labels(self,index):
+        label_path = self.labels_datapath + str(index).zfill(6) + '.label'
+        labels_orig = np.fromfile(label_path, dtype=np.uint32).reshape((-1))
+        instance_labels = labels_orig & 0xFFFF0000
+        instance_labels = instance_labels.reshape((-1,1))
+        
+        return instance_labels
+        
 
     def __parse_poses(self) -> NDArray[Shape["*, 4, 4"], Float]:
         t_cam_velo = self.dataset.calib.T_cam0_velo
@@ -296,6 +330,9 @@ class KittiOdometryDataset(Dataset):
             self.get_pose(index),
             self.get_point_cloud(index),
             self.get_intensity(index),
+            self.get_panoptic_labels(index),
+            self.get_semantic_labels(index),
+            self.get_instance_labels(index),
             {
                 cam_name: self.get_image(cam_name, index)
                 for cam_name in self.camera_names
