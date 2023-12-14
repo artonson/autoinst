@@ -12,6 +12,9 @@ class DatasetEntry:
     pose: Transform4x4
     point_cloud: PointCloudXx3
     intensity: FloatXx1
+    panoptic_labels : FloatXx1
+    semantic_labels : FloatXx1
+    instance_labels : FloatXx1
     images: Dict[str, ImageEntry]
 
 
