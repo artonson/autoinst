@@ -2,6 +2,7 @@
 import numpy as np
 import open3d as o3d
 import copy
+from open3d.pipelines import registration
 
 def get_pcd(points: np.array):
     """
@@ -115,7 +116,7 @@ def transformation_matrix(rotation: np.array, translation: np.array):
     T[:3, 3] = translation
     return T
 
-def kDTree_1NN_feature_reprojection(features_to, pcd_to, features_from, pcd_from):
+def kDTree_1NN_feature_reprojection(features_to, pcd_to, features_from, pcd_from, max_radius=None, no_feature_label=[1,0,0]):
     '''
     Args:
         pcd_from: point cloud to be projected
@@ -126,13 +127,17 @@ def kDTree_1NN_feature_reprojection(features_to, pcd_to, features_from, pcd_from
         features_to: features projected on pcd_to
     '''
     from_tree = o3d.geometry.KDTreeFlann(pcd_from)
-    i=0
 
-    for point in np.asarray(pcd_to.points):
+    for i, point in enumerate(np.asarray(pcd_to.points)):
 
         [_, idx, _] = from_tree.search_knn_vector_3d(point, 1)
-        features_to[i,:] = features_from[idx[0]]
-        i+=1
+        if max_radius is not None:
+            if np.linalg.norm(point - np.asarray(pcd_from.points)[idx[0]]) > max_radius:
+                features_to[i,:] = no_feature_label
+            else:
+                features_to[i,:] = features_from[idx[0]]
+        else:
+            features_to[i,:] = features_from[idx[0]]
     
     return features_to
 
@@ -159,12 +164,20 @@ def get_subpcd(pcd, indices, colors=False, normals=False):
         subpcd.normals = o3d.utility.Vector3dVector(np.asarray(pcd.normals)[indices])
     return subpcd
 
-def merge_chunks_unite_instances(chunks: list):
+def merge_chunks_unite_instances(chunks: list, icp=False):
     last_chunk = chunks[0] 
     merge = o3d.geometry.PointCloud()
     merge += last_chunk
 
     for new_chunk in chunks[1:]:
+
+        if icp:
+            last_chunk.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
+            new_chunk.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
+            reg_p2l = registration.registration_icp(new_chunk, last_chunk, 0.9, np.eye(4), registration.TransformationEstimationPointToPlane(), registration.ICPConvergenceCriteria(max_iteration=1000))
+            transform = reg_p2l.transformation
+            new_chunk.transform(transform)
+
         points_1 = np.asarray(last_chunk.points)
         points_2 = np.asarray(new_chunk.points)
 
@@ -193,21 +206,22 @@ def merge_chunks_unite_instances(chunks: list):
         id_pairs = []
         for id_1, entries_1 in instance2point_1.items():
             points1 = entries_1["points"]
-            association = None
+            min_bound = np.min(points1, axis=0)
+            max_bound = np.max(points1, axis=0)
+            association = []
             max_iou = 0
             for id_2, entries_2 in instance2point_2.items():
                 points2 = entries_2["points"]
-                points1_tpl = [tuple(point) for point in points1]
-                points2_tpl = [tuple(point) for point in points2]
-                intersection = len(list(set(points1_tpl) & set(points2_tpl)))
+                intersection = np.where(np.all(points2 >= min_bound, axis=1) & np.all(points2 <= max_bound, axis=1))[0].shape[0]
                 if intersection > 0:
                     union = len(np.unique(np.concatenate((points1, points2))))
                     iou = float(intersection) / float(union)
-                    if iou > max_iou:
+                    if iou > 0.01:
                         max_iou = iou
-                        association = id_2
-            if association is not None:
-                id_pairs.append((id_1, association))
+                        association.append(id_2)
+            if len(association) != 0:
+                for association_id in association:
+                    id_pairs.append((id_1, association_id))
         
         for id1, id2 in id_pairs:
             inds2 = instance2point_2[id2]["inds"]
