@@ -51,10 +51,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
 
             map_pcd += pcd.transform(transform)
 
-        if icp:
-            map_without_normals = o3d.geometry.PointCloud()
-            map_without_normals.points = map_pcd.points
-            return map_without_normals, poses
+        map_pcd.normals = o3d.utility.Vector3dVector([])
 
         return map_pcd, poses
 
@@ -105,11 +102,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             map_pcd_ground += pcd_ground.transform(transform)
             map_pcd_nonground += pcd_nonground.transform(transform)
 
-        if icp:
-            map_without_normals_ground = o3d.geometry.PointCloud()
-            map_without_normals_ground.points = map_pcd_ground.points
-            map_without_normals_nonground = o3d.geometry.PointCloud()
-            map_without_normals_nonground.points = map_pcd_nonground.points
-            return map_without_normals_ground, map_without_normals_nonground, poses, world_pose
+        map_pcd_ground.normals = o3d.utility.Vector3dVector([])
+        map_pcd_nonground.normals = o3d.utility.Vector3dVector([])
 
         return map_pcd_ground, map_pcd_nonground, poses, world_pose
