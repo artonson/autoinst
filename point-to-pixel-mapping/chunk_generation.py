@@ -207,7 +207,11 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam
         #hidden point removal
         pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
         if hpr_masks is None:
-            visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe.points), camera=[0,0,0], radius_factor=hpr_radius)
+            hpr_bounds = np.array([25,25,25])
+            bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
+            pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
+            visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe_hpr.points), camera=[0,0,0], radius_factor=hpr_radius)
+            visible_indices = bound_indices[visible_indices]
         else:
             visible_indices = np.where(hpr_masks[i])[0]
         frame_indices = list(set(visible_indices) & set(chunk_indices))
