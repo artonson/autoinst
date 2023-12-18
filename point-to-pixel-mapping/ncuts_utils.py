@@ -28,8 +28,9 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 center_position = center_positions[sequence]
                 chunk_indices = indices[sequence]
 
-                cam_indices_global, hpr_mask_indices = get_indices_feature_reprojection(sampled_indices_global, first_id, adjacent_frames=(16,13)) 
-                
+                cam_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, first_id, adjacent_frames=(16,13)) 
+                tarl_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, first_id, adjacent_frames=(10,10)) 
+
                 pcd_chunk = pcd_nonground_chunks[sequence]
                 if ground_mode == False  : 
                         pcd_ground_chunk = pcd_ground_chunks[sequence]
@@ -40,7 +41,8 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 print(num_points_major, "points in downsampled chunk (major)")
 
-                tarl_features = tarl_features_per_patch(dataset, chunk_major, center_id, T_pcd, center_position, sampled_indices_global, chunk_size, major_voxel_size)
+                tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2)
+                no_tarl_mask = ~np.array(tarl_features).any(1)
 
                 cams = ["cam2", "cam3"]
 
@@ -66,6 +68,9 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 spatial_distance = cdist(points_major, points_major)
                 #dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
                 tarl_distance = cdist(tarl_features, tarl_features)
+                tarl_distance[no_tarl_mask] = 0
+                tarl_distance[:,no_tarl_mask] = 0
+                
                 sam_edge_weights, mask = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
                 spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
                 #dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
