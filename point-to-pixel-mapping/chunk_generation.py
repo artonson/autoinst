@@ -100,35 +100,27 @@ def indices_per_patch(T_pcd, center_positions, positions, first_position, global
 
     return patchwise_indices
 
-def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, global_indices, chunk_size, search_radius, adjacent_frames=11, min_z=4.4):
+def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, chunk_size, search_radius=0.1):
 
     concatenated_tarl_points = np.zeros((0, 3))
     concatenated_tarl_features = np.zeros((0, 96))
 
-    center_index = global_indices.index(center_id)
-
     num_points = np.asarray(pcd.points).shape[0]
 
-    for points_index in global_indices[max(0,center_index-adjacent_frames):min(len(global_indices)-1,center_index+adjacent_frames)]:
+    max_position = center_position + 0.5 * chunk_size
+    min_position = center_position - 0.5 * chunk_size
+
+    for points_index in tarl_indices:
         
         # Load the TARL features & points
         tarl_features = dataset.get_tarl_features(points_index)
         coords = dataset.get_point_cloud(points_index)
 
-        # Only take those within a certain range
-        norm = np.linalg.norm(coords, axis=1)
-        norm = np.logical_and(norm <= 25, norm >= 3)
-        tarl_features = tarl_features[norm]
-        coords = coords[norm]
-
         # Transform the coordinates 
         T_lidar2world = dataset.get_pose(points_index)
-        T_local2global_pcd = np.linalg.inv(T_pcd) @ T_lidar2world
-        coords = transform_pcd(coords, T_local2global_pcd)
+        T_local2global = np.linalg.inv(T_pcd) @ T_lidar2world
+        coords = transform_pcd(coords, T_local2global)
         
-        max_position = center_position + (0.5 * chunk_size)
-        min_position = center_position - (0.5 * np.array([chunk_size[0], chunk_size[1], min_z])) # min_z to cut away points below street -> artefacts
-
         mask = np.where(np.all(coords > min_position, axis=1) & np.all(coords < max_position, axis=1))[0]
 
         coords, tarl_features = coords[mask], tarl_features[mask]
@@ -139,19 +131,14 @@ def tarl_features_per_patch(dataset, pcd, center_id, T_pcd, center_position, glo
     tarl_tree = o3d.geometry.KDTreeFlann(tarl_pcd)
     tarl_features = np.zeros((num_points, 96))
 
-    i=0
-    for point in np.asarray(pcd.points):
+    for i, point in enumerate(np.asarray(pcd.points)):
         [_, idx, _] = tarl_tree.search_radius_vector_3d(point, search_radius)
-        features_in_voxel = concatenated_tarl_features[idx]
-        
-        increment = 1.0
-        while features_in_voxel.shape[0]==0:
-            increment += 0.2
-            [_, idx, _] = tarl_tree.search_radius_vector_3d(point, increment * search_radius)
-            features_in_voxel = concatenated_tarl_features[idx]
-
-        tarl_features[i,:] = np.mean(features_in_voxel, axis=0)
-        i+=1
+        features_in_radius = concatenated_tarl_features[idx]
+  
+        if not features_in_radius.shape[0]==0:
+            tarl_features[i,:] = np.mean(features_in_radius, axis=0)
+        else:
+            continue
 
     return tarl_features
 
