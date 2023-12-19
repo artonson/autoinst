@@ -29,7 +29,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 chunk_indices = indices[sequence]
 
                 cam_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, first_id, adjacent_frames=(16,13)) 
-                tarl_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, first_id, adjacent_frames=(10,10)) 
+                tarl_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, center_id, adjacent_frames=(10,10)) 
 
                 pcd_chunk = pcd_nonground_chunks[sequence]
                 if ground_mode == False  : 
@@ -43,6 +43,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2)
                 no_tarl_mask = ~np.array(tarl_features).any(1)
+                print("There are", np.sum(no_tarl_mask), "points without TARL features")
 
                 cams = ["cam2", "cam3"]
 
@@ -70,7 +71,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 tarl_distance = cdist(tarl_features, tarl_features)
                 tarl_distance[no_tarl_mask] = 0
                 tarl_distance[:,no_tarl_mask] = 0
-                
+
                 sam_edge_weights, mask = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
                 spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
                 #dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
