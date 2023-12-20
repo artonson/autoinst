@@ -3,7 +3,7 @@ import numpy as np
 from open3d.pipelines import registration
 from point_cloud_utils import get_pcd, get_subpcd, get_statistical_inlier_indices
 import sys
-lib_path = '/Users/laurenzheidrich/Documents/Studium/Hiwi_TUM.nosync/Programming/voxel_clustering_dependencies/build/patchworkpp'
+lib_path = '/Users/cedric/Lidar_Segmentation_Clustering/voxel_clustering_dependencies/build/patchworkpp/'
 sys.path.insert(0,lib_path)
 import pypatchworkpp
 
@@ -27,6 +27,14 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
     '''
     poses = []
     world_pose = np.eye(4)
+    
+    #pantopic_labels = []
+    panoptic_labels_nonground = []
+    panoptic_labels_ground = []
+    seg_labels_nonground = []
+    seg_labels_ground = []
+    instance_labels_nonground = []
+    instance_labels_ground = []
 
     if ground_segmentation is None:
 
@@ -35,6 +43,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
         for i in range(ind_start, ind_end):
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(dataset[i].point_cloud[:, :3])
+            
             pose = dataset.get_pose(i)
             poses.append(pose)
 
@@ -66,7 +75,13 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             PatchworkPLUSPLUS = pypatchworkpp.patchworkpp(params)
 
         for i in range(ind_start, ind_end):
+            
+            panoptic_labels =  dataset[i].panoptic_labels
+            semantic_labels =  dataset[i].semantic_labels
+            instance_labels =  dataset[i].instance_labels
+            
 
+            
             pcd = get_pcd(dataset[i].point_cloud)
             pose = dataset.get_pose(i)
             poses.append(pose)
@@ -77,6 +92,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
                 PatchworkPLUSPLUS.estimateGround(np.hstack((np.asarray(pcd.points),intensity.reshape(-1,1))))
                 ground_idcs = PatchworkPLUSPLUS.get_ground_idcs()
                 nonground_idcs = PatchworkPLUSPLUS.get_nonground_idcs()
+                
 
             elif ground_segmentation == 'open3d':
                 _, ground_idcs = pcd.segment_plane(distance_threshold=0.2, ransac_n=3, num_iterations=2000)
@@ -84,6 +100,15 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
             else:
                 raise ValueError('ground_segmentation must be either "None", "patchwork" or "open3d"')
 
+            panoptic_labels_nonground.append(panoptic_labels[nonground_idcs])
+            panoptic_labels_ground.append(panoptic_labels[ground_idcs])
+            
+            seg_labels_nonground.append(semantic_labels[nonground_idcs])
+            seg_labels_ground.append(semantic_labels[ground_idcs])
+            
+            instance_labels_ground.append(instance_labels[ground_idcs])
+            instance_labels_nonground.append(instance_labels[nonground_idcs])
+            
             pcd_ground = get_subpcd(pcd, ground_idcs) 
             pcd_nonground = get_subpcd(pcd, nonground_idcs)
 
@@ -105,4 +130,8 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
         map_pcd_ground.normals = o3d.utility.Vector3dVector([])
         map_pcd_nonground.normals = o3d.utility.Vector3dVector([])
 
-        return map_pcd_ground, map_pcd_nonground, poses, world_pose
+        labels = {'seg_ground':seg_labels_ground,'seg_nonground':seg_labels_nonground,
+                  'instance_ground':instance_labels_ground,'instance_nonground':instance_labels_nonground,
+                  'panoptic_ground':panoptic_labels_ground,'panoptic_nonground':panoptic_labels_nonground}
+        
+        return map_pcd_ground, map_pcd_nonground, poses, world_pose, labels

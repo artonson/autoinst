@@ -18,7 +18,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         center_positions,center_ids, 
                         positions, first_position, sampled_indices_global, chunk_size, 
                         major_voxel_size=0.35, alpha=1, beta=0, gamma=0, 
-                        theta=0,proximity_threshold=1, ncuts_threshold=0.08,
+                        theta=0,proximity_threshold=1, ncuts_threshold=0.03,
                         out_folder='test_data/',ground_mode=True,sequence=None,
                         patchwise_indices=None):
         
@@ -117,12 +117,12 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         cut_hight = get_subpcd(ground_inliers, np.where(np.asarray(ground_inliers.points)[:,2] < (mean_hight + 0.2))[0])
                         cut_hight.paint_uniform_color([0, 0, 0])
                         merged_chunk = pcd_chunk + cut_hight
-                else : 
+                else :   
                         merged_chunk = pcd_chunk 
 
                 index_file = str(center_id).zfill(6) + '.pcd'
                 file = os.path.join(out_folder, index_file)
-                return merged_chunk,file
+                return merged_chunk,file, pcd_chunk
                
 def get_merge_pcds(out_folder_ncuts):
         point_clouds = []

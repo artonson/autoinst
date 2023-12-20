@@ -125,10 +125,19 @@ def color_pcd_by_labels(pcd, labels):
     
     colors = generate_random_colors(500)
     pcd_colored = copy.deepcopy(pcd)
-    pcd_colored.colors = o3d.utility.Vector3dVector(np.zeros(np.asarray(pcd.points).shape))
+    pcd_colors = np.zeros(np.asarray(pcd.points).shape)
+    unique_labels = list(np.unique(labels)) 
 
-    for i in range(len(pcd_colored.points)):
-        if labels[i] != (-1):
-            pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
 
+    #for i in range(len(pcd_colored.points)):
+    for i in unique_labels:
+        if i == -1 : 
+            continue
+        idcs = np.where(labels == i)
+        idcs = idcs[0]
+        pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
+        
+        #if labels[i] != (-1):
+        #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
+    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/ 255)
     return pcd_colored

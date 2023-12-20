@@ -9,6 +9,7 @@ from point_to_pixels import point_to_pixel
 import copy
 import cv2
 import scipy
+from visualization_utils import color_pcd_by_labels
 
 def subsample_positions(positions, voxel_size=1):
 
@@ -40,7 +41,7 @@ def subsample_positions(positions, voxel_size=1):
 
     return subsampled_indices
 
-def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap):
+def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap,labels=None,ground=False):
 
     points = np.asarray(pcd.points)
 
@@ -49,7 +50,11 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
     center_pos = []
     center_ids = []
     chunk_bounds = []
-
+    
+    if labels != None : 
+     kitti_out = {'panoptic':[],'semantic':[],'instance':[]}
+    else : 
+        kitti_out = None 
     distance = 0
     last_position = None
     for (position, index) in zip(positions, indices):
@@ -63,13 +68,28 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
 
                 max_position = pos_pcd + (0.5 * R)
                 min_position = pos_pcd - (0.5 * R) 
+                
 
                 ids = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
                 pcd_cut = pcd.select_by_index(ids)
 
                 inlier_indices = get_statistical_inlier_indices(pcd_cut)
                 pcd_cut_final = get_subpcd(pcd_cut, inlier_indices)
-        
+                
+                
+                if labels != None : 
+                    if ground == False :
+                        kitti_out['panoptic'].append(labels['panoptic_nonground'][ids][inlier_indices])
+                        kitti_out['semantic'].append(labels['seg_nonground'][ids][inlier_indices])
+                        kitti_out['instance'].append(labels['instance_nonground'][ids][inlier_indices])
+                    else : 
+                        kitti_out['panoptic'].append(labels['panoptic_ground'][ids][inlier_indices])
+                        kitti_out['semantic'].append(labels['seg_ground'][ids][inlier_indices])
+                        kitti_out['instance'].append(labels['instance_ground'][ids][inlier_indices])
+
+                #pcd = color_pcd_by_labels(pcd_cut_final,labels['panoptic_nonground'][ids][inlier_indices])
+                #o3d.visualization.draw_geometries([pcd])
+                
                 pcd_chunks.append(pcd_cut_final)      
                 chunk_indices.append(ids)
                 center_pos.append(pos_pcd)
@@ -79,7 +99,7 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
                 distance = 0
         last_position = position
 
-    return pcd_chunks, chunk_indices, center_pos, center_ids, chunk_bounds
+    return pcd_chunks, chunk_indices, center_pos, center_ids, chunk_bounds, kitti_out
 
 def indices_per_patch(T_pcd, center_positions, positions, first_position, global_indices, chunk_size):
 

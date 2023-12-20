@@ -41,7 +41,7 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
     if os.path.exists(out_folder) == False : 
             os.makedirs(out_folder)
     
-    pcd_ground, pcd_nonground, all_poses, T_pcd = aggregate_pointcloud(dataset, ind_start, 
+    pcd_ground, pcd_nonground, all_poses, T_pcd,kitti_labels = aggregate_pointcloud(dataset, ind_start, 
                                                 ind_end, ground_segmentation=ground_segmentation_method, 
                                                 icp=icp)
 
@@ -52,7 +52,14 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
     o3d.io.write_point_cloud(f'{out_folder}non_ground{sequence_num}.pcd', pcd_nonground, write_ascii=False, compressed=False, print_progress=False)
     
     np.savez(f'{out_folder}all_poses.npz', all_poses=all_poses, T_pcd=T_pcd)
-
+    np.savez(f'{out_folder}kitti_labels.npz',seg_ground=np.vstack(kitti_labels['seg_ground']),
+            seg_nonground=np.vstack(kitti_labels['seg_nonground']),
+            instance_ground=np.vstack(kitti_labels['instance_ground']),
+            instance_nonground=np.vstack(kitti_labels['instance_nonground']),
+            panoptic_ground=np.vstack(kitti_labels['panoptic_ground']),
+            panoptic_nonground=np.vstack(kitti_labels['panoptic_nonground']))
+    
+    return kitti_labels
     
 
 
@@ -69,14 +76,28 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     pcd_nonground = o3d.io.read_point_cloud(f'{out_folder}non_ground{sequence_num}.pcd')
 
     # Downsampling
-    if ground_mode is not None : 
-        pcd_ground_minor = pcd_ground.voxel_down_sample(voxel_size=minor_voxel_size)
-    else : 
-        pcd_ground_minor = None 
     
-    pcd_nonground_minor = pcd_nonground.voxel_down_sample(voxel_size=minor_voxel_size)
+    #pcd_ground_minor = pcd_ground.voxel_down_sample(voxel_size=minor_voxel_size)
+    pcd_ground_minor, trace_ground, _ = pcd_ground.voxel_down_sample_and_trace(minor_voxel_size, pcd_ground.get_min_bound(), 
+                                                                        pcd_ground.get_max_bound(), False)
 
-    return pcd_ground_minor, pcd_nonground_minor, all_poses, T_pcd, first_position
+    
+    #pcd_nonground_minor = pcd_nonground.voxel_down_sample(voxel_size=minor_voxel_size)
+    pcd_nonground_minor, trace, _ = pcd_nonground.voxel_down_sample_and_trace(minor_voxel_size, pcd_nonground.get_min_bound(), 
+                                                                        pcd_nonground.get_max_bound(), False)
+
+    
+    
+    kitti_data = {}
+    with np.load(f'{out_folder}kitti_labels.npz') as data : 
+        kitti_data['panoptic_ground'] = data['panoptic_ground'][trace_ground]
+        kitti_data['panoptic_nonground'] = data['panoptic_nonground'][trace]
+        kitti_data['seg_ground'] = data['seg_ground'][trace_ground]
+        kitti_data['seg_nonground'] = data['seg_nonground'][trace]
+        kitti_data['instance_ground'] = data['instance_ground'][trace_ground]
+        kitti_data['instance_nonground'] = data['instance_nonground'][trace]
+
+    return pcd_ground_minor, pcd_nonground_minor,pcd_ground,pcd_nonground, all_poses, T_pcd, first_position,kitti_data
 
 def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0):
 
@@ -95,12 +116,16 @@ def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0):
 
 def chunk_and_downsample_point_clouds(pcd_nonground_minor, pcd_ground_minor, T_pcd, positions, first_position, 
                                     sampled_indices_global, chunk_size=np.array([25, 25, 25]), 
-                                    overlap=3, major_voxel_size=0.35):
+                                    overlap=3, major_voxel_size=0.35,kitti_labels=None):
     # Creating chunks
-    pcd_nonground_chunks, indices, center_positions, center_ids, chunk_bounds = chunks_from_pointcloud(pcd_nonground_minor, T_pcd, positions, first_position, sampled_indices_global, chunk_size, overlap)
-    pcd_ground_chunks, indices_ground, _, _, _ = chunks_from_pointcloud(pcd_ground_minor, T_pcd, positions, first_position, sampled_indices_global, chunk_size, overlap)
+    pcd_nonground_chunks, indices, center_positions, center_ids, chunk_bounds, kitti_out = chunks_from_pointcloud(pcd_nonground_minor, T_pcd, positions, 
+                                                                            first_position, sampled_indices_global, chunk_size, overlap,labels=kitti_labels)
+    
+    pcd_ground_chunks, indices_ground, _, _, _ , kitti_out_ground = chunks_from_pointcloud(pcd_ground_minor, T_pcd, positions, 
+                                                        first_position, sampled_indices_global, chunk_size, overlap,labels=kitti_labels,ground=True)
         
     # Downsampling the chunks and printing information
+    kitti_labels = {'nonground':kitti_out,'ground':kitti_out_ground}
     pcd_nonground_chunks_major_downsampling = []
     pcd_ground_chunks_major_downsampling = []
     for (ground,nonground) in zip(pcd_ground_chunks,pcd_nonground_chunks):
@@ -109,9 +134,10 @@ def chunk_and_downsample_point_clouds(pcd_nonground_minor, pcd_ground_minor, T_p
         print("Downsampled from", np.asarray(nonground.points).shape, "to", np.asarray(downsampled_nonground.points).shape, "points (non-ground)")
         print("Downsampled from", np.asarray(ground.points).shape, "to", np.asarray(downsampled_ground.points).shape, "points (ground)")
         
+        
         pcd_nonground_chunks_major_downsampling.append(downsampled_nonground)
         pcd_ground_chunks_major_downsampling.append(downsampled_ground)
 
     return pcd_nonground_chunks,pcd_ground_chunks,pcd_nonground_chunks_major_downsampling, \
         pcd_ground_chunks_major_downsampling, \
-        indices, indices_ground,center_positions, center_ids, chunk_bounds
+        indices, indices_ground,center_positions, center_ids, chunk_bounds, kitti_labels
