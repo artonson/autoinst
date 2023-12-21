@@ -7,6 +7,7 @@ import numpy as np
 import open3d as o3d
 from aggregate_pointcloud import aggregate_pointcloud
 from chunk_generation import subsample_positions, chunks_from_pointcloud
+from visualization_utils import * 
 
 def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred_medium", 
                                 correct_scan_calibration=True, range_min=3, range_max=25,ncuts_mode=True):
@@ -83,21 +84,30 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
 
     
     #pcd_nonground_minor = pcd_nonground.voxel_down_sample(voxel_size=minor_voxel_size)
-    pcd_nonground_minor, trace, _ = pcd_nonground.voxel_down_sample_and_trace(minor_voxel_size, pcd_nonground.get_min_bound(), 
+    pcd_nonground_minor, trace_nonground, _ = pcd_nonground.voxel_down_sample_and_trace(minor_voxel_size, pcd_nonground.get_min_bound(), 
                                                                         pcd_nonground.get_max_bound(), False)
 
+    #flattened_trace = trace_nonground.flatten()
+    #trace_nonground = np.unique(flattened_trace)
+    
+    #flattened_traceground = trace_ground.flatten()
+    #trace_ground= np.unique(flattened_traceground)
     
     
     kitti_data = {}
     with np.load(f'{out_folder}kitti_labels.npz') as data : 
         kitti_data['panoptic_ground'] = data['panoptic_ground'][trace_ground]
-        kitti_data['panoptic_nonground'] = data['panoptic_nonground'][trace]
+        kitti_data['panoptic_nonground'] = data['panoptic_nonground'][trace_nonground]
         kitti_data['seg_ground'] = data['seg_ground'][trace_ground]
-        kitti_data['seg_nonground'] = data['seg_nonground'][trace]
+        kitti_data['seg_nonground'] = data['seg_nonground'][trace_nonground]
         kitti_data['instance_ground'] = data['instance_ground'][trace_ground]
-        kitti_data['instance_nonground'] = data['instance_nonground'][trace]
-
-    return pcd_ground_minor, pcd_nonground_minor,pcd_ground,pcd_nonground, all_poses, T_pcd, first_position,kitti_data
+        kitti_data['instance_nonground'] = data['instance_nonground'][trace_nonground]
+        
+    #o3d.visualization.draw_geometries([color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])])
+    panoptic_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])
+    _, kitti_data['panoptic_nonground'] = np.unique(np.asarray(panoptic_non_ground.colors), axis=0, return_inverse=True)
+    
+    return pcd_ground_minor, pcd_nonground_minor, all_poses, T_pcd, first_position,kitti_data
 
 def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0):
 

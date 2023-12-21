@@ -49,7 +49,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 sam_features_minor, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, 
                                                                         T_pcd, cam_indices_global, cams, cam_id=0, 
-                                                                        hpr_radius=2000, dino=False, rm_perp=0.0)
+                                                                        hpr_radius=1000, dino=False, rm_perp=0.0)
                 #point2dino
                 #dinov2_features_minor = dinov2_mean(point2dino)
                 
@@ -114,7 +114,8 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         inliers = get_statistical_inlier_indices(pcd_ground_chunk)
                         ground_inliers = get_subpcd(pcd_ground_chunk, inliers)
                         mean_hight = np.mean(np.asarray(ground_inliers.points)[:,2])
-                        cut_hight = get_subpcd(ground_inliers, np.where(np.asarray(ground_inliers.points)[:,2] < (mean_hight + 0.2))[0])
+                        in_idcs = np.where(np.asarray(ground_inliers.points)[:,2] < (mean_hight + 0.2))[0]
+                        cut_hight = get_subpcd(ground_inliers, in_idcs)
                         cut_hight.paint_uniform_color([0, 0, 0])
                         merged_chunk = pcd_chunk + cut_hight
                 else :   
@@ -122,7 +123,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 index_file = str(center_id).zfill(6) + '.pcd'
                 file = os.path.join(out_folder, index_file)
-                return merged_chunk,file, pcd_chunk
+                return merged_chunk,file, pcd_chunk, cut_hight, in_idcs
                
 def get_merge_pcds(out_folder_ncuts):
         point_clouds = []
@@ -132,7 +133,7 @@ def get_merge_pcds(out_folder_ncuts):
         files.sort()
 
         # Filter files with a .pcd extension
-        pcd_files = [file for file in files if file.endswith(".pcd")][:3]
+        pcd_files = [file for file in files if file.endswith(".pcd")]
         print(pcd_files)
         # Load each point cloud and append to the list
         for pcd_file in pcd_files:
