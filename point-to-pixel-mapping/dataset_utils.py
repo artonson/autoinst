@@ -107,6 +107,23 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     panoptic_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])
     _, kitti_data['panoptic_nonground'] = np.unique(np.asarray(panoptic_non_ground.colors), axis=0, return_inverse=True)
     
+    panoptic_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_ground'])
+    _, kitti_data['panoptic_ground'] = np.unique(np.asarray(panoptic_ground.colors), axis=0, return_inverse=True)
+    
+    instance_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['instance_nonground'])
+    _, kitti_data['instance_nonground'] = np.unique(np.asarray(instance_non_ground.colors), axis=0, return_inverse=True)
+    
+    instance_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['instance_ground'])
+    _, kitti_data['instance_ground'] = np.unique(np.asarray(instance_ground.colors), axis=0, return_inverse=True)
+    
+    seg_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['seg_ground'])
+    _, kitti_data['seg_ground'] = np.unique(np.asarray(seg_ground.colors), axis=0, return_inverse=True)
+    
+    seg_nonground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['seg_nonground'])
+    _, kitti_data['seg_nonground'] = np.unique(np.asarray(seg_nonground.colors), axis=0, return_inverse=True)
+    
+    
+    
     return pcd_ground_minor, pcd_nonground_minor, all_poses, T_pcd, first_position,kitti_data
 
 def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0):

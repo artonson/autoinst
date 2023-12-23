@@ -13,7 +13,7 @@ class Metrics:
         self.name = name
         self.min_points = 200
         self.background_label = 0
-        self.mode = 'not_normal'
+        self.mode = 'normal'
         self.calc_ap = True
 
         # ap stuff
@@ -50,7 +50,10 @@ class Metrics:
                     confs=confs)
 
         self.preds_total += unique_preds
-        self.unique_gts += np.unique(gt_labels).shape[0]
+        unique_gt_num = np.unique(gt_labels).shape[0]
+        if 0 in np.unique(gt_labels):
+            unique_gt_num  = unique_gt_num- 1 
+        self.unique_gts += unique_gt_num
         self.get_metrics()
         return pred_labels
 
@@ -82,6 +85,8 @@ class Metrics:
         cur_score = np.ones(len(unique_gt_labels)) * (-float("inf"))
 
         for gti, gt_label in enumerate(unique_gt_labels):
+            if gt_label == self.background_label:
+                continue
             found_match = False
             gt_indices = np.where(ins_labels == gt_label)
             gt_indices = gt_indices[0]
@@ -127,6 +132,9 @@ class Metrics:
             pred_indices = np.where(pred == pred_id)
             pred_indices = pred_indices[0]
             for gt_id in unique_gt_labels:
+                if gt_id == 0 : 
+                    found_gt = True 
+                    break 
                 gt_indices = np.where(ins_labels == gt_id)
                 gt_indices = gt_indices[0]
                 overlap = self.iou(pred_indices, gt_indices)

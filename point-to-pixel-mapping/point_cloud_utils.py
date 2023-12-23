@@ -250,6 +250,20 @@ def merge_chunks_unite_instances(chunks: list, icp=False):
 
     return merge
 
+def merge_unite_gt(chunks):
+    last_chunk = chunks[0] 
+    merge = o3d.geometry.PointCloud()
+    merge += last_chunk
+
+    for new_chunk in chunks[1:]:
+        merge += new_chunk
+    
+    merge.remove_duplicated_points()
+    return merge 
+    
+    
+
+
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
     return vector / np.linalg.norm(vector)

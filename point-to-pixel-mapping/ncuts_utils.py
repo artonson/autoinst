@@ -43,7 +43,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2)
                 no_tarl_mask = ~np.array(tarl_features).any(1)
-                print("There are", np.sum(no_tarl_mask), "points without TARL features")
+                #print("There are", np.sum(no_tarl_mask), "points without TARL features")
 
                 cams = ["cam2", "cam3"]
 
@@ -77,7 +77,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 #dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
                 tarl_edge_weights = mask * np.exp(-theta * tarl_distance)
 
-                A = sam_edge_weights
+                A = tarl_edge_weights
                 print("Adjacency Matrix built")
 
                 # Remove isolated points

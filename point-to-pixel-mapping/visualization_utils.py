@@ -9,12 +9,25 @@ import copy
 from point_cloud_utils import get_pcd
 from point_to_pixels import pixel_to_point_from_point_to_pixel
 
-def generate_random_colors(N):
-    colors = []
-    for _ in range(N):
-        colors.append([random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)])
 
-    return colors
+
+def generate_random_colors_map(N, seed=0):
+    random.seed(42)
+    colors = set()  # Use a set to store unique colors
+    while len(colors) < N:  # Keep generating colors until we have N unique ones
+        # Generate a random color and add it to the set
+        colors.add((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+
+    return list(colors)  # Convert the set to a list before returning
+
+def generate_random_colors(N, seed=0):
+    colors = set()  # Use a set to store unique colors
+    while len(colors) < N:  # Keep generating colors until we have N unique ones
+        # Generate a random color and add it to the set
+        colors.add((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+
+    return list(colors)  # Convert the set to a list before returning
+
 
 
 def unite_pcd_and_img(point_to_pixel_matches: dict, img, label_map=None, is_instance = False, coloring='depth', radius=2):
@@ -121,12 +134,15 @@ def visualize_associations_in_img(_label, associations):
     return label
 
 
-def color_pcd_by_labels(pcd, labels):
+def color_pcd_by_labels(pcd, labels,colors=None):
     
-    colors = generate_random_colors(500)
+    if colors == None : 
+        colors = generate_random_colors(500)
     pcd_colored = copy.deepcopy(pcd)
     pcd_colors = np.zeros(np.asarray(pcd.points).shape)
     unique_labels = list(np.unique(labels)) 
+    
+    background_color = np.array([0,0,0])
 
 
     #for i in range(len(pcd_colored.points)):
@@ -135,9 +151,14 @@ def color_pcd_by_labels(pcd, labels):
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
-        pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
+        if i == 0 : 
+            pcd_colors[idcs] = background_color
+        else : 
+            pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
         
         #if labels[i] != (-1):
         #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
     pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/ 255)
     return pcd_colored
+
+
