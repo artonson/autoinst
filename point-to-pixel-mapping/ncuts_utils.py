@@ -59,12 +59,12 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 sam_features_major = kDTree_1NN_feature_reprojection(sam_features_major, chunk_major, sam_features_minor, chunk_minor)
                 #dinov2_features_major = kDTree_1NN_feature_reprojection(dinov2_features_major, chunk_major, dinov2_features_minor, chunk_minor)
 
-                zero_rows = np.sum(~np.array(sam_features_major).any(1))
-                ratio = zero_rows / num_points_major
+                #zero_rows = np.sum(~np.array(sam_features_major).any(1))
+                #ratio = zero_rows / num_points_major
 
-                if ratio > 0.3:
-                        print("The ratio of points without image-based features is", ratio, ". Skipping this chunk.")
-                        return
+                #if ratio > 0.3:
+                #        print("The ratio of points without image-based features is", ratio, ". Skipping this chunk.")
+                #        return
 
                 spatial_distance = cdist(points_major, points_major)
                 #dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
@@ -75,9 +75,10 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 sam_edge_weights, mask = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
                 spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
                 #dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
+                mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
                 tarl_edge_weights = mask * np.exp(-theta * tarl_distance)
 
-                A = tarl_edge_weights
+                A = tarl_edge_weights * spatial_edge_weights
                 print("Adjacency Matrix built")
 
                 # Remove isolated points
@@ -86,7 +87,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 num_points_major = np.asarray(chunk_major.points).shape[0]
 
                 print("Start of normalized Cuts")
-                grouped_labels = normalized_cut(A, np.arange(num_points_major), T = ncuts_threshold)
+                grouped_labels = normalized_cut(A, np.arange(num_points_major), T = 0.03)
                 num_groups = len(grouped_labels)
                 print("There are", num_groups, "cut regions")
 

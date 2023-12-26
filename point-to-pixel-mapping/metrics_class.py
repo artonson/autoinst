@@ -1,4 +1,10 @@
 import numpy as np
+import instanseg 
+from instanseg.metrics import full_statistics
+
+
+instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
+instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
 
 def get_average(l):
         return sum(l)/len(l)
@@ -30,16 +36,17 @@ class Metrics:
 
     def update_stats(self, pred_labels, gt_labels, confs=[]):
         pred_labels = self.filter_labels(pred_labels)
-        if self.mode == 'normal':
-            self.tps += self.calc_tp(pred_labels, gt_labels)
-            unique_preds = np.unique(pred_labels).shape[0]
-        else:
-            tps, unique_preds = self.calc_modified_tp(pred_labels, gt_labels)
-            self.tps += tps
+        self.calculate_full_stats(pred_labels,gt_labels)
+        #if self.mode == 'normal':
+        #    self.tps += self.calc_tp(pred_labels, gt_labels)
+        #    unique_preds = np.unique(pred_labels).shape[0]
+        #else:
+        #    tps, unique_preds = self.calc_modified_tp(pred_labels, gt_labels)
+        #    self.tps += tps
 
-        unique_preds = np.unique(pred_labels).shape[0]
-        if 0 in np.unique(pred_labels):
-            unique_preds = unique_preds - 1
+        #unique_preds = np.unique(pred_labels).shape[0]
+        #if 0 in np.unique(pred_labels):
+        #    unique_preds = unique_preds - 1
 
         if self.calc_ap :
             for overlap in self.overlaps:
@@ -49,12 +56,12 @@ class Metrics:
                     cur_thresh=overlap,
                     confs=confs)
 
-        self.preds_total += unique_preds
-        unique_gt_num = np.unique(gt_labels).shape[0]
-        if 0 in np.unique(gt_labels):
-            unique_gt_num  = unique_gt_num- 1 
-        self.unique_gts += unique_gt_num
-        self.get_metrics()
+        #self.preds_total += unique_preds
+        #unique_gt_num = np.unique(gt_labels).shape[0]
+        #if 0 in np.unique(gt_labels):
+        #    unique_gt_num  = unique_gt_num- 1 
+        #self.unique_gts += unique_gt_num
+        #self.get_metrics()
         return pred_labels
 
     def process_data_ap(
@@ -63,7 +70,8 @@ class Metrics:
             pred,
             cur_thresh=0.5,
             confs=[]):
-
+        
+        
         unique_gt_labels = list(np.unique(ins_labels))
         unique_pred_labels = list(np.unique(pred))
         pred_used = set()
@@ -351,3 +359,15 @@ class Metrics:
 
     def get_f1(self, precision, recall):
         return 2 * precision * recall / (precision + recall)
+    
+    def calculate_full_stats(self,pred_indices,gt_indices):
+        out = full_statistics(pred_indices,gt_indices,instanseg.metrics.iou,'iou')
+        print(out)
+        
+        
+        
+        
+        
+
+if __name__ == "__main__":
+    metrics_class = Metrics('test')

@@ -48,12 +48,13 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
 
     
     # Saving point clouds and poses
+    sequence_num = str(sequence_num)
     if pcd_ground is not None : 
         o3d.io.write_point_cloud(f'{out_folder}ground{sequence_num}.pcd', pcd_ground, write_ascii=False, compressed=False, print_progress=False)
     o3d.io.write_point_cloud(f'{out_folder}non_ground{sequence_num}.pcd', pcd_nonground, write_ascii=False, compressed=False, print_progress=False)
     
-    np.savez(f'{out_folder}all_poses.npz', all_poses=all_poses, T_pcd=T_pcd)
-    np.savez(f'{out_folder}kitti_labels.npz',seg_ground=np.vstack(kitti_labels['seg_ground']),
+    np.savez(f'{out_folder}all_poses_' + str(sequence_num) + '.npz', all_poses=all_poses, T_pcd=T_pcd)
+    np.savez(f'{out_folder}kitti_labels_' + str(sequence_num) +  '.npz',seg_ground=np.vstack(kitti_labels['seg_ground']),
             seg_nonground=np.vstack(kitti_labels['seg_nonground']),
             instance_ground=np.vstack(kitti_labels['instance_ground']),
             instance_nonground=np.vstack(kitti_labels['instance_nonground']),
@@ -66,7 +67,7 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
 
 def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=0.05,ground_mode=True):
     # Load saved data
-    with np.load(f'{out_folder}all_poses.npz') as data:
+    with np.load(f'{out_folder}all_poses_{sequence_num}.npz') as data:
         all_poses = data['all_poses']
         T_pcd = data['T_pcd']
         first_position = T_pcd[:3, 3]
@@ -95,7 +96,7 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     
     
     kitti_data = {}
-    with np.load(f'{out_folder}kitti_labels.npz') as data : 
+    with np.load(f'{out_folder}kitti_labels_' + str(sequence_num) + '.npz') as data : 
         kitti_data['panoptic_ground'] = data['panoptic_ground'][trace_ground]
         kitti_data['panoptic_nonground'] = data['panoptic_nonground'][trace_nonground]
         kitti_data['seg_ground'] = data['seg_ground'][trace_ground]
