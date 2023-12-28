@@ -11,6 +11,7 @@ import cv2
 import scipy
 from visualization_utils import color_pcd_by_labels
 
+'''
 def subsample_positions(positions, voxel_size=1):
 
     min_x = min(p[0] for p in positions)
@@ -40,6 +41,26 @@ def subsample_positions(positions, voxel_size=1):
     subsampled_indices = np.sort(subsampled_indices)
 
     return subsampled_indices
+'''
+def subsample_positions(positions, voxel_size=1):
+    positions = np.array(positions)
+    min_vals = positions.min(axis=0)
+    max_vals = positions.max(axis=0)
+
+    centers = [np.arange(min_val, max_val + voxel_size, voxel_size) for min_val, max_val in zip(min_vals, max_vals)]
+    grid = np.stack(np.meshgrid(*centers, indexing='ij'), -1).reshape(-1, 3)
+
+    closest_pose_indices = np.argmin(cdist(grid, positions), axis=1)
+    unique_indices = np.unique(closest_pose_indices)
+
+    subsampled_indices = []
+    for index in unique_indices:
+        closest_pose = positions[index]
+        distance = np.abs(grid[closest_pose_indices == index] - closest_pose)
+        if np.all(distance < 0.5 * voxel_size, axis=1).any():
+            subsampled_indices.append(index)
+
+    return np.sort(subsampled_indices)
 
 def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap,labels=None,ground=False):
 
