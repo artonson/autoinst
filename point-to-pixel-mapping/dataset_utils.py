@@ -37,7 +37,7 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
     return dataset
 
 def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentation_method="patchwork", icp=True, 
-                                minor_voxel_size=0.05, major_voxel_size=0.35, out_folder=None, sequence_num=7):
+                                minor_voxel_size=0.05, major_voxel_size=0.35, out_folder=None, sequence_num=7,cur_idx=0):
     
     if os.path.exists(out_folder) == False : 
             os.makedirs(out_folder)
@@ -50,11 +50,11 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
     # Saving point clouds and poses
     sequence_num = str(sequence_num)
     if pcd_ground is not None : 
-        o3d.io.write_point_cloud(f'{out_folder}ground{sequence_num}.pcd', pcd_ground, write_ascii=False, compressed=False, print_progress=False)
-    o3d.io.write_point_cloud(f'{out_folder}non_ground{sequence_num}.pcd', pcd_nonground, write_ascii=False, compressed=False, print_progress=False)
+        o3d.io.write_point_cloud(f'{out_folder}ground{sequence_num}_{cur_idx}.pcd', pcd_ground, write_ascii=False, compressed=False, print_progress=False)
+    o3d.io.write_point_cloud(f'{out_folder}non_ground{sequence_num}_{cur_idx}.pcd', pcd_nonground, write_ascii=False, compressed=False, print_progress=False)
     
-    np.savez(f'{out_folder}all_poses_' + str(sequence_num) + '.npz', all_poses=all_poses, T_pcd=T_pcd)
-    np.savez(f'{out_folder}kitti_labels_' + str(sequence_num) +  '.npz',seg_ground=np.vstack(kitti_labels['seg_ground']),
+    np.savez(f'{out_folder}all_poses_' + str(sequence_num) + '_' + str(cur_idx) + '.npz', all_poses=all_poses, T_pcd=T_pcd)
+    np.savez(f'{out_folder}kitti_labels_' + str(sequence_num) + '_' + str(cur_idx) +  '.npz',seg_ground=np.vstack(kitti_labels['seg_ground']),
             seg_nonground=np.vstack(kitti_labels['seg_nonground']),
             instance_ground=np.vstack(kitti_labels['instance_ground']),
             instance_nonground=np.vstack(kitti_labels['instance_nonground']),
@@ -65,69 +65,113 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
     
 
 
-def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=0.05,ground_mode=True):
+def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=0.05,ground_mode=True,cur_idx=0):
     # Load saved data
-    with np.load(f'{out_folder}all_poses_{sequence_num}.npz') as data:
+    with np.load(f'{out_folder}all_poses_{sequence_num}_{cur_idx}.npz') as data:
         all_poses = data['all_poses']
         T_pcd = data['T_pcd']
         first_position = T_pcd[:3, 3]
 
     # Load point clouds
     if ground_mode is not None : 
-        pcd_ground = o3d.io.read_point_cloud(f'{out_folder}ground{sequence_num}.pcd')
-    pcd_nonground = o3d.io.read_point_cloud(f'{out_folder}non_ground{sequence_num}.pcd')
+        pcd_ground = o3d.io.read_point_cloud(f'{out_folder}ground{sequence_num}_{cur_idx}.pcd')
+    pcd_nonground = o3d.io.read_point_cloud(f'{out_folder}non_ground{sequence_num}_{cur_idx}.pcd')
 
     # Downsampling
+    kitti_data1 = {}
+    with np.load(f'{out_folder}kitti_labels_' + str(sequence_num) + '_' + str(cur_idx) + '.npz') as data : 
+        kitti_data1['panoptic_ground'] = data['panoptic_ground']
+        kitti_data1['panoptic_nonground'] = data['panoptic_nonground']
+        kitti_data1['seg_ground'] = data['seg_ground']
+        kitti_data1['seg_nonground'] = data['seg_nonground']
+        kitti_data1['instance_ground'] = data['instance_ground']
+        kitti_data1['instance_nonground'] = data['instance_nonground']
     
     #pcd_ground_minor = pcd_ground.voxel_down_sample(voxel_size=minor_voxel_size)
-    pcd_ground_minor, trace_ground, _ = pcd_ground.voxel_down_sample_and_trace(minor_voxel_size, pcd_ground.get_min_bound(), 
-                                                                        pcd_ground.get_max_bound(), False)
-
+    #pcd_ground_minor, trace_ground, _ = pcd_ground.voxel_down_sample_and_trace(minor_voxel_size, pcd_ground.get_min_bound(), 
+    #                                                                    pcd_ground.get_max_bound(), False)
     
-    #pcd_nonground_minor = pcd_nonground.voxel_down_sample(voxel_size=minor_voxel_size)
-    pcd_nonground_minor, trace_nonground, _ = pcd_nonground.voxel_down_sample_and_trace(minor_voxel_size, pcd_nonground.get_min_bound(), 
-                                                                        pcd_nonground.get_max_bound(), False)
-
-    #flattened_trace = trace_nonground.flatten()
-    #trace_nonground = np.unique(flattened_trace)
-    
-    #flattened_traceground = trace_ground.flatten()
-    #trace_ground= np.unique(flattened_traceground)
-    
-    
-    kitti_data = {}
-    with np.load(f'{out_folder}kitti_labels_' + str(sequence_num) + '.npz') as data : 
-        kitti_data['panoptic_ground'] = data['panoptic_ground'][trace_ground]
-        kitti_data['panoptic_nonground'] = data['panoptic_nonground'][trace_nonground]
-        kitti_data['seg_ground'] = data['seg_ground'][trace_ground]
-        kitti_data['seg_nonground'] = data['seg_nonground'][trace_nonground]
-        kitti_data['instance_ground'] = data['instance_ground'][trace_ground]
-        kitti_data['instance_nonground'] = data['instance_nonground'][trace_nonground]
-        
+    panoptic_non_ground_orig = color_pcd_by_labels(pcd_nonground,kitti_data1['panoptic_nonground'])
+    panoptic_ground_orig = color_pcd_by_labels(pcd_ground,kitti_data1['panoptic_ground'])
+    instance_non_ground_orig = color_pcd_by_labels(pcd_nonground,kitti_data1['instance_nonground'])
+    instance_ground_orig = color_pcd_by_labels(pcd_ground,kitti_data1['instance_ground'])
+    semantic_non_ground_orig = color_pcd_by_labels(pcd_nonground,kitti_data1['seg_nonground'])
+    semantic_ground_orig = color_pcd_by_labels(pcd_ground,kitti_data1['seg_ground'])
+    #o3d.visualization.draw_geometries([panoptic_non_ground_orig])
     #o3d.visualization.draw_geometries([color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])])
-    panoptic_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])
+    kitti_data = {}
+    #panoptic_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])
+    
+    panoptic_non_ground, trace_ground, _ = panoptic_non_ground_orig.voxel_down_sample_and_trace(minor_voxel_size, panoptic_non_ground_orig.get_min_bound(), 
+                                                                     panoptic_non_ground_orig.get_max_bound(), False)
+
     _, kitti_data['panoptic_nonground'] = np.unique(np.asarray(panoptic_non_ground.colors), axis=0, return_inverse=True)
     
-    panoptic_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_ground'])
+    #panoptic_ground = color_pcd_by_labels([pcd_nonground_minor],kitti_data['panoptic_ground'])
+    panoptic_ground, trace_ground, _ = panoptic_ground_orig.voxel_down_sample_and_trace(minor_voxel_size, panoptic_ground_orig.get_min_bound(), 
+                                                                     panoptic_ground_orig.get_max_bound(), False)
+                                                                     
     _, kitti_data['panoptic_ground'] = np.unique(np.asarray(panoptic_ground.colors), axis=0, return_inverse=True)
     
-    instance_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['instance_nonground'])
+    #instance_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['instance_nonground'])
+    instance_non_ground, trace_ground, _ = instance_non_ground_orig.voxel_down_sample_and_trace(minor_voxel_size, instance_non_ground_orig.get_min_bound(), 
+                                                                     instance_non_ground_orig.get_max_bound(), False)
+        
     _, kitti_data['instance_nonground'] = np.unique(np.asarray(instance_non_ground.colors), axis=0, return_inverse=True)
     
-    instance_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['instance_ground'])
+    #instance_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['instance_ground'])
+    
+    instance_ground, trace_ground, _ = instance_ground_orig.voxel_down_sample_and_trace(minor_voxel_size, instance_ground_orig.get_min_bound(), 
+                                                                     instance_ground_orig.get_max_bound(), False)
+        
     _, kitti_data['instance_ground'] = np.unique(np.asarray(instance_ground.colors), axis=0, return_inverse=True)
     
-    seg_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['seg_ground'])
+    #seg_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['seg_ground'])
+    seg_ground, trace_ground, _ = semantic_ground_orig.voxel_down_sample_and_trace(minor_voxel_size, semantic_ground_orig.get_min_bound(), 
+                                                                     semantic_ground_orig.get_max_bound(), False)
+        
     _, kitti_data['seg_ground'] = np.unique(np.asarray(seg_ground.colors), axis=0, return_inverse=True)
     
-    seg_nonground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['seg_nonground'])
+    #seg_nonground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['seg_nonground'])
+    seg_nonground, trace_ground, _ = semantic_non_ground_orig.voxel_down_sample_and_trace(minor_voxel_size, semantic_non_ground_orig.get_min_bound(), 
+                                                                     semantic_non_ground_orig.get_max_bound(), False)
+
     _, kitti_data['seg_nonground'] = np.unique(np.asarray(seg_nonground.colors), axis=0, return_inverse=True)
     
     
     
+    # KDTree for finding nearest neighbors
+    pcd_tree = o3d.geometry.KDTreeFlann(instance_non_ground_orig)
+    
+    # Map colors from original to downsampled point cloud
+    new_colors = []
+    for point in instance_non_ground.points:
+        [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
+        try : 
+            point_color = np.asarray(instance_non_ground_orig.colors)[idx[0]]
+        except : 
+            import pdb; pdb.set_trace()
+        new_colors.append(point_color)
+    #import pdb; pdb.set_trace()
+        
+    instance_non_ground.colors = o3d.utility.Vector3dVector(new_colors)
+    _, kitti_data['instance_nonground'] = np.unique(np.asarray(instance_non_ground.colors), axis=0, return_inverse=True)
+    
+    #o3d.visualization.draw_geometries([instance_non_ground])
+    
+    pcd_ground_minor,_,_ = pcd_ground.voxel_down_sample_and_trace(minor_voxel_size, pcd_ground.get_min_bound(), 
+                                                                     pcd_ground.get_max_bound(), False)
+    pcd_nonground_minor,_,_ = pcd_nonground.voxel_down_sample_and_trace(minor_voxel_size, pcd_nonground.get_min_bound(), 
+                                                                     pcd_nonground.get_max_bound(), False)
+    print(np.asarray(pcd_ground_minor.points).shape)
+    print(np.asarray(pcd_nonground_minor.points).shape)
+    print(np.asarray(instance_non_ground.points).shape)
+    print(np.asarray(pcd_ground.points).shape)
+    
+    print("done downsample")
     return pcd_ground_minor, pcd_nonground_minor, all_poses, T_pcd, first_position,kitti_data
 
-def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0):
+def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0,sequence_num=0,out_folder=None,cur_idx=0):
 
     # Extracting positions from poses
     all_positions = [tuple(p[:3, 3]) for p in all_poses]
@@ -139,6 +183,9 @@ def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0):
     # Selecting a subset of poses and positions
     poses = np.array(all_poses)[sampled_indices_local]
     positions = np.array(all_positions)[sampled_indices_local]
+    
+    np.savez(f'{out_folder}subsampled_data{sequence_num}_{cur_idx}.npz',poses=poses,positions=positions,sampled_indices_global=sampled_indices_global,
+    sampled_indices_local=sampled_indices_local)
 
     return poses, positions, sampled_indices_local, sampled_indices_global
 

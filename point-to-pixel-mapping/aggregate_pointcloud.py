@@ -3,7 +3,8 @@ import numpy as np
 from open3d.pipelines import registration
 from point_cloud_utils import get_pcd, get_subpcd, get_statistical_inlier_indices
 import sys
-lib_path = '/Users/cedric/Lidar_Segmentation_Clustering/voxel_clustering_dependencies/build/patchworkpp/'
+#lib_path = '/Users/cedric/Lidar_Segmentation_Clustering/voxel_clustering_dependencies/build/patchworkpp/'
+lib_path = '/home/cedric/unsup_3d_instances/pipeline/segmentation/utils/voxel_clustering_dependencies/build/patchworkpp/'
 sys.path.insert(0,lib_path)
 import pypatchworkpp
 

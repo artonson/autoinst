@@ -47,16 +47,16 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 cams = ["cam2", "cam3"]
 
-                sam_features_minor, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, 
-                                                                        T_pcd, cam_indices_global, cams, cam_id=0, 
-                                                                        hpr_radius=1000, dino=False, rm_perp=0.0)
+                #sam_features_minor, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, 
+                #                                                        T_pcd, cam_indices_global, cams, cam_id=0, 
+                #                                                        hpr_radius=1000, dino=False, rm_perp=0.0)
                 #point2dino
                 #dinov2_features_minor = dinov2_mean(point2dino)
                 
-                sam_features_major = -1 * np.ones((num_points_major, sam_features_minor.shape[1]))
+                #sam_features_major = -1 * np.ones((num_points_major, sam_features_minor.shape[1]))
                 #dinov2_features_major = np.zeros((num_points_major, dinov2_features_minor.shape[1])) 
 
-                sam_features_major = kDTree_1NN_feature_reprojection(sam_features_major, chunk_major, sam_features_minor, chunk_minor)
+                #sam_features_major = kDTree_1NN_feature_reprojection(sam_features_major, chunk_major, sam_features_minor, chunk_minor)
                 #dinov2_features_major = kDTree_1NN_feature_reprojection(dinov2_features_major, chunk_major, dinov2_features_minor, chunk_minor)
 
                 #zero_rows = np.sum(~np.array(sam_features_major).any(1))
@@ -72,7 +72,8 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 tarl_distance[no_tarl_mask] = 0
                 tarl_distance[:,no_tarl_mask] = 0
 
-                sam_edge_weights, mask = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
+                #sam_edge_weights, mask = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
+                mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
                 spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
                 #dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
                 mask = np.where(spatial_distance <= proximity_threshold, 1, 0)

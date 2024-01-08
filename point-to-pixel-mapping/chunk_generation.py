@@ -42,6 +42,8 @@ def subsample_positions(positions, voxel_size=1):
 
     return subsampled_indices
 '''
+
+
 def subsample_positions(positions, voxel_size=1):
     positions = np.array(positions)
     min_vals = positions.min(axis=0)
@@ -61,6 +63,7 @@ def subsample_positions(positions, voxel_size=1):
             subsampled_indices.append(index)
 
     return np.sort(subsampled_indices)
+
 
 def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap,labels=None,ground=False):
 

@@ -137,24 +137,25 @@ def visualize_associations_in_img(_label, associations):
 def color_pcd_by_labels(pcd, labels,colors=None):
     
     if colors == None : 
-        colors = generate_random_colors(500)
+        colors = generate_random_colors(2000)
     pcd_colored = copy.deepcopy(pcd)
     pcd_colors = np.zeros(np.asarray(pcd.points).shape)
     unique_labels = list(np.unique(labels)) 
     
-    background_color = np.array([0,0,0])
+    #background_color = np.array([0,0,0])
 
 
     #for i in range(len(pcd_colored.points)):
+    
     for i in unique_labels:
         if i == -1 : 
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
         if i == 0 : 
-            pcd_colors[idcs] = background_color
+                pass 
         else : 
-            pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
+                pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
         
         #if labels[i] != (-1):
         #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
