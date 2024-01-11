@@ -22,7 +22,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         out_folder='test_data/',ground_mode=True,sequence=None,
                         patchwise_indices=None):
         
-                print("start of sequence",sequence)
+                print("Start of sequence",sequence)
                 first_id = patchwise_indices[sequence][0]
                 center_id = center_ids[sequence]
                 center_position = center_positions[sequence]
@@ -57,9 +57,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 elif gamma and not beta:
                         point2dino, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
                                                                         cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam = False, dino=True, rm_perp=0.0)
-                        print("computing mean")
                         dinov2_features_minor = dinov2_mean(point2dino)
-                        print("done laoding dino")
                 elif beta and gamma:
                         sam_features_minor, point2dino, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
                                                                         cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam = True, dino=True, rm_perp=0.0)
@@ -73,10 +71,8 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         sam_edge_weights = mask
 
                 if gamma:
-                        print("starting computations")
                         dinov2_features_major = np.zeros((num_points_major, dinov2_features_minor.shape[1])) 
                         dinov2_features_major = kDTree_1NN_feature_reprojection(dinov2_features_major, chunk_major, dinov2_features_minor, chunk_minor)
-                        print("distance")
                         dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
                         dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
                 else:
