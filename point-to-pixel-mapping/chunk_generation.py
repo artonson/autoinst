@@ -11,37 +11,6 @@ import cv2
 import scipy
 from visualization_utils import color_pcd_by_labels
 
-'''
-def subsample_positions(positions, voxel_size=1):
-
-    min_x = min(p[0] for p in positions)
-    max_x = max(p[0] for p in positions)
-    min_y = min(p[1] for p in positions)
-    max_y = max(p[1] for p in positions)
-    min_z = min(p[2] for p in positions)
-    max_z = max(p[2] for p in positions)
-
-    x_centers = np.arange(min_x, max_x + voxel_size, voxel_size)
-    y_centers = np.arange(min_y, max_y + voxel_size, voxel_size)
-    z_centers = np.arange(min_z, max_z + voxel_size, voxel_size)
-
-    subsampled_indices = []
-
-    for x_center in x_centers:
-        for y_center in y_centers:
-            for z_center in z_centers:
-                chunk_center = np.array([x_center, y_center, z_center])
-                closest_pose_index = np.argmin(cdist([chunk_center], positions))
-                closest_pose = positions[closest_pose_index]
-                
-                distance = np.abs(np.array(closest_pose) - chunk_center)
-                if distance[0] < 0.5 * voxel_size and distance[1] < 0.5 * voxel_size and distance[2] < 0.5 * voxel_size:
-                    subsampled_indices.append(closest_pose_index)
-
-    subsampled_indices = np.sort(subsampled_indices)
-
-    return subsampled_indices
-'''
 
 
 def subsample_positions(positions, voxel_size=1):
@@ -212,21 +181,27 @@ def is_perpendicular_and_upward(point, normal, boundary = 0.1):
     return (perpendicular and upward)
 
 
-def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam_indices, cams, cam_id, hpr_radius=1000, num_dino_features = 384, hpr_masks=None, dino=True, rm_perp=0.0):
+def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam_indices, cams, cam_id, hpr_radius=1000, num_dino_features = 384, hpr_masks=None, sam = True, dino=True, rm_perp=0.0):
 
     num_points = np.asarray(pcd.points).shape[0]
-    point2sam = (-1) * np.ones((num_points, len(cam_indices)), dtype=int) # -1 indicates no association
 
     if rm_perp:
         pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=200))
+    
+    if sam:
+        point2sam = (-1) * np.ones((num_points, len(cam_indices)), dtype=int) # -1 indicates no association
 
     if dino:
         point2dino = np.zeros((num_points, len(cam_indices), num_dino_features))
+        sam_mask_0 = dataset.get_sam_mask(cams[cam_id], 0)
+        sam_label_0 = masks_to_image(sam_mask_0)
+        label_shape = sam_label_0.shape
 
     if hpr_masks is not None:
         assert len(cam_indices) == hpr_masks.shape[0]
 
     for i, points_index in enumerate(cam_indices):
+        print(points_index)
 
         # Load the calibration matrices
         T_lidar2world = dataset.get_pose(points_index)
@@ -248,13 +223,15 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam
         frame_indices = list(set(visible_indices) & set(chunk_indices))
 
         # Load the SAM label
-        sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
-        sam_labels = masks_to_image(sam_masks)
+        if sam:
+            sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
+            sam_labels = masks_to_image(sam_masks)
 
         # Load the DINOV2 feature map
         if dino:
             dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
-            dinov2_feature_map_zoomed = scipy.ndimage.zoom(dinov2_feature_map, (sam_labels.shape[0] / dinov2_feature_map.shape[0], sam_labels.shape[1] / dinov2_feature_map.shape[1], 1), order=0)
+            dino_factor_0 = dinov2_feature_map.shape[0] / label_shape[0]
+            dino_factor_1 = dinov2_feature_map.shape[1] / label_shape[1]
 
         #chunk generation
         if rm_perp:
@@ -267,37 +244,50 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, T_pcd2world, cam
         else:
             map_visible = get_subpcd(pcd_camframe, frame_indices)
 
-        points_to_pixels = point_to_pixel(np.asarray(map_visible.points), K, sam_labels.shape[0], sam_labels.shape[1])
+        points_to_pixels = point_to_pixel(np.asarray(map_visible.points), K, label_shape[0], label_shape[1])
 
 
         for point_id, pixel_id in points_to_pixels.items():
             pixel = pixel_id["pixels"]
-            label = sam_labels[pixel[1], pixel[0]]
+
+            if sam:
+                label = sam_labels[pixel[1], pixel[0]]
+            else:
+                label = False
+
             if rm_perp:
                 valid = not is_perpendicular_and_upward(map_visible_points[point_id], map_visible_normals[point_id], boundary=rm_perp)
             else:
                 valid = True
+
             if label and valid:
                 point2sam[frame_indices[point_id], i] = label
             if dino and valid:
-                point2dino[frame_indices[point_id], i, :] = dinov2_feature_map_zoomed[pixel[1], pixel[0], :]
-
+                dino_pixel_0 = int(dino_factor_0 * pixel[1])
+                dino_pixel_1 = int(dino_factor_1 * pixel[0])
+                point2dino[frame_indices[point_id], i, :] = dinov2_feature_map[dino_pixel_0, dino_pixel_1, :]
     pcd_chunk = get_subpcd(pcd, chunk_indices)
-    point2sam_chunk = point2sam[chunk_indices]
-    
-    if dino:
-        point2dino_chunk = point2dino[chunk_indices]
 
     inlier_indices = get_statistical_inlier_indices(pcd_chunk)
     pcd_chunk_final = get_subpcd(pcd_chunk, inlier_indices)
 
-    point2sam_chunk_final = point2sam_chunk[inlier_indices]
-
+    if sam:
+        point2sam_chunk = point2sam[chunk_indices]
+        point2sam_chunk_final = point2sam_chunk[inlier_indices]
+    
     if dino:
+        point2dino_chunk = point2dino[chunk_indices]
         point2dino_chunk_final = point2dino_chunk[inlier_indices]
+
+
+    if sam and dino:
         return point2sam_chunk_final, point2dino_chunk_final, pcd_chunk_final
-    else:
+    elif sam:
         return point2sam_chunk_final, pcd_chunk_final
+    elif dino:
+        return point2dino_chunk_final, pcd_chunk_final
+    else:
+        raise ValueError("Either sam or dino must be True")
 
 
 def dinov2_mean(point2dino):

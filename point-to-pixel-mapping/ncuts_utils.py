@@ -41,45 +41,58 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 print(num_points_major, "points in downsampled chunk (major)")
 
-                tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2)
-                no_tarl_mask = ~np.array(tarl_features).any(1)
-                #print("There are", np.sum(no_tarl_mask), "points without TARL features")
-
                 cams = ["cam2", "cam3"]
 
-                #sam_features_minor, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, 
-                #                                                        T_pcd, cam_indices_global, cams, cam_id=0, 
-                #                                                        hpr_radius=1000, dino=False, rm_perp=0.0)
-                #point2dino
-                #dinov2_features_minor = dinov2_mean(point2dino)
-                
-                #sam_features_major = -1 * np.ones((num_points_major, sam_features_minor.shape[1]))
-                #dinov2_features_major = np.zeros((num_points_major, dinov2_features_minor.shape[1])) 
-
-                #sam_features_major = kDTree_1NN_feature_reprojection(sam_features_major, chunk_major, sam_features_minor, chunk_minor)
-                #dinov2_features_major = kDTree_1NN_feature_reprojection(dinov2_features_major, chunk_major, dinov2_features_minor, chunk_minor)
-
-                #zero_rows = np.sum(~np.array(sam_features_major).any(1))
-                #ratio = zero_rows / num_points_major
-
-                #if ratio > 0.3:
-                #        print("The ratio of points without image-based features is", ratio, ". Skipping this chunk.")
-                #        return
-
                 spatial_distance = cdist(points_major, points_major)
-                #dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
-                tarl_distance = cdist(tarl_features, tarl_features)
-                tarl_distance[no_tarl_mask] = 0
-                tarl_distance[:,no_tarl_mask] = 0
-
-                #sam_edge_weights, mask = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
                 mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
-                spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
-                #dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
-                mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
-                tarl_edge_weights = mask * np.exp(-theta * tarl_distance)
 
-                A = tarl_edge_weights * spatial_edge_weights
+                if alpha:
+                        spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
+                else: 
+                        spatial_edge_weights = mask
+
+                if beta and not gamma:
+                        sam_features_minor, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
+                                                                cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam= True, dino=False, rm_perp=0.0)
+                elif gamma and not beta:
+                        point2dino, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
+                                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam = False, dino=True, rm_perp=0.0)
+                        print("computing mean")
+                        dinov2_features_minor = dinov2_mean(point2dino)
+                        print("done laoding dino")
+                elif beta and gamma:
+                        sam_features_minor, point2dino, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
+                                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam = True, dino=True, rm_perp=0.0)
+                        dinov2_features_minor = dinov2_mean(point2dino)
+                
+                if beta: 
+                        sam_features_major = -1 * np.ones((num_points_major, sam_features_minor.shape[1]))
+                        sam_features_major = kDTree_1NN_feature_reprojection(sam_features_major, chunk_major, sam_features_minor, chunk_minor)
+                        sam_edge_weights, _ = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
+                else:
+                        sam_edge_weights = mask
+
+                if gamma:
+                        print("starting computations")
+                        dinov2_features_major = np.zeros((num_points_major, dinov2_features_minor.shape[1])) 
+                        dinov2_features_major = kDTree_1NN_feature_reprojection(dinov2_features_major, chunk_major, dinov2_features_minor, chunk_minor)
+                        print("distance")
+                        dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
+                        dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
+                else:
+                        dinov2_edge_weights = mask
+
+                if theta:
+                        tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2)
+                        no_tarl_mask = ~np.array(tarl_features).any(1)
+                        tarl_distance = cdist(tarl_features, tarl_features)
+                        tarl_distance[no_tarl_mask] = 0
+                        tarl_distance[:,no_tarl_mask] = 0
+                        tarl_edge_weights = mask * np.exp(-theta * tarl_distance)
+                else:
+                        tarl_edge_weights = mask
+
+                A = tarl_edge_weights * spatial_edge_weights * sam_edge_weights * dinov2_edge_weights
                 print("Adjacency Matrix built")
 
                 # Remove isolated points
@@ -88,7 +101,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 num_points_major = np.asarray(chunk_major.points).shape[0]
 
                 print("Start of normalized Cuts")
-                grouped_labels = normalized_cut(A, np.arange(num_points_major), T = 0.03)
+                grouped_labels = normalized_cut(A, np.arange(num_points_major), T = ncuts_threshold)
                 num_groups = len(grouped_labels)
                 print("There are", num_groups, "cut regions")
 
@@ -125,7 +138,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 index_file = str(center_id).zfill(6) + '.pcd'
                 file = os.path.join(out_folder, index_file)
-                return merged_chunk,file, pcd_chunk, cut_hight, in_idcs
+                return merged_chunk, file, pcd_chunk, cut_hight, in_idcs
                
 def get_merge_pcds(out_folder_ncuts):
         point_clouds = []
