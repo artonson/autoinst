@@ -152,8 +152,7 @@ class MinkEncoderDecoder(nn.Module):
         input batch
         The coordinates are quantized using the provided resolution
         """
-        #breakpoint()
-        breakpoint()
+        
         feat_tfield = ME.TensorField(
             features=torch.from_numpy(np.concatenate(x["feats"], 0)).float(),
             coordinates=ME.utils.batched_coordinates(

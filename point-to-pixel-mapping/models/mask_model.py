@@ -19,6 +19,7 @@ class MaskPS(nn.Module):
             hparams[hparams.MODEL.DATASET],
         )
         
+        self.overlap_threshold = 0.8
 
     def forward(self, x):
         feats, coors, pad_masks, bb_logits = self.backbone(x)
@@ -46,8 +47,8 @@ class MaskPS(nn.Module):
     def panoptic_inference(self, outputs, padding):
         mask_cls = outputs["pred_logits"]
         mask_pred = outputs["pred_masks"]
-        things_ids = self.trainer.datamodule.things_ids
-        num_classes = self.cfg[self.cfg.MODEL.DATASET].NUM_CLASSES
+        #things_ids = self.trainer.datamodule.things_ids
+        num_classes = 1
         sem_pred = []
         ins_pred = []
         panoptic_output = []
@@ -106,7 +107,7 @@ class MaskPS(nn.Module):
                 stuff_memory_list2 = {}
                 for k in range(cur_classes.shape[0]):
                     pred_class = cur_classes[k].item()  # current class
-                    isthing = pred_class in things_ids
+                    isthing = True 
                     mask_area = (cur_mask_ids == k).sum().item()  # points in mask k
                     original_area = (cur_masks[:, k] >= 0.5).sum().item()  # binary mas
                     mask = (cur_mask_ids == k) & (cur_masks[:, k] >= 0.5)
@@ -118,7 +119,7 @@ class MaskPS(nn.Module):
                     
 
                     if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
-                        if mask_area / original_area < self.cfg.MODEL.OVERLAP_THRESHOLD:
+                        if mask_area / original_area < self.overlap_threshold:
                             continue  # binary mask occluded 80%
                         if not isthing:  # merge stuff regions
                             if int(pred_class) in stuff_memory_list.keys():
