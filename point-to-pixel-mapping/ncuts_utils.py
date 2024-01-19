@@ -52,27 +52,23 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         spatial_edge_weights = mask
 
                 if beta and not gamma:
-                        sam_features_minor, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
-                                                                cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam= True, dino=False, rm_perp=0.0)
+                        sam_features_major = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
+                                                cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam=True, dino=False, rm_perp=0.0)
                 elif gamma and not beta:
-                        point2dino, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
-                                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam = False, dino=True, rm_perp=0.0)
-                        dinov2_features_minor = dinov2_mean(point2dino)
+                        point2dino = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
+                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, num_dino_features=384, sam=False, dino=True, rm_perp=0.0)
+                        dinov2_features_major = dinov2_mean(point2dino)
                 elif beta and gamma:
-                        sam_features_minor, point2dino, chunk_minor = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, T_pcd, 
-                                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam = True, dino=True, rm_perp=0.0)
-                        dinov2_features_minor = dinov2_mean(point2dino)
+                        sam_features_major, point2dino = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
+                                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, num_dino_features=384, sam=True, dino=True, rm_perp=0.0)
+                        dinov2_features_major = dinov2_mean(point2dino)
                 
-                if beta: 
-                        sam_features_major = -1 * np.ones((num_points_major, sam_features_minor.shape[1]))
-                        sam_features_major = kDTree_1NN_feature_reprojection(sam_features_major, chunk_major, sam_features_minor, chunk_minor)
+                if beta:
                         sam_edge_weights, _ = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
                 else:
                         sam_edge_weights = mask
 
                 if gamma:
-                        dinov2_features_major = np.zeros((num_points_major, dinov2_features_minor.shape[1])) 
-                        dinov2_features_major = kDTree_1NN_feature_reprojection(dinov2_features_major, chunk_major, dinov2_features_minor, chunk_minor)
                         dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
                         dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
                 else:

@@ -54,7 +54,7 @@ class KittiOdometryDataset(Dataset):
             self.ds_path, self.config.sam_folder_name, self.seq_str, ""
         )
         self.dinov2_features_path: os.PathLike = os.path.join(
-            self.ds_path, "dinov2_features", self.seq_str, ""
+            self.ds_path, self.config.dinov2_folder_name, self.seq_str, ""
         )
 
         self.tarl_features_path: os.PathLike = os.path.join(

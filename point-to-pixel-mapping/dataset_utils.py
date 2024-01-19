@@ -10,7 +10,8 @@ from chunk_generation import subsample_positions, chunks_from_pointcloud
 from visualization_utils import * 
 
 def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred_medium", 
-                                correct_scan_calibration=True, range_min=3, range_max=25,ncuts_mode=True):
+                                dinov2_folder_name="dinov2_features", correct_scan_calibration=True, range_min=3, 
+                                range_max=25,ncuts_mode=True):
     
 
     if ncuts_mode : 
@@ -29,6 +30,7 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
         cache=cache,
         dataset_path=dataset_path,
         sam_folder_name=sam_folder_name,
+        dinov2_folder_name = dinov2_folder_name,
         correct_scan_calibration=correct_scan_calibration,
         filters=filters,
     )

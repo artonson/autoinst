@@ -10,5 +10,6 @@ from dataset.types import DatasetPathLike
 class DatasetConfig:
     dataset_path: DatasetPathLike
     sam_folder_name: str
+    dinov2_folder_name: str
     filters: FilterListOrNone
     cache: bool

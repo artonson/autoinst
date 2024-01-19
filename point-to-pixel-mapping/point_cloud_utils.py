@@ -266,7 +266,7 @@ def merge_unite_gt(chunks):
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
-    return vector / np.linalg.norm(vector)
+    return vector / (np.linalg.norm(vector) + 1e-6)
 
 def angle_between(v1, v2):
     """ Returns the angle in radians between vectors 'v1' and 'v2'::
