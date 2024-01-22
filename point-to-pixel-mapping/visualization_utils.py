@@ -146,16 +146,24 @@ def color_pcd_by_labels(pcd, labels,colors=None):
 
 
     #for i in range(len(pcd_colored.points)):
-    
+    largest_cluster_idx = -10 
+    largest = 0 
+    for i in unique_labels: 
+        idcs = np.where(labels == i)
+        idcs = idcs[0]
+        if idcs.shape[0]> largest:
+            largest = idcs.shape[0]
+            largest_cluster_idx = i 
+        
     for i in unique_labels:
         if i == -1 : 
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
-        if i == 0 : 
-                pass 
+        if i == largest_cluster_idx : 
+            pcd_colors[idcs] = np.array([0,0,0])
         else : 
-                pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
+            pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
         
         #if labels[i] != (-1):
         #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
