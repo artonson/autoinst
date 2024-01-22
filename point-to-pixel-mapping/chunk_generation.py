@@ -151,6 +151,7 @@ def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, 
   
         if not features_in_radius.shape[0]==0:
             tarl_features[i,:] = np.mean(features_in_radius, axis=0)
+            tarl_features[i] /= np.linalg.norm(tarl_features[i])
         else:
             continue
 
@@ -209,7 +210,6 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
         assert len(cam_indices) == hpr_masks.shape[0]
 
     for i, points_index in enumerate(cam_indices):
-        print(points_index)
 
         # Load the calibration matrices
         T_lidar2world = dataset.get_pose(points_index)
