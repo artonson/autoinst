@@ -1,6 +1,7 @@
 import numpy as np
 import instanseg 
 from instanseg.metrics import full_statistics
+from sklearn.metrics import auc
 
 
 instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
@@ -21,6 +22,7 @@ class Metrics:
         self.background_label = 0
         self.mode = 'normal'
         self.calc_ap = True
+        
 
         # ap stuff
         self.hard_false_negatives = {}
@@ -28,41 +30,85 @@ class Metrics:
         self.y_true_score = {}
         self.ap = {}
         self.ar = {}
-        self.overlaps = np.append(np.arange(0.5, 0.95, 0.05), 0.25)
-        for overlap in self.overlaps:
-            self.y_true_cluster[overlap] = np.empty(0)
-            self.y_true_score[overlap] = np.empty(0)
-            self.hard_false_negatives[overlap] = 0
+        self.overlaps = [0.25,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95]
+        self.ap_overlaps = [0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95]
+        print("Metrics for file",name)
 
-    def update_stats(self, pred_labels, gt_labels, confs=[]):
+
+    def update_stats(self, pred_labels, gt_labels, confs=[],calc_all=True):
         pred_labels = self.filter_labels(pred_labels)
-        self.calculate_full_stats(pred_labels,gt_labels)
-        #if self.mode == 'normal':
-        #    self.tps += self.calc_tp(pred_labels, gt_labels)
-        #    unique_preds = np.unique(pred_labels).shape[0]
-        #else:
-        #    tps, unique_preds = self.calc_modified_tp(pred_labels, gt_labels)
-        #    self.tps += tps
+        if calc_all == True : 
+            self.calculate_full_stats(pred_labels,gt_labels)
+        
+        for overlap in list(self.overlaps) : 
+            print('calc AP for overlap @' + str(overlap))
+            self.ap[overlap] = self.average_precision(pred_labels,gt_labels,confs,iou_thresh=overlap)
+        
+        print("AP @ 0.25",self.ap[0.25])
+        print("AP @ 0.5",self.ap[0.5])
+        aps_list = [self.ap[o] for o in self.ap_overlaps]
+        print("AP @ [0.5:0.95]", sum(aps_list)/float(len(aps_list)))
+        
 
-        #unique_preds = np.unique(pred_labels).shape[0]
-        #if 0 in np.unique(pred_labels):
-        #    unique_preds = unique_preds - 1
-
-        if self.calc_ap :
-            for overlap in self.overlaps:
-           
-                self.process_data_ap(
-                    gt_labels, pred_labels,
-                    cur_thresh=overlap,
-                    confs=confs)
-
-        #self.preds_total += unique_preds
-        #unique_gt_num = np.unique(gt_labels).shape[0]
-        #if 0 in np.unique(gt_labels):
-        #    unique_gt_num  = unique_gt_num- 1 
-        #self.unique_gts += unique_gt_num
-        #self.get_metrics()
         return pred_labels
+        
+    def average_precision(self,pred,ins_labels,confs,iou_thresh=0.5): 
+        self.precision = []
+        self.recall = []
+        unique_gt_labels = list(np.unique(ins_labels))
+        unique_pred_labels = list(np.unique(pred))
+        
+        # background remove
+        unique_pred_labels.remove(0)
+        unique_gt_labels.remove(0)
+
+        pred_used = set()
+        instance_conf = {}
+        for instance_id, i in enumerate(unique_pred_labels):
+            if confs == []:
+                # taken from unscene3d eval
+                instance_conf[i] = 0.5
+            else:
+                instance_conf[i] = confs[i].cpu().item()
+        
+        if confs != []: 
+            instance_conf = dict(sorted(instance_conf.items(), key=lambda item: item[1],reverse=True))
+        self.tp = 0
+        self.fp = 0
+        self.fn = len(unique_gt_labels)
+
+        gt_used = []
+        
+        for prediction in instance_conf.keys():
+            matched = False
+            max_iou = 0 
+            for gt in unique_gt_labels:
+                pred_indices = np.where(pred == prediction)[0]
+                gt_indices = np.where(ins_labels == gt)[0]
+                
+                iou = self.iou(pred_indices,gt_indices)
+                max_iou = max(iou,max_iou)
+                
+                if iou >= iou_thresh and (gt not in gt_used):
+                    matched = True
+                    gt_used.append(gt)
+                    break
+            
+            if matched:
+                self.tp += 1
+                self.fn -= 1
+            else:
+                self.fp += 1
+    
+            # Calculate precision and recall
+            self.precision.append(self.tp / float(self.tp + self.fp))
+            self.recall.append(self.tp / float(self.tp + self.fn))
+    
+        # Calculate AP
+        ap = np.trapz(self.precision,self.recall) 
+        print("Average Precision @ " + str(iou_thresh) ,ap )
+        
+        return ap
 
     def process_data_ap(
             self,
@@ -173,6 +219,7 @@ class Metrics:
         union = np.union1d(pred_indices, gt_indices)
 
         return intersection.size / union.size
+
 
     def compute_final_ap(self, y_true, y_score, hard_false_negatives):
         if self.calc_ap == False : 
