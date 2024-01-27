@@ -11,6 +11,7 @@ from sam_label_distace import sam_label_distance
 from chunk_generation import subsample_positions, chunks_from_pointcloud, indices_per_patch, tarl_features_per_patch, image_based_features_per_patch, dinov2_mean, get_indices_feature_reprojection
 from normalized_cut import normalized_cut
 
+
 def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks, 
                         pcd_nonground_chunks_major_downsampling, 
                         pcd_nonground_minor,
@@ -130,7 +131,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 index_file = str(center_id).zfill(6) + '.pcd'
                 file = os.path.join(out_folder, index_file)
-                return merged_chunk, file, pcd_chunk, cut_hight, in_idcs
+                return merged_chunk, file, pcd_chunk, cut_hight,inliers, in_idcs
                
 def get_merge_pcds(out_folder_ncuts):
         point_clouds = []

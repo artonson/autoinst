@@ -73,11 +73,9 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
                 
                 if labels != None : 
                     if ground == False :
-                        kitti_out['panoptic'].append(labels['panoptic_nonground'][ids][inlier_indices])
                         kitti_out['semantic'].append(labels['seg_nonground'][ids][inlier_indices])
                         kitti_out['instance'].append(labels['instance_nonground'][ids][inlier_indices])
                     else : 
-                        kitti_out['panoptic'].append(labels['panoptic_ground'][ids][inlier_indices])
                         kitti_out['semantic'].append(labels['seg_ground'][ids][inlier_indices])
                         kitti_out['instance'].append(labels['instance_ground'][ids][inlier_indices])
 
