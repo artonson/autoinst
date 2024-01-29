@@ -24,7 +24,7 @@ class Metrics:
         self.mode = 'normal'
         self.calc_ap = True
         self.eval_lstq = evaluator()
-        self.num_processes = 12
+        self.num_processes = 6
         
 
         # ap stuff
@@ -52,7 +52,6 @@ class Metrics:
         # Create a pool of worker processes
         with Pool(processes=self.num_processes) as pool:
             results = pool.map(self.worker_function, data_for_processes)
-            print(results)
         
         for iou, ap in zip(self.overlaps, results):
             self.ap[iou] = ap
@@ -69,11 +68,11 @@ class Metrics:
             print('lstq value : ',lstq)
         
         self.average_precision_parallel(pred_labels,gt_labels,confs)
-        print(self.ap)
-        print("AP @ 0.25",self.ap[0.25])
-        print("AP @ 0.5",self.ap[0.5])
+        print("AP @ 0.25",round(self.ap[0.25]* 100,3))
+        print("AP @ 0.5",round(self.ap[0.5]*100.3))
         aps_list = [self.ap[o] for o in self.ap_overlaps]
-        print("AP @ [0.5:0.95]", sum(aps_list)/float(len(aps_list)))
+        ap = sum(aps_list)/float(len(aps_list))
+        print("AP @ [0.5:0.95]", round(ap*100,3))
         
         
     def average_precision(self,pred,ins_labels,confs,iou_thresh=0.5): 
