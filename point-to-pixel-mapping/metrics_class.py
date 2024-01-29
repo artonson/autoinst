@@ -3,6 +3,7 @@ import instanseg
 from instanseg.metrics import full_statistics
 from sklearn.metrics import auc
 from modified_LSTQ import evaluator
+from multiprocessing import Pool
 
 instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
 instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
@@ -23,18 +24,39 @@ class Metrics:
         self.mode = 'normal'
         self.calc_ap = True
         self.eval_lstq = evaluator()
+        self.num_processes = 12
         
 
         # ap stuff
-        self.hard_false_negatives = {}
-        self.y_true_cluster = {}
-        self.y_true_score = {}
         self.ap = {}
         self.ar = {}
         self.overlaps = [0.25,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95]
         self.ap_overlaps = [0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95]
         print("Metrics for file",name)
+        
+    
+    def worker_function(self, data):
+        # This function will be executed by each process
+        # 'data' contains a subset of predictions and other necessary information
+        pred, ins_labels, confs, iou_thresh = data
+        # Perform the calculation for this chunk
+        # Return the partial results (e.g., precision and recall for this chunk)
+        return self.average_precision(pred,ins_labels,confs,iou_thresh)
 
+    def average_precision_parallel(self, pred, ins_labels, confs, iou_thresh=0.5):
+        # Split the predictions into chunks
+
+        # Prepare data for each chunk
+        data_for_processes = [(pred, ins_labels, confs,iou ) for iou in self.overlaps]
+
+        # Create a pool of worker processes
+        with Pool(processes=self.num_processes) as pool:
+            results = pool.map(self.worker_function, data_for_processes)
+            print(results)
+        
+        for iou, ap in zip(self.overlaps, results):
+            self.ap[iou] = ap
+        
 
     def update_stats(self, pred_labels, gt_labels, confs=[],calc_all=True,calc_lstq=True):
         self.eval_lstq.reset()
@@ -46,17 +68,13 @@ class Metrics:
             lstq = self.eval_lstq.get_eval()
             print('lstq value : ',lstq)
         
-        
-        for overlap in list(self.overlaps) : 
-            print('calc AP for overlap @' + str(overlap))
-            self.ap[overlap] = self.average_precision(pred_labels,gt_labels,confs,iou_thresh=overlap)
-        
+        self.average_precision_parallel(pred_labels,gt_labels,confs)
+        print(self.ap)
         print("AP @ 0.25",self.ap[0.25])
         print("AP @ 0.5",self.ap[0.5])
         aps_list = [self.ap[o] for o in self.ap_overlaps]
         print("AP @ [0.5:0.95]", sum(aps_list)/float(len(aps_list)))
-
-        return pred_labels
+        
         
     def average_precision(self,pred,ins_labels,confs,iou_thresh=0.5): 
         self.precision = []
@@ -87,13 +105,12 @@ class Metrics:
         
         for prediction in instance_conf.keys():
             matched = False
-            max_iou = 0 
+            pred_indices = np.where(pred == prediction)[0]
             for gt in unique_gt_labels:
-                pred_indices = np.where(pred == prediction)[0]
+                
                 gt_indices = np.where(ins_labels == gt)[0]
                 
                 iou = self.iou(pred_indices,gt_indices)
-                max_iou = max(iou,max_iou)
                 
                 if iou >= iou_thresh and (gt not in gt_used):
                     matched = True
@@ -113,7 +130,6 @@ class Metrics:
         # Calculate AP
         ap = np.trapz(self.precision,self.recall) 
         print("Average Precision @ " + str(iou_thresh) ,ap )
-        
         return ap
 
     def iou(self, pred_indices, gt_indices):
