@@ -159,7 +159,7 @@ class Metrics:
 
         self.average_precision_parallel(pred_labels, gt_labels, confs)
         print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
-        print("AP @ 0.5", round(self.ap[0.5] * 100.3))
+        print("AP @ 0.5", round(self.ap[0.5] * 100,3))
         aps_list = [self.ap[o] for o in self.ap_overlaps]
         ap = sum(aps_list) / float(len(aps_list))
         print("AP @ [0.5:0.95]", round(ap * 100, 3))
