@@ -1,11 +1,61 @@
 import numpy as np
 import instanseg
 from instanseg.metrics import full_statistics
-from sklearn.metrics import auc
-from modified_LSTQ import evaluator
+from metrics.modified_LSTQ import evaluator
 from multiprocessing import Pool
 import open3d as o3d
-from visualization_utils import * 
+import random 
+import copy 
+
+
+def generate_random_colors(N, seed=0):
+    colors = set()  # Use a set to store unique colors
+    while len(colors) < N:  # Keep generating colors until we have N unique ones
+        # Generate a random color and add it to the set
+        colors.add((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+
+    return list(colors)  # Convert the set to a list before returning
+
+
+def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
+    
+    if colors == None : 
+        colors = generate_random_colors(2000)
+    pcd_colored = copy.deepcopy(pcd)
+    pcd_colors = np.zeros(np.asarray(pcd.points).shape)
+    unique_labels = list(np.unique(labels)) 
+    
+    #background_color = np.array([0,0,0])
+
+
+    #for i in range(len(pcd_colored.points)):
+    largest_cluster_idx = -10 
+    largest = 0 
+    if largest : 
+        for i in unique_labels: 
+            idcs = np.where(labels == i)
+            idcs = idcs[0]
+            print(idcs.shape[0])
+            if idcs.shape[0]> largest:
+                largest = idcs.shape[0]
+                largest_cluster_idx = i 
+    
+    for i in unique_labels:
+        if i == -1 : 
+            continue
+        idcs = np.where(labels == i)
+        idcs = idcs[0]
+        if i == largest_cluster_idx or i == 0 : 
+            pcd_colors[idcs] = np.array([0,0,0])
+        else : 
+            pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
+        
+        #if labels[i] != (-1):
+        #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
+    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/ 255)
+    return pcd_colored
+    
+
 
 instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
 instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
@@ -28,10 +78,12 @@ class Metrics:
         self.mode = 'normal'
         self.calc_ap = True
         self.eval_lstq = evaluator()
+        self.semantic_intersection = 0.05
         self.num_processes = 6
-        self.relevant_idcs = {4: 'fence', 10: 'trunk', 12: 'pole',9:'vegetation', 13: 'other-object', 16: 'building', 19: 'other structure',
-                              # 1:'car',5:'trailer',6:'truck',7:'traffic-sign',18:'pedestrian',15:'bike'
-                              }
+        #self.relevant_idcs = {4: 'fence', 10: 'trunk', 12: 'pole',9:'vegetation', 13: 'other-object', 16: 'building', 19: 'other structure',
+        #                      # 1:'car',5:'trailer',6:'truck',7:'traffic-sign',18:'pedestrian',15:'bike'
+        #                      }
+        self.relevant_idcs = {1:'car',3:'fence',4:'truck',6:'vegetation'}
 
         # ap stuff
         self.ap = {}
@@ -220,7 +272,7 @@ class Metrics:
             # new_pcd.colors = o3d.utility.Vector3dVector(new_cols)
             # o3d.visualization.draw_geometries([new_pcd])
 
-            if cur_intersect > 0.1:
+            if cur_intersect > self.semantic_intersection:
                 # print("intersect",cur_intersect)
                 new_ncuts_labels[pred_idcs] = 1
                 num_clusters += 1
@@ -233,6 +285,8 @@ class Metrics:
         unique_colors, labels_ncuts = np.unique(
             np.asarray(pred_pcd.colors), axis=0, return_inverse=True)
         for idx in self.relevant_idcs.keys():
+        #for idx in range(len(np.unique(labels_kitti))):
+            print('file idx',idx)
             print("Semantics for class", self.relevant_idcs[idx])
             gt_pcd, idcs = self.remove_cols(
                 pcd_gt, unique_colors, labels_kitti, list(
@@ -244,7 +298,7 @@ class Metrics:
             cur_iou = self.iou(pred_labels, idcs)
             print("--- iou",cur_iou)
             print("--- num clusters",num_clusters)
-            print("--- semantic score", cur_iou/num_clusters)
+            print("--- semantic score", cur_iou/(num_clusters + 1e-8))
             print("-------------------")
             
 

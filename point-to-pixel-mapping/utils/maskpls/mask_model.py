@@ -2,8 +2,8 @@ import MinkowskiEngine as ME
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F
-from models.decoder import MaskedTransformerDecoder
-from models.mink import MinkEncoderDecoder
+from utils.maskpls.decoder import MaskedTransformerDecoder
+from utils.maskpls.mink import MinkEncoderDecoder
 import os 
 
 class MaskPS(nn.Module):

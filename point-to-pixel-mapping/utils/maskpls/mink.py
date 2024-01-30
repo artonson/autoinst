@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.utils.interpolate import knn_up
+from utils.maskpls.utils.interpolate import knn_up
 
 
 class MinkEncoderDecoder(nn.Module):

@@ -1,7 +1,7 @@
 # Modified by Rodrigo Marcuzzi from https://github.com/facebookresearch/Mask2Former
-import models.blocks as blocks
+import utils.maskpls.blocks as blocks
 import torch
-from models.positional_encoder import PositionalEncoder
+from utils.maskpls.positional_encoder import PositionalEncoder
 from torch import nn
 
 

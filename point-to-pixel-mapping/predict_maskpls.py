@@ -4,7 +4,7 @@ import shutil
 from easydict import EasyDict as edict
 from os.path import join
 import torch
-from models.mask_model import MaskPS
+from utils.maskpls.mask_model import MaskPS
 import numpy as np
 import open3d as o3d
 from visualization_utils import color_pcd_by_labels, generate_random_colors
@@ -26,26 +26,26 @@ class RefinerModel():
                 open(
                     join(
                         getDir(__file__),
-                        "models/config/model.yaml"))))
+                        "utils/maskpls/config/model.yaml"))))
 
         backbone_cfg = edict(
             yaml.safe_load(
                 open(
                     join(
                         getDir(__file__),
-                        "models/config/backbone.yaml"))))
+                        "utils/maskpls/config/backbone.yaml"))))
 
         decoder_cfg = edict(
             yaml.safe_load(
                 open(
                     join(
                         getDir(__file__),
-                        "models/config/decoder.yaml"))))
+                        "utils/maskpls/config/decoder.yaml"))))
         cfg = edict({**model_cfg, **backbone_cfg, **decoder_cfg})
         cfg.EVALUATE = True
 
         self.model = MaskPS(cfg)
-        w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_110/checkpoints/mask_pls_oversegmented_epoch=03.ckpt"
+        w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_116/checkpoints/mask_pls_oversegmented_epoch=02.ckpt"
         w = torch.load(w, map_location="cpu")
         self.model.load_state_dict(w["state_dict"])
         self.model.cuda()

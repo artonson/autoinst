@@ -134,7 +134,7 @@ def visualize_associations_in_img(_label, associations):
     return label
 
 
-def color_pcd_by_labels(pcd, labels,colors=None):
+def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
     
     if colors == None : 
         colors = generate_random_colors(2000)
@@ -148,19 +148,22 @@ def color_pcd_by_labels(pcd, labels,colors=None):
     #for i in range(len(pcd_colored.points)):
     largest_cluster_idx = -10 
     largest = 0 
-    for i in unique_labels: 
-        idcs = np.where(labels == i)
-        idcs = idcs[0]
-        if idcs.shape[0]> largest:
-            largest = idcs.shape[0]
-            largest_cluster_idx = i 
-        
+    if largest : 
+        for i in unique_labels: 
+            idcs = np.where(labels == i)
+            idcs = idcs[0]
+            print(idcs.shape[0])
+            if idcs.shape[0]> largest:
+                largest = idcs.shape[0]
+                largest_cluster_idx = i 
+    print('largest idx',largest_cluster_idx)
+    
     for i in unique_labels:
         if i == -1 : 
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
-        if i == largest_cluster_idx : 
+        if i == largest_cluster_idx or i == 0 : 
             pcd_colors[idcs] = np.array([0,0,0])
         else : 
             pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
@@ -169,5 +172,7 @@ def color_pcd_by_labels(pcd, labels,colors=None):
         #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
     pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/ 255)
     return pcd_colored
+    
+
 
 
