@@ -10,6 +10,7 @@ from visualization_utils import generate_random_colors, color_pcd_by_labels
 from sam_label_distace import sam_label_distance
 from chunk_generation import subsample_positions, chunks_from_pointcloud, indices_per_patch, tarl_features_per_patch, image_based_features_per_patch, dinov2_mean, get_indices_feature_reprojection
 from normalized_cut import normalized_cut
+import scipy 
 
 
 def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks, 
@@ -94,6 +95,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 num_points_major = np.asarray(chunk_major.points).shape[0]
 
                 print("Start of normalized Cuts")
+                A = scipy.sparse.csr_matrix(A)
                 grouped_labels = normalized_cut(A, np.arange(num_points_major), T = ncuts_threshold)
                 num_groups = len(grouped_labels)
                 print("There are", num_groups, "cut regions")
