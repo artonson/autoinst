@@ -6,6 +6,24 @@ from multiprocessing import Pool
 import open3d as o3d
 import random 
 import copy 
+import matplotlib.pyplot as plt
+
+
+COLORS_arr = plt.cm.viridis(np.linspace(0, 1, 30)) 
+COLORS = list(list(col) for col in COLORS_arr) 
+COLORS = [list(col[:3]) for col in COLORS]
+
+
+
+def find_index_2d_list(my_list, target_sublist):
+    for i, sublist in enumerate(my_list):
+        print(sublist)
+        print(target_sublist)
+        print(sublist == list(target_sublist))
+        if sublist == list(target_sublist):
+            
+            return i
+    return None  # Sublist not found in the list
 
 
 def generate_random_colors(N, seed=0):
@@ -15,6 +33,15 @@ def generate_random_colors(N, seed=0):
         colors.add((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
 
     return list(colors)  # Convert the set to a list before returning
+
+def generate_random_colors_map(N, seed=0):
+    random.seed(42)
+    colors = set()  # Use a set to store unique colors
+    while len(colors) < N:  # Keep generating colors until we have N unique ones
+        # Generate a random color and add it to the set
+        colors.add((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+
+    return list(colors)  # Convert the
 
 
 def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
@@ -80,10 +107,57 @@ class Metrics:
         self.eval_lstq = evaluator()
         self.semantic_intersection = 0.05
         self.num_processes = 6
-        #self.relevant_idcs = {4: 'fence', 10: 'trunk', 12: 'pole',9:'vegetation', 13: 'other-object', 16: 'building', 19: 'other structure',
-        #                      # 1:'car',5:'trailer',6:'truck',7:'traffic-sign',18:'pedestrian',15:'bike'
-        #                      }
-        self.relevant_idcs = {1:'car',3:'fence',4:'truck',6:'vegetation'}
+        self.labels_dict = {
+                        0: "unlabeled",
+                        1: "outlier",
+                        10: "car",
+                        11: "bicycle",
+                        13: "bus",
+                        15: "motorcycle",
+                        16: "on-rails",
+                        18: "truck",
+                        20: "other-vehicle",
+                        30: "person",
+                        31: "bicyclist",
+                        32: "motorcyclist",
+                        40: "road",
+                        44: "parking",
+                        48: "sidewalk",
+                        49: "other-ground",
+                        50: "building",
+                        51: "fence",
+                        52: "other-structure",
+                        60: "lane-marking",
+                        70: "vegetation",
+                        71: "trunk",
+                        72: "terrain",
+                        80: "pole",
+                        81: "traffic-sign",
+                        99: "other-object",
+                        252: "moving-car",
+                        253: "moving-bicyclist",
+                        254: "moving-person",
+                        255: "moving-motorcyclist",
+                        256: "moving-on-rails",
+                        257: "moving-bus",
+                        258: "moving-truck",
+                        259: "moving-other-vehicle"
+                    }
+        self.cols = COLORS
+        class_names = ['unlabeled',
+                        'car',
+                        'parking',
+                        'sidewalk',
+                        'fence',
+                        'trailer',
+                        'truck',
+                        'traffic_sign',
+                        'other_ground',
+                        'vegetation'
+                        ]
+
+        
+        #self.relevant_idcs = {1:'car',3:'fence',4:'truck',6:'vegetation'}
 
         # ap stuff
         self.ap = {}
@@ -165,14 +239,15 @@ class Metrics:
         print("AP @ [0.5:0.95]", round(ap * 100, 3))
 
     def average_precision(self, pred, ins_labels, confs, iou_thresh=0.5):
-        self.precision = []
-        self.recall = []
+        self.precision = [1.0]
+        self.recall = [0.0] ##Init with values to ensure correct computation 
         unique_gt_labels = list(np.unique(ins_labels))
         unique_pred_labels = list(np.unique(pred))
 
         # background remove
         unique_pred_labels.remove(0)
         unique_gt_labels.remove(0)
+
 
         pred_used = set()
         instance_conf = {}
@@ -181,7 +256,7 @@ class Metrics:
                 # taken from unscene3d eval
                 instance_conf[i] = 0.5
             else:
-                instance_conf[i] = confs[i].cpu().item()
+                instance_conf[i] = confs[i]
 
         if confs != []:
             instance_conf = dict(
@@ -208,7 +283,7 @@ class Metrics:
                     matched = True
                     gt_used.append(gt)
                     break
-
+                    
             if matched:
                 self.tp += 1
                 self.fn -= 1
@@ -218,8 +293,7 @@ class Metrics:
             # Calculate precision and recall
             self.precision.append(self.tp / float(self.tp + self.fp))
             self.recall.append(self.tp / float(self.tp + self.fn))
-
-        # Calculate AP
+        
         ap = np.trapz(self.precision, self.recall)
         print("Average Precision @ " + str(iou_thresh), ap)
         return ap
@@ -245,10 +319,8 @@ class Metrics:
         new_pcd.points = pcd.points
         new_cols = np.zeros((np.asarray(pcd.points).shape[0], 3))
         pcd_cols = np.asarray(pcd.colors)
-
-        idcs = np.where(labels == unique_labels[idx])[0]
-
-        new_cols[idcs] = cols[idx]
+        idcs = np.where(labels == idx)[0]
+        new_cols[idcs] = cols[unique_labels.index(idx)]
         new_pcd.colors = o3d.utility.Vector3dVector(new_cols)
         o3d.visualization.draw_geometries([new_pcd])
         return new_pcd, idcs
@@ -276,31 +348,31 @@ class Metrics:
                 # print("intersect",cur_intersect)
                 new_ncuts_labels[pred_idcs] = 1
                 num_clusters += 1
-        o3d.visualization.draw_geometries([color_pcd_by_labels(pcd,new_ncuts_labels,largest=True)])
+        #o3d.visualization.draw_geometries([color_pcd_by_labels(pcd,new_ncuts_labels,largest=True)])
         return np.where(new_ncuts_labels == 1)[0], num_clusters
 
-    def semantic_eval(self, pred_pcd, pcd_gt):
-        unique_colors, labels_kitti = np.unique(
+    def semantic_eval(self, pred_pcd, pcd_gt,labels):
+        unique_colors_kitti, labels_kitti = np.unique(
             np.asarray(pcd_gt.colors), axis=0, return_inverse=True)
         unique_colors, labels_ncuts = np.unique(
             np.asarray(pred_pcd.colors), axis=0, return_inverse=True)
-        for idx in self.relevant_idcs.keys():
-        #for idx in range(len(np.unique(labels_kitti))):
+
+        for idx in list(np.unique(labels)):
             print('file idx',idx)
-            print("Semantics for class", self.relevant_idcs[idx])
+            print("current class",self.labels_dict[idx])
+            #print("Semantics for class", self.relevant_idcs[idx])
             gt_pcd, idcs = self.remove_cols(
-                pcd_gt, unique_colors, labels_kitti, list(
-                    np.unique(labels_kitti)), idx)
-
-            pred_labels, num_clusters = self.get_semantics(
-                labels_ncuts, idcs, pred_pcd)
-
-            cur_iou = self.iou(pred_labels, idcs)
-            print("--- iou",cur_iou)
-            print("--- num clusters",num_clusters)
-            print("--- semantic score", cur_iou/(num_clusters + 1e-8))
-            print("-------------------")
-            
+                    pcd_gt, unique_colors_kitti,labels.reshape(-1,1), list(
+                        np.unique(labels)), idx)
+    
+                #pred_labels, num_clusters = self.get_semantics(
+                #    labels_ncuts, idcs, pred_pcd)
+    
+                #cur_iou = self.iou(pred_labels, idcs)
+                #print("--- iou",cur_iou)
+                #print("--- num clusters",num_clusters)
+                #print("--- semantic score", cur_iou/(num_clusters + 1e-8))
+                #print("-------------------")
 
     def calculate_full_stats(self, pred_indices, gt_indices):
         out = full_statistics(
