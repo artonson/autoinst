@@ -11,7 +11,7 @@ from sam_label_distace import sam_label_distance
 from chunk_generation import subsample_positions, chunks_from_pointcloud, indices_per_patch, tarl_features_per_patch, image_based_features_per_patch, dinov2_mean, get_indices_feature_reprojection
 from normalized_cut import normalized_cut
 import scipy 
-
+import copy
 
 def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks, 
                         pcd_nonground_chunks_major_downsampling, 
@@ -20,7 +20,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         center_positions,center_ids, 
                         positions, first_position, sampled_indices_global, chunk_size, 
                         major_voxel_size=0.35, alpha=1, beta=0, gamma=0, 
-                        theta=0,proximity_threshold=1, ncuts_threshold=0.03,
+                        theta=0,proximity_threshold=1, ncuts_threshold=0.03, cams = ["cam2", "cam3"], cam_ids = [0],
                         out_folder='test_data/',ground_mode=True,sequence=None,
                         patchwise_indices=None):
         
@@ -43,8 +43,6 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 print(num_points_major, "points in downsampled chunk (major)")
 
-                cams = ["cam2", "cam3"]
-
                 spatial_distance = cdist(points_major, points_major)
                 mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
 
@@ -54,27 +52,40 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         spatial_edge_weights = mask
 
                 if beta and not gamma:
-                        sam_features_major = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
-                                                cam_indices_global, cams, cam_id=0, hpr_radius=1000, sam=True, dino=False, rm_perp=0.0)
+                        sam_features_major_list = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
+                                                cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, sam=True, dino=False, rm_perp=0.0)
                 elif gamma and not beta:
-                        point2dino = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
-                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, num_dino_features=384, sam=False, dino=True, rm_perp=0.0)
-                        dinov2_features_major = dinov2_mean(point2dino)
+                        point2dino_list = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
+                                                        cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, num_dino_features=384, sam=False, dino=True, rm_perp=0.0)
+                        dinov2_features_major_list = []
+                        for point2dino in point2dino_list:
+                                dinov2_features_major_list.append(dinov2_mean(point2dino))
                 elif beta and gamma:
-                        sam_features_major, point2dino = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
-                                                                        cam_indices_global, cams, cam_id=0, hpr_radius=1000, num_dino_features=384, sam=True, dino=True, rm_perp=0.0)
-                        dinov2_features_major = dinov2_mean(point2dino)
-                
+                        sam_features_major_list, point2dino_list = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
+                                                                        cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, num_dino_features=384, sam=True, dino=True, rm_perp=0.0)
+                        dinov2_features_major_list = []
+                        for point2dino in point2dino_list:
+                                dinov2_features_major_list.append(dinov2_mean(point2dino))
+
+                sam_edge_weights = copy.deepcopy(mask)
+                dinov2_edge_weights = copy.deepcopy(mask)
+
                 if beta:
-                        sam_edge_weights, _ = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
-                else:
-                        sam_edge_weights = mask
+                        if len(sam_features_major_list) == 0:
+                                raise ValueError("The length should be longer than 0!")
+                        
+                        for sam_features_major in sam_features_major_list:
+                                sam_edge_weights_cam, _ = sam_label_distance(sam_features_major, spatial_distance, proximity_threshold, beta)
+                                sam_edge_weights = sam_edge_weights *  sam_edge_weights_cam
 
                 if gamma:
-                        dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
-                        dinov2_edge_weights = mask * np.exp(-gamma * dinov2_distance)
-                else:
-                        dinov2_edge_weights = mask
+                        if len(dinov2_features_major_list) == 0:
+                                raise ValueError("The length should be longer than 0!")
+
+                        for dinov2_features_major in dinov2_features_major_list:
+                                dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
+                                dinov2_edge_weights = dinov2_edge_weights * np.exp(-gamma * dinov2_distance)
+
 
                 if theta:
                         tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2)

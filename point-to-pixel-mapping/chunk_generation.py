@@ -149,7 +149,7 @@ def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, 
   
         if not features_in_radius.shape[0]==0:
             tarl_features[i,:] = np.mean(features_in_radius, axis=0)
-            #tarl_features[i] /= np.linalg.norm(tarl_features[i])
+            tarl_features[i] /= np.linalg.norm(tarl_features[i])
         else:
             continue
 
@@ -181,7 +181,7 @@ def is_perpendicular_and_upward(point, normal, boundary = 0.1):
     return (perpendicular and upward)
 
 
-def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_size, T_pcd2world, cam_indices, cams, cam_id, hpr_radius=1000, 
+def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_size, T_pcd2world, cam_indices, cams, cam_ids: list, hpr_radius=1000, 
                                     num_dino_features = 384, hpr_masks=None, sam = True, dino=True, rm_perp=0.0):
 
     num_points_nc = np.asarray(chunk_nc.points).shape[0]
@@ -193,115 +193,127 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
     if rm_perp:
         pcd_chunk_final = get_subpcd(pcd_chunk, inlier_indices_of_chunk)
         pcd_chunk_final.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=200))
-    
+
     if sam:
-        point2sam_nc = (-1) * np.ones((num_points_nc, len(cam_indices)), dtype=int) # -1 indicates no association
-
+        point2sam_list = []
     if dino:
-        point2dino_nc = np.zeros((num_points_nc, len(cam_indices), num_dino_features))
+        point2dino_list = []
 
-    sam_mask_0 = dataset.get_sam_mask(cams[cam_id], 0)
-    sam_label_0 = masks_to_image(sam_mask_0)
-    label_shape = sam_label_0.shape
+    for cam_id in cam_ids:
 
-    if hpr_masks is not None:
-        assert len(cam_indices) == hpr_masks.shape[0]
-
-    for i, points_index in enumerate(cam_indices):
-
-        # Load the calibration matrices
-        T_lidar2world = dataset.get_pose(points_index)
-        T_world2lidar = np.linalg.inv(T_lidar2world)
-        T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
-        T_world2cam = T_lidar2cam @ T_world2lidar
-        T_pcd2cam = T_world2cam @ T_pcd2world
-
-        #hidden point removal
-        pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
-        if hpr_masks is None:
-            hpr_bounds = np.array([25,25,25])
-            bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
-            pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
-            visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe_hpr.points), camera=[0,0,0], radius_factor=hpr_radius)
-            visible_indices = bound_indices[visible_indices]
-        else:
-            visible_indices = np.where(hpr_masks[i])[0]
-
-        frame_indices = list(set(visible_indices) & set(chunk_and_inlier_indices))
-
-        # Load the SAM label
         if sam:
-            sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
-            sam_labels = masks_to_image(sam_masks)
+            point2sam_nc = (-1) * np.ones((num_points_nc, len(cam_indices)), dtype=int) # -1 indicates no association
 
-        # Load the DINOV2 feature map
         if dino:
-            if num_dino_features < 384:
-                dinov2_original = dataset.get_dinov2_features(cams[cam_id], points_index)
-                dino_reshape = np.reshape(dinov2_original, (dinov2_original.shape[0] * dinov2_original.shape[1], dinov2_original.shape[2]))
-                fit = umap.UMAP(n_neighbors=50, min_dist=0.0, n_components=num_dino_features, metric='euclidean')
-                u = fit.fit_transform(dino_reshape)
-                dinov2_feature_map = np.reshape(u, (dinov2_original.shape[0], dinov2_original.shape[1], u.shape[1]))
-                
-            elif num_dino_features == 384:
-                dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
+            point2dino_nc = np.zeros((num_points_nc, len(cam_indices), num_dino_features))
+
+        sam_mask_0 = dataset.get_sam_mask(cams[cam_id], 0)
+        sam_label_0 = masks_to_image(sam_mask_0)
+        label_shape = sam_label_0.shape
+
+        if hpr_masks is not None:
+            assert len(cam_indices) == hpr_masks.shape[0]
+
+        for i, points_index in enumerate(cam_indices):
+
+            # Load the calibration matrices
+            T_lidar2world = dataset.get_pose(points_index)
+            T_world2lidar = np.linalg.inv(T_lidar2world)
+            T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
+            T_world2cam = T_lidar2cam @ T_world2lidar
+            T_pcd2cam = T_world2cam @ T_pcd2world
+
+            #hidden point removal
+            pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
+            if hpr_masks is None:
+                hpr_bounds = np.array([25,25,25])
+                bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
+                pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
+                visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe_hpr.points), camera=[0,0,0], radius_factor=hpr_radius)
+                visible_indices = bound_indices[visible_indices]
             else:
-                raise ValueError("num_dino_features must be <= 384")
+                visible_indices = np.where(hpr_masks[i])[0]
 
-            dino_factor_0 = dinov2_feature_map.shape[0] / label_shape[0]
-            dino_factor_1 = dinov2_feature_map.shape[1] / label_shape[1]
+            frame_indices = list(set(visible_indices) & set(chunk_and_inlier_indices))
 
-
-        # Apply visibility to downsampled chunk used for normalized cuts
-        visible_chunk = get_subpcd(pcd_camframe, frame_indices)
-        chunk_nc_camframe = copy.deepcopy(chunk_nc).transform(T_pcd2cam)
-
-        visible_chunk_tree = o3d.geometry.KDTreeFlann(visible_chunk)
-        nc_indices = []
-        for j, point in enumerate(np.asarray(chunk_nc_camframe.points)):
-            [_, idx, _] = visible_chunk_tree.search_knn_vector_3d(point, 1)
-  
-            if np.linalg.norm(point - np.asarray(visible_chunk.points)[idx[0]]) < voxel_size / 2:
-                nc_indices.append(j)
-
-        visible_nc_camframe = get_subpcd(chunk_nc_camframe, nc_indices)
-
-        # Project the points to pixels
-        points_to_pixels = point_to_pixel(np.asarray(visible_nc_camframe.points), K, label_shape[0], label_shape[1])
-
-        if rm_perp:
-            T_cam2pcd = np.linalg.inv(copy.deepcopy(T_pcd2cam))
-            visible_nc_pcdframe = copy.deepcopy(visible_nc_camframe).transform(T_cam2pcd)
-            normals = np.zeros((len(visible_nc_pcdframe.points), 3))
-            normals = kDTree_1NN_feature_reprojection(normals, visible_nc_pcdframe, np.asarray(pcd_chunk_final.normals), pcd_chunk_final, max_radius=voxel_size/2, no_feature_label=[0,0,0])
-            visible_nc_pcdframe_points = np.asarray(visible_nc_pcdframe.points)
-
-        for point_id, pixel_id in points_to_pixels.items():
-            pixel = pixel_id["pixels"]
-
+            # Load the SAM label
             if sam:
-                label = sam_labels[pixel[1], pixel[0]]
-            else:
-                label = False
+                sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
+                sam_labels = masks_to_image(sam_masks)
+
+            # Load the DINOV2 feature map
+            if dino:
+                if num_dino_features < 384:
+                    dinov2_original = dataset.get_dinov2_features(cams[cam_id], points_index)
+                    dino_reshape = np.reshape(dinov2_original, (dinov2_original.shape[0] * dinov2_original.shape[1], dinov2_original.shape[2]))
+                    fit = umap.UMAP(n_neighbors=50, min_dist=0.0, n_components=num_dino_features, metric='euclidean')
+                    u = fit.fit_transform(dino_reshape)
+                    dinov2_feature_map = np.reshape(u, (dinov2_original.shape[0], dinov2_original.shape[1], u.shape[1]))
+                    
+                elif num_dino_features == 384:
+                    dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
+                else:
+                    raise ValueError("num_dino_features must be <= 384")
+
+                dino_factor_0 = dinov2_feature_map.shape[0] / label_shape[0]
+                dino_factor_1 = dinov2_feature_map.shape[1] / label_shape[1]
+
+
+            # Apply visibility to downsampled chunk used for normalized cuts
+            visible_chunk = get_subpcd(pcd_camframe, frame_indices)
+            chunk_nc_camframe = copy.deepcopy(chunk_nc).transform(T_pcd2cam)
+
+            visible_chunk_tree = o3d.geometry.KDTreeFlann(visible_chunk)
+            nc_indices = []
+            for j, point in enumerate(np.asarray(chunk_nc_camframe.points)):
+                [_, idx, _] = visible_chunk_tree.search_knn_vector_3d(point, 1)
+    
+                if np.linalg.norm(point - np.asarray(visible_chunk.points)[idx[0]]) < voxel_size / 2:
+                    nc_indices.append(j)
+
+            visible_nc_camframe = get_subpcd(chunk_nc_camframe, nc_indices)
+
+            # Project the points to pixels
+            points_to_pixels = point_to_pixel(np.asarray(visible_nc_camframe.points), K, label_shape[0], label_shape[1])
 
             if rm_perp:
-                valid = not is_perpendicular_and_upward(visible_nc_pcdframe_points[point_id], normals[point_id], boundary=rm_perp)
-            else:
-                valid = True
+                T_cam2pcd = np.linalg.inv(copy.deepcopy(T_pcd2cam))
+                visible_nc_pcdframe = copy.deepcopy(visible_nc_camframe).transform(T_cam2pcd)
+                normals = np.zeros((len(visible_nc_pcdframe.points), 3))
+                normals = kDTree_1NN_feature_reprojection(normals, visible_nc_pcdframe, np.asarray(pcd_chunk_final.normals), pcd_chunk_final, max_radius=voxel_size/2, no_feature_label=[0,0,0])
+                visible_nc_pcdframe_points = np.asarray(visible_nc_pcdframe.points)
 
-            if label and valid:
-                point2sam_nc[nc_indices[point_id], i] = label
-            if dino and valid:
-                dino_pixel_0 = int(dino_factor_0 * pixel[1])
-                dino_pixel_1 = int(dino_factor_1 * pixel[0])
-                point2dino_nc[nc_indices[point_id], i, :] = dinov2_feature_map[dino_pixel_0, dino_pixel_1, :]
+            for point_id, pixel_id in points_to_pixels.items():
+                pixel = pixel_id["pixels"]
 
+                if sam:
+                    label = sam_labels[pixel[1], pixel[0]]
+                else:
+                    label = False
+
+                if rm_perp:
+                    valid = not is_perpendicular_and_upward(visible_nc_pcdframe_points[point_id], normals[point_id], boundary=rm_perp)
+                else:
+                    valid = True
+
+                if label and valid:
+                    point2sam_nc[nc_indices[point_id], i] = label
+                if dino and valid:
+                    dino_pixel_0 = int(dino_factor_0 * pixel[1])
+                    dino_pixel_1 = int(dino_factor_1 * pixel[0])
+                    point2dino_nc[nc_indices[point_id], i, :] = dinov2_feature_map[dino_pixel_0, dino_pixel_1, :]
+
+        if sam:
+            point2sam_list.append(point2sam_nc)
+        if dino:
+            point2dino_list.append(point2dino_nc)
+                
     if sam and dino:
-        return point2sam_nc, point2dino_nc
+        return point2sam_list, point2dino_list
     elif sam:
-        return point2sam_nc
+        return point2sam_list
     elif dino:
-        return point2dino_nc
+        return point2dino_list
     else:
         raise ValueError("Either sam or dino must be True")
 
