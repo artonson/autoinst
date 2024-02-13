@@ -2,6 +2,7 @@ from dataset.kitti_odometry_dataset import KittiOdometryDataset, KittiOdometryDa
 from dataset.filters.filter_list import FilterList
 from dataset.filters.kitti_gt_mo_filter import KittiGTMovingObjectFilter
 from dataset.filters.range_filter import RangeFilter
+from dataset.nuscenes_dataset import nuScenesOdometryDataset, nuScenesDatasetConfig
 import os 
 import numpy as np 
 import open3d as o3d
@@ -68,13 +69,42 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
     dataset = KittiOdometryDataset(config_filtered, sequence_num)
     return dataset
 
+def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="SAM_Underseg", 
+                                dinov2_folder_name="Dinov2", correct_scan_calibration=True, range_min=3, 
+                                range_max=25,ncuts_mode=True):
+    
+
+    if ncuts_mode : 
+        filters = FilterList(
+            [
+                RangeFilter(range_min, range_max),
+            ]
+        )
+    else : 
+        filters = FilterList([])
+
+    config_filtered = nuScenesDatasetConfig(
+        cache=cache,
+        dataset_path=dataset_path,
+        sam_folder_name=sam_folder_name,
+        dinov2_folder_name=dinov2_folder_name,
+        filters=FilterList(
+            [
+                RangeFilter(2.5, 120),
+            ]
+        ),
+    )
+        
+    dataset = nuScenesOdometryDataset(config_filtered, sequence_num)
+    return dataset
+
 def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentation_method="patchwork", icp=True, 
                                 minor_voxel_size=0.05, major_voxel_size=0.35, out_folder=None, sequence_num=7,cur_idx=0):
     
     if os.path.exists(out_folder) == False : 
             os.makedirs(out_folder)
     
-    pcd_ground, pcd_nonground, all_poses, T_pcd,kitti_labels = aggregate_pointcloud(dataset, ind_start, 
+    pcd_ground, pcd_nonground, all_poses, T_pcd, labels = aggregate_pointcloud(dataset, ind_start, 
                                                 ind_end, ground_segmentation=ground_segmentation_method, 
                                                 icp=icp)
     print(pcd_nonground)
@@ -86,12 +116,12 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
     o3d.io.write_point_cloud(f'{out_folder}non_ground{sequence_num}_{cur_idx}.pcd', pcd_nonground, write_ascii=False, compressed=False, print_progress=False)
     
     np.savez(f'{out_folder}all_poses_' + str(sequence_num) + '_' + str(cur_idx) + '.npz', all_poses=all_poses, T_pcd=T_pcd)
-    np.savez(f'{out_folder}kitti_labels_' + str(sequence_num) + '_' + str(cur_idx) +  '.npz',seg_ground=np.vstack(kitti_labels['seg_ground']),
-            seg_nonground=np.vstack(kitti_labels['seg_nonground']),
-            instance_ground=np.vstack(kitti_labels['instance_ground']),
-            instance_nonground=np.vstack(kitti_labels['instance_nonground']))
+    np.savez(f'{out_folder}kitti_labels_' + str(sequence_num) + '_' + str(cur_idx) +  '.npz',seg_ground=np.vstack(labels['seg_ground']),
+            seg_nonground=np.vstack(labels['seg_nonground']),
+            instance_ground=np.vstack(labels['instance_ground']),
+            instance_nonground=np.vstack(labels['instance_nonground']))
     
-    return kitti_labels
+    return labels
     
 
 

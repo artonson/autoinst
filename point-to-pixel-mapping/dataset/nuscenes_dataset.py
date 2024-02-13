@@ -13,6 +13,7 @@ import pykitti.utils as utils
 
 
 from nuscenes import NuScenes
+from nuscenes.utils.data_io import load_bin_file
 from pyquaternion import Quaternion
 
 from point_cloud_utils import transformation_matrix
@@ -45,9 +46,9 @@ class nuScenesOdometryDataset(Dataset):
         self.camera_names = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT")
 
         self.sam_label_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs/SAM/")
+            self.ds_path, "outputs", self.config.sam_folder_name)
         self.dinov2_features_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs/DINOV2/")
+            self.ds_path, "outputs",self.config.dinov2_folder_name)
 
         self.tarl_features_path: os.PathLike = os.path.join(
             self.ds_path, "outputs/TARL/LIDAR_TOP/")
@@ -136,6 +137,34 @@ class nuScenesOdometryDataset(Dataset):
         intensity = scan.reshape((-1, 5))[:, 3]
 
         return intensity
+
+    def get_panoptic_labels(self, index: int):
+
+
+        sample_token = self.sample_tokens[index]
+        sample = self.dataset.get('sample', sample_token)
+        lidar_token = sample['data']['LIDAR_TOP']
+        pantopic_data = self.dataset.get('panoptic', lidar_token)
+        label_file_path = os.path.join(self.ds_path, pantopic_data["filename"])
+        panoptic = load_bin_file(label_file_path, 'panoptic')
+        panoptic = panoptic[np.newaxis].T
+
+        return panoptic
+
+    def get_semantic_labels(self, index: int):
+
+        sample_token = self.sample_tokens[index]
+        sample = self.dataset.get('sample', sample_token)
+        lidar_token = sample['data']['LIDAR_TOP']
+        lidarseg_data = self.dataset.get('lidarseg', lidar_token)
+        label_file_path = os.path.join(self.ds_path, lidarseg_data["filename"])
+        lidarseg = load_bin_file(label_file_path, 'lidarseg')
+        lidarseg = lidarseg[np.newaxis].T
+
+        return lidarseg
+
+    def get_instance_labels(self, index: int):
+        return self.get_panoptic_labels(index)
 
     def get_image(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
@@ -304,6 +333,9 @@ class nuScenesOdometryDataset(Dataset):
             self.get_pose(index),
             self.get_point_cloud(index),
             self.get_intensity(index),
+            self.get_panoptic_labels(index),
+            self.get_semantic_labels(index),
+            self.get_instance_labels(index),
             {
                 cam_name: self.get_image(cam_name, index)
                 for cam_name in self.camera_names
