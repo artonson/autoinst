@@ -164,7 +164,9 @@ class nuScenesOdometryDataset(Dataset):
         return lidarseg
 
     def get_instance_labels(self, index: int):
-        return self.get_panoptic_labels(index)
+        pan_lab = self.get_panoptic_labels(index)
+        ins_lab = pan_lab % 1000
+        return ins_lab
 
     def get_image(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
