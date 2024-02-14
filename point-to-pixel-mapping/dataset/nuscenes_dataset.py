@@ -33,6 +33,7 @@ class nuScenesOdometryDataset(Dataset):
     def __init__(self, config: nuScenesDatasetConfig, seq_num: int) -> None:
 
         # parse inputs
+        self.nuscenes = True
         self.config = config
         self.seq_num = seq_num
         self.ds_path: DatasetPathLike = self.config.dataset_path
@@ -49,6 +50,7 @@ class nuScenesOdometryDataset(Dataset):
             self.ds_path, "outputs", self.config.sam_folder_name)
         self.dinov2_features_path: os.PathLike = os.path.join(
             self.ds_path, "outputs",self.config.dinov2_folder_name)
+        self.dist_threshold = config.dist_threshold
 
         self.tarl_features_path: os.PathLike = os.path.join(
             self.ds_path, "outputs/TARL/LIDAR_TOP/")

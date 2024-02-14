@@ -9,8 +9,17 @@ import open3d as o3d
 from aggregate_pointcloud import aggregate_pointcloud
 from chunk_generation import subsample_positions, chunks_from_pointcloud
 from visualization_utils import * 
+import numpy as np
+import matplotlib.pyplot as plt
 
-def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None):
+# Generate 30 different colors
+COLORS = plt.cm.viridis(np.linspace(0, 1, 30))
+COLORS = list(list(col) for col in COLORS) 
+COLORS = [tuple(col[:3]) for col in COLORS]
+print(COLORS)
+
+
+def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None,semantics=False):
     
     if colors == None : 
         colors = generate_random_colors(2000)
@@ -35,16 +44,15 @@ def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None):
         else : 
             pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
         
-        #if labels[i] != (-1):
-        #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
-    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/ 255)
+    if semantics : 
+        pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors)
+    else : 
+        pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/255)
     return pcd_colored
 
 def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred_medium", 
                                 dinov2_folder_name="dinov2_features", correct_scan_calibration=True, range_min=3, 
                                 range_max=25,ncuts_mode=True):
-    
-
     if ncuts_mode : 
         filters = FilterList(
             [
@@ -65,15 +73,14 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
         correct_scan_calibration=correct_scan_calibration,
         filters=filters,
     )
-
     dataset = KittiOdometryDataset(config_filtered, sequence_num)
     return dataset
 
 def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="SAM_Underseg", 
                                 dinov2_folder_name="Dinov2", correct_scan_calibration=True, range_min=3, 
-                                range_max=25,ncuts_mode=True):
+                                range_max=25,ncuts_mode=True,dist_threshold=5):
     
-
+    
     if ncuts_mode : 
         filters = FilterList(
             [
@@ -93,6 +100,7 @@ def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam
                 RangeFilter(2.5, 120),
             ]
         ),
+        dist_threshold=dist_threshold,
     )
         
     dataset = nuScenesOdometryDataset(config_filtered, sequence_num)
@@ -107,7 +115,6 @@ def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentati
     pcd_ground, pcd_nonground, all_poses, T_pcd, labels = aggregate_pointcloud(dataset, ind_start, 
                                                 ind_end, ground_segmentation=ground_segmentation_method, 
                                                 icp=icp)
-    print(pcd_nonground)
     
     # Saving point clouds and poses
     sequence_num = str(sequence_num)
@@ -154,8 +161,8 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     colors = generate_random_colors_map(600)
     instance_non_ground_orig = color_pcd_by_labels(pcd_nonground,kitti_data1['instance_nonground'],colors=colors,gt_labels=instances)
     instance_ground_orig = color_pcd_by_labels(pcd_ground,kitti_data1['instance_ground'],colors=colors,gt_labels=instances)
-    semantic_non_ground_orig = color_pcd_by_labels(pcd_nonground,kitti_data1['seg_nonground'],colors=colors,gt_labels=semantics)
-    semantic_ground_orig = color_pcd_by_labels(pcd_ground,kitti_data1['seg_ground'],colors=colors,gt_labels=semantics)
+    semantic_non_ground_orig = color_pcd_by_labels(pcd_nonground,kitti_data1['seg_nonground'],colors=COLORS,gt_labels=semantics,semantics=True)
+    semantic_ground_orig = color_pcd_by_labels(pcd_ground,kitti_data1['seg_ground'],colors=COLORS,gt_labels=semantics,semantics=True)
     #o3d.visualization.draw_geometries([panoptic_non_ground_orig])
     #o3d.visualization.draw_geometries([color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])])
     kitti_data = {}
@@ -213,17 +220,20 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     
     # Map colors from original to downsampled point cloud
     new_colors = []
+    new_labels = []
     for point in seg_ground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
         try : 
             point_color = np.asarray(semantic_ground_orig.colors)[idx[0]]
+            cur_label = kitti_data1['seg_ground'][idx[0]]
         except : 
             import pdb; pdb.set_trace()
         new_colors.append(point_color)
+        new_labels.append(cur_label)
     #import pdb; pdb.set_trace()
         
     seg_ground.colors = o3d.utility.Vector3dVector(new_colors)
-    _, kitti_data['seg_ground'] = np.unique(np.asarray(seg_ground.colors), axis=0, return_inverse=True)
+    kitti_data['seg_ground'] = np.asarray(new_labels)
     
     
     
@@ -235,28 +245,25 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     
     # Map colors from original to downsampled point cloud
     new_colors = []
+    new_labels = []
     for point in seg_nonground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
         try : 
             point_color = np.asarray(semantic_non_ground_orig.colors)[idx[0]]
+            cur_label = kitti_data1['seg_nonground'][idx[0]]
         except : 
             import pdb; pdb.set_trace()
         new_colors.append(point_color)
+        new_labels.append(cur_label)
     #import pdb; pdb.set_trace()
         
     seg_nonground.colors = o3d.utility.Vector3dVector(new_colors)
-    _, kitti_data['seg_nonground'] = np.unique(np.asarray(seg_nonground.colors), axis=0, return_inverse=True)
-    
-    
-    
-    
-    print(np.asarray(pcd_ground_minor.points).shape)
-    print(np.asarray(pcd_nonground_minor.points).shape)
-    print(np.asarray(instance_non_ground.points).shape)
-    print(np.asarray(pcd_ground.points).shape)
+    kitti_data['seg_nonground'] = np.asarray(new_labels)
+
     
     print("done downsample")
     return pcd_ground_minor, pcd_nonground_minor, all_poses, T_pcd, first_position,kitti_data
+
 
 def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0,sequence_num=0,out_folder=None,cur_idx=0):
 
@@ -266,7 +273,7 @@ def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0,sequenc
     # Performing subsampling
     sampled_indices_local = list(subsample_positions(all_positions, voxel_size=voxel_size))
     sampled_indices_global = list(subsample_positions(all_positions, voxel_size=voxel_size) + ind_start)
-
+    
     # Selecting a subset of poses and positions
     poses = np.array(all_poses)[sampled_indices_local]
     positions = np.array(all_positions)[sampled_indices_local]

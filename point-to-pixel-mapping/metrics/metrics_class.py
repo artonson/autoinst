@@ -217,6 +217,7 @@ class Metrics:
 
     def update_stats(
             self,
+            all_labels,
             pred_labels,
             gt_labels,
             confs=[],
@@ -224,19 +225,22 @@ class Metrics:
             calc_lstq=True):
         self.eval_lstq.reset()
         pred_labels = self.filter_labels(pred_labels)
+        gt_labels = self.filter_labels(gt_labels)
+        all_labels = self.filter_labels(all_labels)
+
         if calc_all:
             self.calculate_full_stats(pred_labels, gt_labels)
         if calc_lstq:
-            self.eval_lstq.add_batch(pred_labels, gt_labels)
+            self.eval_lstq.add_batch(all_labels, gt_labels)
             lstq = self.eval_lstq.get_eval()
             print('lstq value : ', lstq)
-
-        self.average_precision_parallel(pred_labels, gt_labels, confs)
-        print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
-        print("AP @ 0.5", round(self.ap[0.5] * 100,3))
-        aps_list = [self.ap[o] for o in self.ap_overlaps]
-        ap = sum(aps_list) / float(len(aps_list))
-        print("AP @ [0.5:0.95]", round(ap * 100, 3))
+        if self.calc_ap :
+            self.average_precision_parallel(pred_labels, gt_labels, confs)
+            print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
+            print("AP @ 0.5", round(self.ap[0.5] * 100,3))
+            aps_list = [self.ap[o] for o in self.ap_overlaps]
+            ap = sum(aps_list) / float(len(aps_list))
+            print("AP @ [0.5:0.95]", round(ap * 100, 3))
 
     def average_precision(self, pred, ins_labels, confs, iou_thresh=0.5):
         self.precision = [1.0]

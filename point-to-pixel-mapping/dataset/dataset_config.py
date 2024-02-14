@@ -13,3 +13,4 @@ class DatasetConfig:
     dinov2_folder_name: str
     filters: FilterListOrNone
     cache: bool
+    dist_threshold: float

@@ -45,7 +45,8 @@ class RefinerModel():
         cfg.EVALUATE = True
 
         self.model = MaskPS(cfg)
-        w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_116/checkpoints/mask_pls_oversegmented_epoch=02.ckpt"
+        w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=07.ckpt"
+        #w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_110/checkpoints/mask_pls_oversegmented_epoch=04.ckpt"
         w = torch.load(w, map_location="cpu")
         self.model.load_state_dict(w["state_dict"])
         self.model.cuda()
@@ -82,8 +83,10 @@ class RefinerModel():
         xyz = minor_points.copy()
         mean_x = xyz[:, 0].mean()
         mean_y = xyz[:, 1].mean()
+        mean_z = xyz[:, 2].mean()
         xyz[:, 0] -= mean_x
         xyz[:, 1] -= mean_y
+        xyz[:, 2] -= mean_z
         intensity = np.ones((xyz.shape[0]))
 
         feats = np.concatenate(

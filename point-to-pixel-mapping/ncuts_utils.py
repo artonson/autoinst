@@ -33,9 +33,19 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 cam_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, first_id, adjacent_frames=adjacent_frames_cam) 
                 tarl_indices_global, _ = get_indices_feature_reprojection(sampled_indices_global, center_id, adjacent_frames=adjacent_frames_tarl) 
 
-                pcd_chunk = pcd_nonground_chunks[sequence]
+                
                 if ground_mode == False  : 
+                        pcd_chunk = pcd_nonground_chunks[sequence]
                         pcd_ground_chunk = pcd_ground_chunks[sequence]
+                else : 
+                        pcd_chunk = pcd_nonground_chunks
+                        chunk_major = pcd_nonground_chunks_major_downsampling[sequence]
+                        inliers = get_statistical_inlier_indices(chunk_major)
+                        ground_inliers = get_subpcd(chunk_major, inliers)
+                        mean_hight = np.mean(np.asarray(ground_inliers.points)[:,2])
+                        in_idcs = np.where(np.asarray(ground_inliers.points)[:,2] < (mean_hight + 0.2))[0]
+                        chunk_major = get_subpcd(ground_inliers, in_idcs)
+                        
                 chunk_major = pcd_nonground_chunks_major_downsampling[sequence]
 
                 points_major = np.asarray(chunk_major.points)
@@ -144,7 +154,10 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
                 index_file = str(center_id).zfill(6) + '.pcd'
                 file = os.path.join(out_folder, index_file)
-                return merged_chunk, file, pcd_chunk, cut_hight,inliers, in_idcs
+                if ground_mode == False : 
+                        return merged_chunk, file, pcd_chunk, cut_hight,inliers, in_idcs
+                else : 
+                        return merged_chunk, file
                
 def get_merge_pcds(out_folder_ncuts):
         point_clouds = []

@@ -156,13 +156,13 @@ def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
             if idcs.shape[0]> largest:
                 largest = idcs.shape[0]
                 largest_cluster_idx = i 
-    print('largest idx',largest_cluster_idx)
     
     for i in unique_labels:
         if i == -1 : 
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
+        print("i",i,'shape',idcs.shape)
         if i == largest_cluster_idx or i == 0 : 
             pcd_colors[idcs] = np.array([0,0,0])
         else : 

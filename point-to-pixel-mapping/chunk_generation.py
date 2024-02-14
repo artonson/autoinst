@@ -11,10 +11,16 @@ import copy
 import cv2
 import scipy
 from visualization_utils import color_pcd_by_labels
+from scipy.spatial import cKDTree
+from tqdm import tqdm 
 
 
 
-def subsample_positions(positions, voxel_size=1):
+import numpy as np
+from scipy.spatial.distance import cdist
+from tqdm import tqdm
+
+def subsample_positions(positions, voxel_size=1, batch_size=1000):
     positions = np.array(positions)
     min_vals = positions.min(axis=0)
     max_vals = positions.max(axis=0)
@@ -22,17 +28,23 @@ def subsample_positions(positions, voxel_size=1):
     centers = [np.arange(min_val, max_val + voxel_size, voxel_size) for min_val, max_val in zip(min_vals, max_vals)]
     grid = np.stack(np.meshgrid(*centers, indexing='ij'), -1).reshape(-1, 3)
 
-    closest_pose_indices = np.argmin(cdist(grid, positions), axis=1)
-    unique_indices = np.unique(closest_pose_indices)
-
     subsampled_indices = []
-    for index in unique_indices:
-        closest_pose = positions[index]
-        distance = np.abs(grid[closest_pose_indices == index] - closest_pose)
-        if np.all(distance < 0.5 * voxel_size, axis=1).any():
-            subsampled_indices.append(index)
+    total_batches = len(grid) // batch_size + (1 if len(grid) % batch_size != 0 else 0)
+    with tqdm(total=total_batches) as pbar:
+        for i in range(0, len(grid), batch_size):
+            batch_grid = grid[i:i + batch_size]
+            distances = cdist(batch_grid, positions)
+            closest_pose_indices = np.argmin(distances, axis=1)
+            unique_indices = np.unique(closest_pose_indices)
+            for index in unique_indices:
+                closest_pose = positions[index]
+                distance = np.abs(batch_grid[closest_pose_indices == index] - closest_pose)
+                if np.all(distance < 0.5 * voxel_size, axis=1).any():
+                    subsampled_indices.append(index)
+            pbar.update(1)
 
     return np.sort(subsampled_indices)
+
 
 
 def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap,labels=None,ground=False):

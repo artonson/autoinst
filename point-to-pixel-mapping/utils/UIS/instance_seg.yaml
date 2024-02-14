@@ -5,7 +5,7 @@ experiment:
 
 model:
   backbone: MinkUNet
-  checkpoint: segmentation/utils/UIS/lastepoch199_model_segment_contrast.pt
+  checkpoint: utils/UIS/lastepoch199_model_segment_contrast.pt
   checkpoint_key: model
 
 data:
