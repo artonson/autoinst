@@ -93,7 +93,8 @@ class TarlExtractor:
 
     def run_on_folder(self):
         all_lidars = os.listdir(self.input_dir)
-        all_lidars = sorted(all_lidars, key=lambda x: int(x.split('.')[0]))
+        if self.dataset == 'kitti' : 
+            all_lidars = sorted(all_lidars, key=lambda x: int(x.split('.')[0]))
 
         for lidar_name in tqdm(all_lidars):
             if self.dataset == 'nuscenes':
