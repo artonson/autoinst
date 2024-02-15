@@ -211,9 +211,9 @@ class KittiOdometryDataset(Dataset):
         elif camera_name == "cam1":
             file = os.path.join(file, "image_1/masks" , index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "image_2/masks" , index_file)
+            file = os.path.join(file, "image_2" , index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "image_3/masks" , index_file)
+            file = os.path.join(file, "image_3" , index_file)
         else:
             raise ValueError("Invalid camera name")
 
@@ -238,9 +238,9 @@ class KittiOdometryDataset(Dataset):
         elif camera_name == "cam1":
             file = os.path.join(file, "cam1" , index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "cam2" , index_file)
+            file = os.path.join(file, "image_2" , index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "cam3" , index_file)
+            file = os.path.join(file, "image_3" , index_file)
         else:
             raise ValueError("Invalid camera name")
 

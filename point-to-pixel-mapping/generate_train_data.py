@@ -137,10 +137,10 @@ alpha = 0.0
 theta = 0.0
 colors = generate_random_colors_map(6000)
 beta = 0.0
-gamma = 0.5
+gamma = 0.1
 proximity_threshold = 1.0
 
-seqs = list(range(7,10))
+seqs = list(range(5,7))
 
 for seq in seqs : 
         print("Sequence",seq)
@@ -244,26 +244,25 @@ for seq in seqs :
                                                 alpha=alpha,beta=beta,gamma=gamma,theta=theta,
                                                 proximity_threshold=proximity_threshold,
                                                 out_folder=out_folder_ncuts,ground_mode=False,sequence=sequence,
-                                                patchwise_indices=patchwise_indices,ncuts_threshold=0.003)
+                                                patchwise_indices=patchwise_indices,ncuts_threshold=0.09)
                                         
                                         ground_out,file_name = ncuts_chunk(dataset,indices_ground,pcd_chunk_ground,None,
                                                 pcd_ground_chunks_major_downsampling,
                                                 pcd_ground_minor,T_pcd,center_positions,center_ids,
                                                 positions,first_position,sampled_indices_global,
                                                 chunk_size=chunk_size,major_voxel_size=major_voxel_size,
-                                                alpha=1.0,beta=0.0,gamma=1.0,theta=0.0,
-                                                proximity_threshold=20.0,
+                                                alpha=1.0,beta=0.0,gamma=1.0,theta=1.0,
+                                                proximity_threshold=1.0,
                                                 out_folder=out_folder_ncuts,ground_mode=True,sequence=sequence,
-                                                patchwise_indices=patchwise_indices,ncuts_threshold=0.0003)
+                                                patchwise_indices=patchwise_indices,ncuts_threshold=0.05)
                                         
-                                        o3d.visualization.draw_geometries([merged_chunk + ground_out])
+                                        o3d.visualization.draw_geometries([pcd_chunk + ground_out])
                                         
                                         #kitti_labels['ground']['panoptic'][sequence] = kitti_labels['ground']['panoptic'][sequence][inliers_ground]
                                         inst_ground = kitti_labels['ground']['instance'][sequence][inliers][inliers_ground]
                                         seg_ground = kitti_labels['ground']['semantic'][sequence][inliers][inliers_ground]
                                         
                                         name = file_name.split('/')[-1]
-                                        o3d.io.write_point_cloud(file_name, pcd_chunk + pcd_chunk_ground , write_ascii=False, compressed=False, print_progress=False)
                                         
                                         cur_name = name.split('.')[0]
                                         
@@ -278,8 +277,8 @@ for seq in seqs :
                                                         colors=colors,gt_labels=instances)
                                         
                                         gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
-                                        pred_pcd = merged_chunk  + pcd_chunk_ground
-                                        pred_ground_pcd = merged_chunk  + ground_out
+                                        pred_pcd = pcd_chunk  + pcd_chunk_ground
+                                        pred_ground_pcd = pcd_chunk  + ground_out
                                         
                                         kitti_semantics = np.hstack((kitti_labels['nonground']['semantic'][sequence].reshape(-1,),seg_ground.reshape(-1,)))
                                         

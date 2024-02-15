@@ -50,7 +50,7 @@ def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None,semantics=False):
         pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/255)
     return pcd_colored
 
-def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred_medium", 
+def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred", 
                                 dinov2_folder_name="dinov2_features", correct_scan_calibration=True, range_min=3, 
                                 range_max=25,ncuts_mode=True):
     if ncuts_mode : 
@@ -72,6 +72,7 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
         dinov2_folder_name = dinov2_folder_name,
         correct_scan_calibration=correct_scan_calibration,
         filters=filters,
+        dist_threshold=None,
     )
     dataset = KittiOdometryDataset(config_filtered, sequence_num)
     return dataset
