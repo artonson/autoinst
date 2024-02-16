@@ -124,7 +124,7 @@ import gc
 minor_voxel_size = 0.05
 major_voxel_size = 0.35
 chunk_size = np.array([25, 25, 25]) #meters
-overlap = 10 #meters
+overlap = 23 #meters
 ground_segmentation_method = 'patchwork' 
 NCUT_ground = False 
 out_folder_ncuts = 'test_data/'
@@ -137,8 +137,10 @@ alpha = 0.0
 theta = 0.0
 colors = generate_random_colors_map(6000)
 beta = 0.0
+tarl_norm = True 
 gamma = 0.1
 proximity_threshold = 1.0
+ncuts_threshold = 0.08
 
 seqs = list(range(5,7))
 
@@ -233,30 +235,34 @@ for seq in seqs :
                 instances = np.hstack((kitti_labels_orig['instance_nonground'],kitti_labels_orig['instance_ground']))
                 patchwise_indices = indices_per_patch(T_pcd, center_positions, positions, first_position, sampled_indices_global, chunk_size)
                 out_data = []
-                for sequence in range(len(center_ids))[:-1]:
+                for sequence in range(0,len(center_ids))[:-1]:
                                         #try : 
                                         print("sequence",sequence)
-                                        merged_chunk,file_name, pcd_chunk, pcd_chunk_ground,inliers, inliers_ground = ncuts_chunk(dataset,indices,pcd_nonground_chunks,pcd_ground_chunks,
+                                        merged_chunk,file_name, pcd_chunk, pcd_chunk_ground,inliers, inliers_ground = ncuts_chunk(dataset,list(indices),pcd_nonground_chunks,pcd_ground_chunks,
                                                 pcd_nonground_chunks_major_downsampling,
                                                 pcd_nonground_minor,T_pcd,center_positions,center_ids,
-                                                positions,first_position,sampled_indices_global,
+                                                positions,first_position,list(sampled_indices_global),
                                                 chunk_size=chunk_size,major_voxel_size=major_voxel_size,
                                                 alpha=alpha,beta=beta,gamma=gamma,theta=theta,
                                                 proximity_threshold=proximity_threshold,
                                                 out_folder=out_folder_ncuts,ground_mode=False,sequence=sequence,
-                                                patchwise_indices=patchwise_indices,ncuts_threshold=0.09)
+                                                patchwise_indices=patchwise_indices,ncuts_threshold=ncuts_threshold)
                                         
-                                        ground_out,file_name = ncuts_chunk(dataset,indices_ground,pcd_chunk_ground,None,
-                                                pcd_ground_chunks_major_downsampling,
-                                                pcd_ground_minor,T_pcd,center_positions,center_ids,
-                                                positions,first_position,sampled_indices_global,
-                                                chunk_size=chunk_size,major_voxel_size=major_voxel_size,
-                                                alpha=1.0,beta=0.0,gamma=1.0,theta=1.0,
-                                                proximity_threshold=1.0,
-                                                out_folder=out_folder_ncuts,ground_mode=True,sequence=sequence,
-                                                patchwise_indices=patchwise_indices,ncuts_threshold=0.05)
+                                        '''
+                                        try : 
+                                                ground_out,file_name = ncuts_chunk(dataset,indices_ground,pcd_chunk_ground,None,
+                                                        pcd_ground_chunks_major_downsampling,
+                                                        pcd_ground_minor,T_pcd,center_positions,center_ids,
+                                                        positions,first_position,sampled_indices_global,
+                                                        chunk_size=chunk_size,major_voxel_size=major_voxel_size,
+                                                        alpha=1.0,beta=0.0,gamma=1.0,theta=1.0,
+                                                        proximity_threshold=1.0,
+                                                        out_folder=out_folder_ncuts,ground_mode=True,sequence=sequence,
+                                                        patchwise_indices=patchwise_indices,ncuts_threshold=0.001,norm=tarl_norm)
+                                        except : 
+                                                print("skip")
+                                        '''
                                         
-                                        o3d.visualization.draw_geometries([pcd_chunk + ground_out])
                                         
                                         #kitti_labels['ground']['panoptic'][sequence] = kitti_labels['ground']['panoptic'][sequence][inliers_ground]
                                         inst_ground = kitti_labels['ground']['instance'][sequence][inliers][inliers_ground]
@@ -278,19 +284,20 @@ for seq in seqs :
                                         
                                         gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
                                         pred_pcd = pcd_chunk  + pcd_chunk_ground
-                                        pred_ground_pcd = pcd_chunk  + ground_out
                                         
                                         kitti_semantics = np.hstack((kitti_labels['nonground']['semantic'][sequence].reshape(-1,),seg_ground.reshape(-1,)))
                                         
                                         unique_colors, labels_ncuts = np.unique(np.asarray(pred_pcd.colors), axis=0, return_inverse=True)
                                         unique_colors, labels_kitti = np.unique(np.asarray(gt_pcd.colors),axis=0, return_inverse=True)
                                         
-                                        _, labels_ncuts_ground = np.unique(np.asarray(pred_ground_pcd.colors), axis=0, return_inverse=True)
                                         
                                         pts = np.asarray(gt_pcd.points) 
                                         points,labels_ncuts,labels_kitti = downsample_chunk(pts,labels_ncuts,labels_kitti)
-                                        print("outut",data_store_folder + name.split('.')[0])
-                                        np.savez(data_store_folder + name.split('.')[0] +  '.npz',pts=points,ncut_labels=labels_ncuts,ncuts_labels_ground=labels_ncuts_ground,
+                                        print("output",data_store_folder + name.split('.')[0])
+                                        
+                                        if labels_ncuts.shape[0] != points.shape[0] : 
+                                                AssertionError 
+                                        np.savez(data_store_folder + name.split('.')[0] +  '.npz',pts=points,ncut_labels=labels_ncuts,
                                                 kitti_labels=labels_kitti,cluster_labels=np.zeros_like(labels_ncuts),semantic=kitti_semantics)
                                         
                                         del points, labels_ncuts, labels_kitti 
