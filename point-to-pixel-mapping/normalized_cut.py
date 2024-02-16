@@ -34,10 +34,11 @@ def get_min_ncut(ev, d, w, num_cuts):
     return min_mask, mcut
 
 
-def normalized_cut(w, labels, T = 0.01):
+def normalized_cut(w, num_points_orig,labels, T = 0.01,split_lim=0.01):
     W = w + sparse.identity(w.shape[0])
+    split_percentage = labels.shape[0] / num_points_orig
+    if W.shape[0] > 2 and split_percentage > split_lim:
 
-    if W.shape[0] > 2:
         d = np.array(W.sum(axis=0))[0]
         d2 = np.reciprocal(np.sqrt(d))
         D = sparse.diags(d)
@@ -51,11 +52,11 @@ def normalized_cut(w, labels, T = 0.01):
 
         ev = eigvecs[:, index2]
         mask, mcut = get_min_ncut(ev, D, w, 10)
-
-        if mcut < T:
-            labels1 = normalized_cut(w[mask][:, mask], labels[mask], T=T)
-            labels2 = normalized_cut(w[~mask][:, ~mask], labels[~mask], T=T)
-            return labels1 + labels2
+    
+        if mcut < T :
+                labels1 = normalized_cut(w[mask][:, mask], num_points_orig,labels[mask], T=T)
+                labels2 = normalized_cut(w[~mask][:, ~mask], num_points_orig,labels[~mask], T=T)
+                return labels1 + labels2
         else:
             return [labels]
     else:

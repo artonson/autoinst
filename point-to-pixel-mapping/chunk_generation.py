@@ -13,7 +13,7 @@ import scipy
 from visualization_utils import color_pcd_by_labels
 from scipy.spatial import cKDTree
 from tqdm import tqdm 
-
+import time
 
 
 import numpy as np
@@ -124,7 +124,7 @@ def indices_per_patch(T_pcd, center_positions, positions, first_position, global
 
     return patchwise_indices
 
-def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, chunk_size, search_radius=0.1):
+def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, chunk_size, search_radius=0.1,norm=False):
 
     concatenated_tarl_points = np.zeros((0, 3))
     concatenated_tarl_features = np.zeros((0, 96))
@@ -161,7 +161,8 @@ def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, 
   
         if not features_in_radius.shape[0]==0:
             tarl_features[i,:] = np.mean(features_in_radius, axis=0)
-            tarl_features[i] /= np.linalg.norm(tarl_features[i])
+            if norm : 
+                tarl_features[i] /= np.linalg.norm(tarl_features[i])
         else:
             continue
 
@@ -194,7 +195,7 @@ def is_perpendicular_and_upward(point, normal, boundary = 0.1):
 
 
 def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_size, T_pcd2world, cam_indices, cams, cam_ids: list, hpr_radius=1000, 
-                                    num_dino_features = 384, hpr_masks=None, sam = True, dino=True, rm_perp=0.0):
+                                    num_dino_features = 384, hpr_masks=None, sam = True, dino=True, rm_perp=0.0,pcd_chunk=None):
 
     num_points_nc = np.asarray(chunk_nc.points).shape[0]
 
@@ -227,8 +228,9 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
             assert len(cam_indices) == hpr_masks.shape[0]
 
         for i, points_index in enumerate(cam_indices):
-
+            start_loop = time.time()
             # Load the calibration matrices
+            start = time.time() 
             T_lidar2world = dataset.get_pose(points_index)
             T_world2lidar = np.linalg.inv(T_lidar2world)
             T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
@@ -236,24 +238,49 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
             T_pcd2cam = T_world2cam @ T_pcd2world
 
             #hidden point removal
+            new_pcd = o3d.geometry.PointCloud() 
+            new_pcd.points  = o3d.utility.Vector3dVector(np.asarray(pcd.points).copy())
+            pcd_camframe_world = copy.deepcopy(new_pcd).transform(dataset.get_pose(0))
             pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
+            
+            pts = np.asarray(pcd_chunk.points)
+            min_x,min_y,min_z = pts[:,0].min(), pts[:,1].min(), pts[:,2].min()
+            max_x,max_y,max_z = pts[:,0].max(), pts[:,1].max(), pts[:,2].max()
+            min_bound = np.array([min_x,min_y,min_z]) 
+            max_bound = np.array([max_x,max_y,max_z])  
+            
+            #o3d.visualization.draw_geometries([pcd_camframe])
+            
+            
             if hpr_masks is None:
+                
                 hpr_bounds = np.array([25,25,25])
-                bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
+                bound_indices = np.where(np.all(np.asarray(pcd_camframe_world.points) > min_bound, axis=1) & np.all(np.asarray(pcd_camframe_world.points) < max_bound, axis=1))[0]
+                #bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
                 pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
+                #o3d.visualization.draw_geometries([pcd_camframe_hpr])
+        
+                start = time.time()
                 visible_indices = hidden_point_removal_o3d(np.asarray(pcd_camframe_hpr.points), camera=[0,0,0], radius_factor=hpr_radius)
+                
+                end_hpr = time.time() - start 
+                #print("HPR takes ", end_hpr ," s")
                 visible_indices = bound_indices[visible_indices]
             else:
                 visible_indices = np.where(hpr_masks[i])[0]
-
+            
+            
             frame_indices = list(set(visible_indices) & set(chunk_and_inlier_indices))
+            
 
             # Load the SAM label
             if sam:
                 sam_masks = dataset.get_sam_mask(cams[cam_id], points_index)
                 sam_labels = masks_to_image(sam_masks)
+            
 
             # Load the DINOV2 feature map
+            start = time.time()
             if dino:
                 if num_dino_features < 384:
                     dinov2_original = dataset.get_dinov2_features(cams[cam_id], points_index)
@@ -261,6 +288,7 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
                     fit = umap.UMAP(n_neighbors=50, min_dist=0.0, n_components=num_dino_features, metric='euclidean')
                     u = fit.fit_transform(dino_reshape)
                     dinov2_feature_map = np.reshape(u, (dinov2_original.shape[0], dinov2_original.shape[1], u.shape[1]))
+
                     
                 elif num_dino_features == 384:
                     dinov2_feature_map = dataset.get_dinov2_features(cams[cam_id], points_index)
@@ -269,10 +297,10 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
 
                 dino_factor_0 = dinov2_feature_map.shape[0] / label_shape[0]
                 dino_factor_1 = dinov2_feature_map.shape[1] / label_shape[1]
-
-
+            
             # Apply visibility to downsampled chunk used for normalized cuts
             visible_chunk = get_subpcd(pcd_camframe, frame_indices)
+            #o3d.visualization.draw_geometries([chunk_nc])
             chunk_nc_camframe = copy.deepcopy(chunk_nc).transform(T_pcd2cam)
 
             visible_chunk_tree = o3d.geometry.KDTreeFlann(visible_chunk)
@@ -284,17 +312,18 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
                     nc_indices.append(j)
 
             visible_nc_camframe = get_subpcd(chunk_nc_camframe, nc_indices)
+            #o3d.visualization.draw_geometries([visible_nc_camframe])
 
             # Project the points to pixels
             points_to_pixels = point_to_pixel(np.asarray(visible_nc_camframe.points), K, label_shape[0], label_shape[1])
-
+            start = time.time()
             if rm_perp:
                 T_cam2pcd = np.linalg.inv(copy.deepcopy(T_pcd2cam))
                 visible_nc_pcdframe = copy.deepcopy(visible_nc_camframe).transform(T_cam2pcd)
                 normals = np.zeros((len(visible_nc_pcdframe.points), 3))
                 normals = kDTree_1NN_feature_reprojection(normals, visible_nc_pcdframe, np.asarray(pcd_chunk_final.normals), pcd_chunk_final, max_radius=voxel_size/2, no_feature_label=[0,0,0])
                 visible_nc_pcdframe_points = np.asarray(visible_nc_pcdframe.points)
-
+            
             for point_id, pixel_id in points_to_pixels.items():
                 pixel = pixel_id["pixels"]
 
@@ -314,6 +343,16 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
                     dino_pixel_0 = int(dino_factor_0 * pixel[1])
                     dino_pixel_1 = int(dino_factor_1 * pixel[0])
                     point2dino_nc[nc_indices[point_id], i, :] = dinov2_feature_map[dino_pixel_0, dino_pixel_1, :]
+            end = time.time() - start 
+            end = time.time() - start_loop
+            
+            '''
+            print("total loop time ", end ," s")
+            print("Percentage HPR ", round(end_hpr/end,4)*100)
+            print("Percentage vis ", round(end_vis/end,4)*100)
+            print("Percentage load", round(end_load/end,4)* 100)
+            print('-------------')
+            '''
 
         if sam:
             point2sam_list.append(point2sam_nc)
