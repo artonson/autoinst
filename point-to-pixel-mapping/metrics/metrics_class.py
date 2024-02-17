@@ -13,6 +13,21 @@ COLORS_arr = plt.cm.viridis(np.linspace(0, 1, 30))
 COLORS = list(list(col) for col in COLORS_arr) 
 COLORS = [list(col[:3]) for col in COLORS]
 
+instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
+instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
+
+
+def iou(
+    pred_indices,
+    gt_indices
+    ) : 
+    intersection = np.intersect1d(pred_indices, gt_indices)
+    union = np.union1d(pred_indices, gt_indices)
+
+    return intersection.size / union.size
+
+
+
 
 
 def find_index_2d_list(my_list, target_sublist):
@@ -62,7 +77,6 @@ def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
         for i in unique_labels: 
             idcs = np.where(labels == i)
             idcs = idcs[0]
-            print(idcs.shape[0])
             if idcs.shape[0]> largest:
                 largest = idcs.shape[0]
                 largest_cluster_idx = i 
@@ -84,8 +98,6 @@ def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
     
 
 
-instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
-instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
 
 
 def get_average(l):
@@ -94,19 +106,22 @@ def get_average(l):
 
 class Metrics:
 
-    def __init__(self, name='NCuts'):
-        self.thresh = 0.5  # iou threshold being used
+    def __init__(self, name='NCuts',min_points=200,thresh=0.5):
+        self.thresh = thresh  # iou threshold being used
         self.tps = 0
         self.unique_gts = 0
         self.preds_total = 0
         self.name = name
-        self.min_points = 200
+        self.min_points = min_points
         self.background_label = 0
         self.mode = 'normal'
         self.calc_ap = True
-        self.eval_lstq = evaluator()
+        self.eval_lstq = evaluator(min_points=min_points)
+        self.eval_lstq.reset()
         self.semantic_intersection = 0.05
         self.num_processes = 6
+        
+        
         self.labels_dict = {
                         0: "unlabeled",
                         1: "outlier",
@@ -186,6 +201,100 @@ class Metrics:
             0.9,
             0.95]
         print("Metrics for file", name)
+        self.precision_all = {}
+        self.recall_all = {}
+        self.all_matches = {}
+        self.gt_size = {}
+        self.all_pred_size = {}
+        self.all_gt_size = {}
+        self.all_tp = {}
+        
+        for overlap in self.overlaps: 
+            self.precision_all[overlap] = [1.0]
+            self.recall_all[overlap] = [0.0]
+            self.all_matches[overlap] = []
+            self.gt_size[overlap] = []
+            self.all_pred_size[overlap] = 0 
+            self.all_gt_size[overlap] = 0 
+            
+            self.all_tp[overlap] = 0
+            
+        
+    def get_tp_fp(
+        self, 
+        pred_labels,
+        gt_labels,
+        iou_thresh=0.5,
+        ):    
+        """
+        :param pred_labels: labels of points corresponding to segmented planes
+        :param gt_labels: labels of points corresponding to ground truth planes
+        :param tp_condition: helper function to calculate statistics
+        :return: true positive received using pred_labels and gt_labels
+        """
+        true_positive = 0
+        gt_used = set()
+        false_positives = 0 
+        
+        
+        for pred_label in np.unique(pred_labels):
+            if pred_label == 0 : 
+                continue
+            matched = False
+            pred_indices = np.where(pred_labels == pred_label)[0]
+            cur_iou = None 
+            for gt in np.unique(gt_labels):
+                if gt == 0 : 
+                    continue
+
+                gt_indices = np.where(gt_labels == gt)[0]
+
+                iou = self.iou(pred_indices, gt_indices)
+
+                if iou >= iou_thresh and (gt not in gt_used):
+                    matched = True
+                    true_positive += 1
+                    cur_iou = iou
+                    gt_used.add(gt)
+                    break
+                    
+            if matched:
+                self.all_matches[iou_thresh].append({'result':'tp','iou':cur_iou})
+                
+            else:
+                false_positives += 1
+                self.all_matches[iou_thresh].append({'result':'fp'})
+
+        return true_positive, false_positives
+        '''  
+        ################################################################
+        for gt_label in np.unique(gt_labels):
+            if gt_label == 0 : 
+                continue
+        
+            gt_indices = np.where(gt_labels == gt_label)[0]
+            for pred_label in np.unique(pred_labels):
+                matched = False 
+                if pred_label in pred_used or pred_label == 0 :
+                    continue
+    
+                pred_indices = np.where(pred_labels == pred_label)[0]
+                is_overlap = iou(pred_indices,gt_indices) >= iou_thresh
+    
+                if is_overlap:
+                    true_positive += 1
+                    pred_used.add(pred_label)
+                    matched = True 
+                    self.all_matches[iou_thresh].append({'result':'tp'})
+                    break
+            
+            if matched == False : 
+                self.all_matches[iou_thresh].append({'result':'fp'}) 
+                false_positives += 1 
+        '''
+
+    
+        return true_positive, false_positives 
 
     def worker_function(self, data):
         # This function will be executed by each process
@@ -223,17 +332,17 @@ class Metrics:
             confs=[],
             calc_all=True,
             calc_lstq=True):
-        self.eval_lstq.reset()
+        
         pred_labels = self.filter_labels(pred_labels)
         gt_labels = self.filter_labels(gt_labels)
         all_labels = self.filter_labels(all_labels)
-
+    
         if calc_all:
             self.calculate_full_stats(pred_labels, gt_labels)
         if calc_lstq:
             self.eval_lstq.add_batch(all_labels, gt_labels)
             lstq = self.eval_lstq.get_eval()
-            print('lstq value : ', lstq)
+            print('S_assoc score : ', lstq)
         if self.calc_ap :
             self.average_precision_parallel(pred_labels, gt_labels, confs)
             print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
@@ -241,6 +350,28 @@ class Metrics:
             aps_list = [self.ap[o] for o in self.ap_overlaps]
             ap = sum(aps_list) / float(len(aps_list))
             print("AP @ [0.5:0.95]", round(ap * 100, 3))
+    
+    def add_stats(self,
+            all_labels,
+            pred_labels,
+            gt_labels,
+            confs=[],
+            calc_all=True,
+            calc_lstq=True): 
+        
+        pred_labels = self.filter_labels(pred_labels)
+        gt_labels = self.filter_labels(gt_labels)
+        all_labels = self.filter_labels(all_labels)
+        
+        self.eval_lstq.add_batch(all_labels, gt_labels)        
+        
+        for overlap in self.overlaps: 
+            tps, fps = self.get_tp_fp(pred_labels,gt_labels,iou_thresh=overlap)
+            if 0 in gt_labels : 
+                self.all_gt_size[overlap] += np.unique(gt_labels).shape[0] - 1
+            self.all_pred_size[overlap] += np.unique(pred_labels).shape[0] - 1
+            self.all_tp[overlap] += tps 
+        
 
     def average_precision(self, pred, ins_labels, confs, iou_thresh=0.5):
         self.precision = [1.0]
@@ -291,6 +422,7 @@ class Metrics:
             if matched:
                 self.tp += 1
                 self.fn -= 1
+                
             else:
                 self.fp += 1
 
@@ -301,6 +433,60 @@ class Metrics:
         ap = np.trapz(self.precision, self.recall)
         print("Average Precision @ " + str(iou_thresh), ap)
         return ap
+    
+    def average_precision_final(self, iou_thresh=0.5):
+        
+        
+        tp = 0
+        fp = 0
+        fn = self.all_gt_size[iou_thresh]
+
+        for matched in self.all_matches[iou_thresh]: 
+            result = matched['result']
+            if result == 'tp' :
+                tp += 1
+                fn -= 1
+            else:
+                fp += 1
+
+            # Calculate precision and recall
+            self.precision_all[iou_thresh].append(tp / float(tp + fp))
+            self.recall_all[iou_thresh].append(tp / float(tp + fn))
+    
+    def compute_stats_final(self): 
+        for overlap in self.overlaps: 
+            self.average_precision_final(iou_thresh=overlap)
+            self.ap[overlap] = np.trapz(self.precision_all[overlap],self.recall_all[overlap])
+        
+        
+        prec = self.all_tp[self.thresh]/self.all_pred_size[self.thresh]
+        rec = self.all_tp[self.thresh]/self.all_gt_size[self.thresh]
+        f1 = 2 * (prec * rec)/(prec + rec)
+        lstq = self.eval_lstq.get_eval()
+        
+        
+        print("Precison @ " + str(self.thresh),prec)
+        print("Recall @ " + str(self.thresh),rec)
+        print("F Score @ " + str(self.thresh), f1)
+        mean = self.mean()
+        print('Mean @ ' + str(self.thresh),mean)
+        print('Panoptic @ ' + str(self.thresh) ,mean* f1)
+        print('S_assoc score',lstq)
+        
+        print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
+        print("AP @ 0.5", round(self.ap[0.5] * 100,3))
+        aps_list = [self.ap[o] for o in self.ap_overlaps]
+        ap = sum(aps_list) / float(len(aps_list))
+        print("AP @ [0.5:0.95]", round(ap * 100, 3))
+        
+    def mean(self):
+        mean_array = []
+        for instance in self.all_matches[self.thresh] : 
+                if instance['result'] == 'tp': 
+                    mean_array.append(instance['iou'])
+        
+        return np.array(mean_array).mean() if len(mean_array) != 0 else 0.0
+                    
 
     def iou(self, pred_indices, gt_indices):
         intersection = np.intersect1d(pred_indices, gt_indices)

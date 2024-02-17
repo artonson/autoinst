@@ -142,7 +142,7 @@ gamma = 0.1
 proximity_threshold = 1.0
 ncuts_threshold = 0.08
 
-seqs = list(range(5,7))
+seqs = list(range(0,3))
 
 for seq in seqs : 
         print("Sequence",seq)

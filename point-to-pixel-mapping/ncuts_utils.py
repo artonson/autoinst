@@ -24,7 +24,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         positions, first_position, sampled_indices_global, chunk_size, 
                         major_voxel_size=0.35, alpha=1, beta=0, gamma=0, 
                         theta=0,proximity_threshold=1, ncuts_threshold=0.03, cams = ["cam2", "cam3"], cam_ids = [0],
-                        out_folder='test_data/',ground_mode=True,sequence=None,
+                        out_folder=None,ground_mode=True,sequence=None,
                         patchwise_indices=None, adjacent_frames_cam=(16,13), adjacent_frames_tarl=(10,10),use_z=False,norm=False,split_lim=0.01):
                 
                 print_flag = False
@@ -197,7 +197,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 else : 
                         return merged_chunk, file
                
-def get_merge_pcds(out_folder_ncuts,colors):
+def get_merge_pcds(out_folder_ncuts):
         point_clouds = []
 
         # List all files in the folder
@@ -214,7 +214,6 @@ def get_merge_pcds(out_folder_ncuts,colors):
                         
                 file_path = os.path.join(out_folder_ncuts, pcd_file)
                 point_cloud = o3d.io.read_point_cloud(file_path)
-                point_cloud = color_pcd_by_labels(point_cloud,colors) 
                 point_clouds.append(point_cloud)
         return point_clouds
         
