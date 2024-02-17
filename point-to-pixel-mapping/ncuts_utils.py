@@ -197,7 +197,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 else : 
                         return merged_chunk, file
                
-def get_merge_pcds(out_folder_ncuts):
+def get_merge_pcds(out_folder_ncuts,colors):
         point_clouds = []
 
         # List all files in the folder
@@ -209,8 +209,12 @@ def get_merge_pcds(out_folder_ncuts):
         print(pcd_files)
         # Load each point cloud and append to the list
         for pcd_file in pcd_files:
+                with np.load(pcd_files.replace('pcd','npz')) as data :
+                        labels = data['labels']
+                        
                 file_path = os.path.join(out_folder_ncuts, pcd_file)
                 point_cloud = o3d.io.read_point_cloud(file_path)
+                point_cloud = color_pcd_by_labels(point_cloud,colors) 
                 point_clouds.append(point_cloud)
         return point_clouds
         

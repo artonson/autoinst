@@ -12,7 +12,7 @@ from point_to_pixels import pixel_to_point_from_point_to_pixel
 
 
 def generate_random_colors_map(N, seed=0):
-    random.seed(42)
+    random.seed(seed)
     colors = set()  # Use a set to store unique colors
     while len(colors) < N:  # Keep generating colors until we have N unique ones
         # Generate a random color and add it to the set
@@ -134,13 +134,17 @@ def visualize_associations_in_img(_label, associations):
     return label
 
 
-def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
+
+def color_pcd_by_labels(pcd, labels,colors=None,largest=True,gt_labels=None):
     
     if colors == None : 
         colors = generate_random_colors(2000)
     pcd_colored = copy.deepcopy(pcd)
     pcd_colors = np.zeros(np.asarray(pcd.points).shape)
-    unique_labels = list(np.unique(labels)) 
+    if gt_labels is None : 
+        unique_labels = list(np.unique(labels)) 
+    else : 
+        unique_labels = list(np.unique(gt_labels))
     
     #background_color = np.array([0,0,0])
 
@@ -162,7 +166,6 @@ def color_pcd_by_labels(pcd, labels,colors=None,largest=True):
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
-        print("i",i,'shape',idcs.shape)
         if i == largest_cluster_idx or i == 0 : 
             pcd_colors[idcs] = np.array([0,0,0])
         else : 

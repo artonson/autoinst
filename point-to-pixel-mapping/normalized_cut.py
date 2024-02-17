@@ -36,7 +36,7 @@ def get_min_ncut(ev, d, w, num_cuts):
 
 def normalized_cut(w, num_points_orig,labels, T = 0.01,split_lim=0.01):
     W = w + sparse.identity(w.shape[0])
-    split_percentage = labels.shape[0] / num_points_orig
+    split_percentage = labels.shape[0] / (num_points_orig + 1e-8) 
     if W.shape[0] > 2 and split_percentage > split_lim:
 
         d = np.array(W.sum(axis=0))[0]

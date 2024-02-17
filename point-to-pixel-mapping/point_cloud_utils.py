@@ -3,6 +3,9 @@ import numpy as np
 import open3d as o3d
 import copy
 from open3d.pipelines import registration
+from tqdm import tqdm 
+import os 
+from concurrent.futures import ThreadPoolExecutor
 
 def get_pcd(points: np.array):
     """
@@ -141,6 +144,11 @@ def kDTree_1NN_feature_reprojection(features_to, pcd_to, features_from, pcd_from
     
     return features_to
 
+def intersect(pred_indices, gt_indices):
+        intersection = np.intersect1d(pred_indices, gt_indices)
+        return intersection.size / pred_indices.shape[0]
+
+
 
 def remove_isolated_points(pcd, adjacency_matrix):
 
@@ -163,6 +171,7 @@ def get_subpcd(pcd, indices, colors=False, normals=False):
     if normals:
         subpcd.normals = o3d.utility.Vector3dVector(np.asarray(pcd.normals)[indices])
     return subpcd
+
 
 
 def merge_chunks_unite_instances(chunks: list, icp=False):
@@ -250,85 +259,54 @@ def merge_chunks_unite_instances(chunks: list, icp=False):
 
     return merge
     
-def merge_chunks_unite_instances2(chunks: list, icp=False):
-    merge = o3d.geometry.PointCloud()
-    chunk_means = [np.mean(np.asarray(chunk.points), axis=0) for chunk in chunks]
 
-    for i, new_chunk in enumerate(chunks):
 
-        if icp:
-            new_chunk.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5,max_nn=200))
-            reg_p2l = registration.registration_icp(new_chunk, merge, 0.9, np.eye(4), registration.TransformationEstimationPointToPlane(), registration.ICPConvergenceCriteria(max_iteration=1000))
-            transform = reg_p2l.transformation
-            new_chunk.transform(transform)
 
-        points_2 = np.asarray(new_chunk.points)
-        colors_2 = np.asarray(new_chunk.colors)
+def process_batch(unique_pred, preds, labels, gt_idcs, threshold, new_ncuts_labels):
+    pred_idcs = np.where(preds == unique_pred)[0]
+    cur_intersect = np.sum(np.isin(pred_idcs, gt_idcs))
+    if cur_intersect > threshold * len(pred_idcs): 
+        new_ncuts_labels[pred_idcs] = 0
 
-        unique_colors_2 = np.unique(colors_2, axis=0)
+def remove_semantics(labels, preds, threshold=0.8, num_threads=None):
+    gt_idcs = np.where(labels == 0)[0]
+    new_ncuts_labels = preds.copy()
+    unique_preds = np.unique(preds)
+    
+    if num_threads is None:
+        num_threads = min(len(unique_preds), 8)  # Default to 8 threads if not specified
+    
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = []
+        for i in tqdm(unique_preds):
+            futures.append(executor.submit(process_batch, i, preds, labels, gt_idcs, threshold, new_ncuts_labels))
+        
+        # Wait for all tasks to complete
+        for future in tqdm(futures, total=len(futures), desc="Processing"):
+            future.result()  # Get the result to catch any exceptions
+        
+    return new_ncuts_labels
 
-        instance2point_2 = {}
-        for i in range(unique_colors_2.shape[0]):
-            if not np.all(unique_colors_2[i] == 0.0): # Streets are black
-                instance2point_2[i] = {}
-                inds = np.where(np.all(colors_2 == unique_colors_2[i], axis=1))[0]
-                instance2point_2[i]["points"] = points_2[inds]
-                instance2point_2[i]["inds"] = inds
 
-        id_pairs_iou = []
-        for id_2, entries_2 in instance2point_2.items():
-            points2 = entries_2["points"]
-            min_bound = np.min(points2, axis=0)
-            max_bound = np.max(points2, axis=0)
-            association = []
-            for j, last_chunk in enumerate(chunks[:i]):
-                if np.linalg.norm(chunk_means[i] - chunk_means[j]) > threshold:  # Define your threshold
-                    continue
-                points_1 = np.asarray(last_chunk.points)
-                colors_1 = np.asarray(last_chunk.colors)
-                unique_colors_1 = np.unique(colors_1, axis=0)
-                instance2point_1 = {}
-                for i in range(unique_colors_1.shape[0]):
-                    if not np.all(unique_colors_1[i] == 0.0): # Streets are black
-                        instance2point_1[i] = {}
-                        inds = np.where(np.all(colors_1 == unique_colors_1[i], axis=1))[0]
-                        instance2point_1[i]["points"] = points_1[inds]
-                        instance2point_1[i]["inds"] = inds
-                for id_1, entries_1 in instance2point_1.items():
-                    points1 = entries_1["points"]
-                    intersection = np.where(np.all(points2 >= min_bound, axis=1) & np.all(points2 <= max_bound, axis=1))[0].shape[0]
-                    if intersection > 0:
-                        union = len(np.unique(np.concatenate((points1, points2))))
-                        iou = float(intersection) / float(union)
-                        if iou > 0.01:
-                            association.append((id_1, iou))
-            if len(association) != 0:
-                for (association_id, iou) in association:
-                    id_pairs_iou.append((id_2, (association_id, iou)))
+def get_merge_pcds(out_folder_ncuts):
+        point_clouds = []
 
-        ids_chunk_2 = []
-        ious = []
-        for id2, (id1, iou) in id_pairs_iou:
-            if id1 not in ids_chunk_2:
-                ids_chunk_2.append(id1)
-                ious.append(iou)
-            else:
-                i = ids_chunk_2.index(id1)
-                if iou > ious[i]:
-                    ious[i] = iou
+        # List all files in the folder
+        files = os.listdir(out_folder_ncuts)
+        files.sort()
 
-        for id1, id2 in zip(ids_chunk_2, range(unique_colors_2.shape[0])):
-            inds2 = instance2point_2[id2]["inds"]
-            colors_2[inds2] = unique_colors_1[id1]
+        # Filter files with a .pcd extension
+        pcd_files = [file for file in files if file.endswith(".pcd")]
+        print(pcd_files)
+        # Load each point cloud and append to the list
+        for pcd_file in pcd_files:
+                file_path = os.path.join(out_folder_ncuts, pcd_file)
+                point_cloud = o3d.io.read_point_cloud(file_path)
+                point_clouds.append(point_cloud)
+        return point_clouds
 
-        new_chunk_recolored = o3d.geometry.PointCloud()
-        new_chunk_recolored.points = new_chunk.points
-        new_chunk_recolored.colors = o3d.utility.Vector3dVector(colors_2)
 
-        merge += new_chunk_recolored
-        merge.remove_duplicated_points()
 
-    return merge
 
 def merge_unite_gt(chunks):
     last_chunk = chunks[0] 
@@ -340,9 +318,122 @@ def merge_unite_gt(chunks):
     
     merge.remove_duplicated_points()
     return merge 
-    
-    
 
+def merge_chunks_unite_instances2(chunks: list, icp=False):
+    merge = o3d.geometry.PointCloud()
+    chunk_means = [np.mean(np.asarray(chunk.points), axis=0) for chunk in chunks]
+
+    last_chunk = chunks[0] 
+    merge = o3d.geometry.PointCloud()
+    merge += last_chunk
+
+    for new_chunk in tqdm(chunks[1:]):
+
+        new_chunk_center = np.asarray(new_chunk.points)
+        
+        x,y,z = new_chunk_center[:,0].mean(),new_chunk_center[:,1].mean(),new_chunk_center[:,2].mean()
+        
+        
+        '''
+        pcd_tree = o3d.geometry.KDTreeFlann(merge)
+        query_point = np.array([x, y, z])  # Replace x, y, z with your point's coordinates
+        distance_threshold = 35.0  # Adjust this value to your desired distance threshold
+        
+        
+        
+        [k, idx, _] = pcd_tree.search_radius_vector_3d(query_point, distance_threshold)
+
+        # Extract the points within the specified distance
+        if k > 0:
+            points_within_distance = np.asarray(merge.points)[idx]
+        else:
+            points_within_distance = np.array([])
+
+        extracted_pcd = o3d.geometry.PointCloud()
+        extracted_pcd.points = o3d.utility.Vector3dVector(points_within_distance)
+        extracted_pcd.colors = o3d.utility.Vector3dVector(np.asarray(merge.colors)[idx])
+        '''
+        side_length = 40 
+        center_point = np.array([x, y, z])  # Replace x, y, z with your point's coordinates
+        half_side = side_length / 2.0
+        min_bound = center_point - half_side
+        max_bound = center_point + half_side
+        aabb = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+
+        # Crop the point cloud
+        extracted_pcd = merge.crop(aabb)
+
+        
+        points_1 = np.asarray(extracted_pcd.points)
+        points_2 = np.asarray(new_chunk.points)
+
+        colors_1 = np.asarray(extracted_pcd.colors)
+        colors_2 = np.asarray(new_chunk.colors)
+
+        unique_colors_1 = np.unique(colors_1, axis=0)
+        unique_colors_2 = np.unique(colors_2, axis=0)
+
+        instance2point_1 = {}
+        for i in range(unique_colors_1.shape[0]):
+            if not np.all(unique_colors_1[i] == 0.0): # Streets are black
+                instance2point_1[i] = {}
+                inds = np.where(np.all(colors_1 == unique_colors_1[i], axis=1))[0]
+                instance2point_1[i]["points"] = points_1[inds]
+                instance2point_1[i]["inds"] = inds
+
+        instance2point_2 = {}
+        for i in range(unique_colors_2.shape[0]):
+            if not np.all(unique_colors_2[i] == 0.0): # Streets are black
+                instance2point_2[i] = {}
+                inds = np.where(np.all(colors_2 == unique_colors_2[i], axis=1))[0]
+                instance2point_2[i]["points"] = points_2[inds]
+                instance2point_2[i]["inds"] = inds
+        
+        id_pairs_iou = []
+        for id_1, entries_1 in instance2point_1.items():
+            points1 = entries_1["points"]
+            min_bound = np.min(points1, axis=0)
+            max_bound = np.max(points1, axis=0)
+            association = []
+            for id_2, entries_2 in instance2point_2.items():
+                points2 = entries_2["points"]
+                intersection = np.where(np.all(points2 >= min_bound, axis=1) & np.all(points2 <= max_bound, axis=1))[0].shape[0]
+                if intersection > 0:
+                    union = len(np.unique(np.concatenate((points1, points2))))
+                    iou = float(intersection) / float(union)
+                    if iou > 0.01:
+                        association.append((id_2, iou))
+            if len(association) != 0:
+                for (association_id, iou) in association:
+                    id_pairs_iou.append((id_1, (association_id, iou)))
+        
+        ids_chunk_1 = []
+        ids_chunk_2 = []
+        ious = []
+        for id1, (id2, iou) in id_pairs_iou:
+            if id2 not in ids_chunk_2:
+                ids_chunk_1.append(id1)
+                ids_chunk_2.append(id2)
+                ious.append(iou)
+            else:
+                i = ids_chunk_2.index(id2)
+                if iou > ious[i]:
+                    ious[i] = iou
+                    ids_chunk_1[i] = id1
+
+        for id1, id2 in zip(ids_chunk_1, ids_chunk_2):
+            inds2 = instance2point_2[id2]["inds"]
+            colors_2[inds2] = unique_colors_1[id1]
+
+        new_chunk_recolored = o3d.geometry.PointCloud()
+        new_chunk_recolored.points = new_chunk.points
+        new_chunk_recolored.colors = o3d.utility.Vector3dVector(colors_2)
+        last_chunk = new_chunk_recolored
+
+        merge += new_chunk_recolored
+        merge.remove_duplicated_points()
+
+    return merge
 
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """

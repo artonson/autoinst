@@ -30,7 +30,7 @@ class nuScenesDatasetConfig(DatasetConfig):
     cache: bool
 
 class nuScenesOdometryDataset(Dataset):
-    def __init__(self, config: nuScenesDatasetConfig, seq_num: int) -> None:
+    def __init__(self, config: nuScenesDatasetConfig, seq_num: int,dataset_type) -> None:
 
         # parse inputs
         self.nuscenes = True
@@ -38,7 +38,7 @@ class nuScenesOdometryDataset(Dataset):
         self.seq_num = seq_num
         self.ds_path: DatasetPathLike = self.config.dataset_path
 
-        self.dataset = NuScenes(version='v1.0-mini', dataroot=self.ds_path, verbose=True)
+        self.dataset = NuScenes(version=dataset_type, dataroot=self.ds_path, verbose=True)
         self.scene = self.dataset.scene[self.seq_num]
 
         self.sample_tokens = self.__parse_tokens()

@@ -2,6 +2,7 @@
 import numpy as np
 from point_cloud_utils import get_pcd
 from scipy.spatial import cKDTree
+import time 
 
 def hidden_point_removal_o3d(points_np: np.array, camera: list, radius_factor=100):
     """

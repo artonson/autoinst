@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 COLORS = plt.cm.viridis(np.linspace(0, 1, 30))
 COLORS = list(list(col) for col in COLORS) 
 COLORS = [tuple(col[:3]) for col in COLORS]
-print(COLORS)
 
 
 def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None,semantics=False):
@@ -79,7 +78,7 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
 
 def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="SAM_Underseg", 
                                 dinov2_folder_name="Dinov2", correct_scan_calibration=True, range_min=3, 
-                                range_max=25,ncuts_mode=True,dist_threshold=5):
+                                range_max=25,ncuts_mode=True,dist_threshold=5,dataset_type='v1.0-mini'):
     
     
     if ncuts_mode : 
@@ -104,7 +103,7 @@ def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam
         dist_threshold=dist_threshold,
     )
         
-    dataset = nuScenesOdometryDataset(config_filtered, sequence_num)
+    dataset = nuScenesOdometryDataset(config_filtered, sequence_num,dataset_type)
     return dataset
 
 def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentation_method="patchwork", icp=True, 
@@ -181,6 +180,7 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     
     # Map colors from original to downsampled point cloud
     new_colors = []
+    new_labels = []
     for point in instance_non_ground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
         try : 
@@ -188,10 +188,11 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
         except : 
             import pdb; pdb.set_trace()
         new_colors.append(point_color)
+        new_labels.append(kitti_data1['instance_nonground'][idx[0]])
     #import pdb; pdb.set_trace()
         
     instance_non_ground.colors = o3d.utility.Vector3dVector(new_colors)
-    _, kitti_data['instance_nonground'] = np.unique(np.asarray(instance_non_ground.colors), axis=0, return_inverse=True)
+    kitti_data['instance_nonground'] = new_labels
     
     
     pcd_tree = o3d.geometry.KDTreeFlann(instance_ground_orig)
@@ -200,6 +201,7 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     
     # Map colors from original to downsampled point cloud
     new_colors = []
+    new_labels = []
     for point in instance_ground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
         try : 
@@ -207,10 +209,11 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
         except : 
             import pdb; pdb.set_trace()
         new_colors.append(point_color)
+        new_labels.append(kitti_data1['instance_ground'][idx[0]])
     #import pdb; pdb.set_trace()
         
     instance_ground.colors = o3d.utility.Vector3dVector(new_colors)
-    _, kitti_data['instance_ground'] = np.unique(np.asarray(instance_ground.colors), axis=0, return_inverse=True)
+    kitti_data['instance_ground'] = new_labels
     
     
     
