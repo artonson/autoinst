@@ -58,7 +58,7 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
     chunk_bounds = []
     
     if labels != None : 
-     kitti_out = {'panoptic':[],'semantic':[],'instance':[]}
+        kitti_out = {'panoptic':[],'semantic':[],'instance':[]}
     else : 
         kitti_out = None 
     distance = 0
@@ -243,20 +243,23 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
             pcd_camframe_world = copy.deepcopy(new_pcd).transform(dataset.get_pose(0))
             pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
             
-            pts = np.asarray(pcd_chunk.points)
-            min_x,min_y,min_z = pts[:,0].min(), pts[:,1].min(), pts[:,2].min()
-            max_x,max_y,max_z = pts[:,0].max(), pts[:,1].max(), pts[:,2].max()
-            min_bound = np.array([min_x,min_y,min_z]) 
-            max_bound = np.array([max_x,max_y,max_z])  
-            
-            #o3d.visualization.draw_geometries([pcd_camframe])
+            if dataset.nuscenes == False : ##speedup currently only supported by KITTI 
+                pts = np.asarray(pcd_chunk.points)
+                min_x,min_y,min_z = pts[:,0].min(), pts[:,1].min(), pts[:,2].min()
+                max_x,max_y,max_z = pts[:,0].max(), pts[:,1].max(), pts[:,2].max()
+                min_bound = np.array([min_x,min_y,min_z]) 
+                max_bound = np.array([max_x,max_y,max_z])  
+                pcd_camframe_world.paint_uniform_color([0,0,1])
+                #o3d.visualization.draw_geometries([pcd_camframe_world + pcd_chunk])
             
             
             if hpr_masks is None:
                 
                 hpr_bounds = np.array([25,25,25])
-                bound_indices = np.where(np.all(np.asarray(pcd_camframe_world.points) > min_bound, axis=1) & np.all(np.asarray(pcd_camframe_world.points) < max_bound, axis=1))[0]
-                #bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
+                if dataset.nuscenes == False : 
+                    bound_indices = np.where(np.all(np.asarray(pcd_camframe_world.points) > min_bound, axis=1) & np.all(np.asarray(pcd_camframe_world.points) < max_bound, axis=1))[0] ##speedup currently only works for KITTI
+                else : 
+                    bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
                 pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
                 #o3d.visualization.draw_geometries([pcd_camframe_hpr])
         
