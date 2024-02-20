@@ -25,7 +25,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         major_voxel_size=0.35, alpha=1, beta=0, gamma=0, 
                         theta=0,proximity_threshold=1, ncuts_threshold=0.03, cams = ["cam2", "cam3"], cam_ids = [0],
                         out_folder=None,ground_mode=True,sequence=None,
-                        patchwise_indices=None, adjacent_frames_cam=(16,13), adjacent_frames_tarl=(10,10),use_z=False,norm=False,split_lim=0.01):
+                        patchwise_indices=None, adjacent_frames_cam=(16,13), adjacent_frames_tarl=(10,10),use_z=False,norm=False,split_lim=0.01,obb=None):
                 
                 print_flag = False
                 print("Start of sequence",sequence)
@@ -80,7 +80,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                 elif gamma and not beta:
                         cur_start = time.time()
                         point2dino_list = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
-                                                        cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, num_dino_features=384, sam=False, dino=True, rm_perp=0.0,pcd_chunk=pcd_chunk)
+                                                        cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, num_dino_features=384, sam=False, dino=True, rm_perp=0.0,pcd_chunk=pcd_chunk,obb=obb)
                         dinov2_features_major_list = []
                         for point2dino in point2dino_list:
                                 dinov2_features_major_list.append(dinov2_mean(point2dino))
@@ -90,7 +90,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
                         
                 elif beta and gamma:
                         sam_features_major_list, point2dino_list = image_based_features_per_patch(dataset, pcd_nonground_minor, chunk_indices, chunk_major, major_voxel_size, T_pcd, 
-                                                                        cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, num_dino_features=384, sam=True, dino=True, rm_perp=0.0)
+                                                                        cam_indices_global, cams, cam_ids=cam_ids, hpr_radius=1000, num_dino_features=384, sam=True, dino=True, rm_perp=0.0,obb=obb)
                         dinov2_features_major_list = []
                         for point2dino in point2dino_list:
                                 dinov2_features_major_list.append(dinov2_mean(point2dino))
@@ -116,7 +116,7 @@ def ncuts_chunk(dataset,indices,pcd_nonground_chunks, pcd_ground_chunks,
 
 
                 if theta:
-                        tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2,norm=norm)
+                        tarl_features = tarl_features_per_patch(dataset, chunk_major, T_pcd, center_position, tarl_indices_global, chunk_size, search_radius=major_voxel_size/2,norm=norm,obb=obb)
                         no_tarl_mask = ~np.array(tarl_features).any(1)
                         tarl_distance = cdist(tarl_features, tarl_features)
                         tarl_distance[no_tarl_mask] = 0

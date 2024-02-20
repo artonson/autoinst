@@ -268,7 +268,7 @@ def process_batch(unique_pred, preds, labels, gt_idcs, threshold, new_ncuts_labe
     if cur_intersect > threshold * len(pred_idcs): 
         new_ncuts_labels[pred_idcs] = 0
 
-def remove_semantics(labels, preds, threshold=0.8, num_threads=None):
+def remove_semantics(labels, preds, threshold=0.8, num_threads=4):
     gt_idcs = np.where(labels == 0)[0]
     new_ncuts_labels = preds.copy()
     unique_preds = np.unique(preds)

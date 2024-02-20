@@ -70,6 +70,8 @@ class RefinerModel():
         every_k_points = int(
             points.shape[0] /
             num_points_to_sample)
+        if every_k_points == 0 : 
+            every_k_points = 1
         indeces = self.uniform_down_sample_with_indices(
             points, every_k_points)
  

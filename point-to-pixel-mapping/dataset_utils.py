@@ -287,15 +287,15 @@ def subsample_and_extract_positions(all_poses, voxel_size=1, ind_start=0,sequenc
 
     return poses, positions, sampled_indices_local, sampled_indices_global
 
-def chunk_and_downsample_point_clouds(pcd_nonground_minor, pcd_ground_minor, T_pcd, positions, first_position, 
+def chunk_and_downsample_point_clouds(dataset,pcd_nonground_minor, pcd_ground_minor, T_pcd, positions, first_position, 
                                     sampled_indices_global, chunk_size=np.array([25, 25, 25]), 
                                     overlap=3, major_voxel_size=0.35,kitti_labels=None):
     # Creating chunks
-    pcd_nonground_chunks, indices, center_positions, center_ids, chunk_bounds, kitti_out = chunks_from_pointcloud(pcd_nonground_minor, T_pcd, positions, 
-                                                                            first_position, sampled_indices_global, chunk_size, overlap,labels=kitti_labels)
+    pcd_nonground_chunks, indices, center_positions, center_ids, chunk_bounds, kitti_out,obbs = chunks_from_pointcloud(dataset,pcd_nonground_minor, T_pcd, positions, 
+                                                                            first_position, sampled_indices_global, chunk_size, overlap,labels=kitti_labels,chunk_size=chunk_size)
     
-    pcd_ground_chunks, indices_ground, _, _, _ , kitti_out_ground = chunks_from_pointcloud(pcd_ground_minor, T_pcd, positions, 
-                                                        first_position, sampled_indices_global, chunk_size, overlap,labels=kitti_labels,ground=True)
+    pcd_ground_chunks, indices_ground, _, _, _ , kitti_out_ground,obbs = chunks_from_pointcloud(dataset,pcd_ground_minor, T_pcd, positions, 
+                                                        first_position, sampled_indices_global, chunk_size, overlap,labels=kitti_labels,ground=True,chunk_size=chunk_size)
         
     # Downsampling the chunks and printing information
     kitti_labels = {'nonground':kitti_out,'ground':kitti_out_ground}
@@ -313,4 +313,4 @@ def chunk_and_downsample_point_clouds(pcd_nonground_minor, pcd_ground_minor, T_p
 
     return pcd_nonground_chunks,pcd_ground_chunks,pcd_nonground_chunks_major_downsampling, \
         pcd_ground_chunks_major_downsampling, \
-        indices, indices_ground,center_positions, center_ids, chunk_bounds, kitti_labels
+        indices, indices_ground,center_positions, center_ids, chunk_bounds, kitti_labels,obbs

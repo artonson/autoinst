@@ -45,9 +45,55 @@ def subsample_positions(positions, voxel_size=1, batch_size=1000):
 
     return np.sort(subsampled_indices)
 
+def is_point_inside_obb(point, obb):
+    """
+    Check if a point is inside the OBB by transforming the point into the OBB's local coordinate system.
+    """
+    # Translate the point to the OBB's local origin
+    local_point = point - obb.center
+    
+    # Project the translated point onto the OBB's local axes
+    for i in range(3):
+        axis = np.array(obb.R[:, i])
+        extent = obb.extent[i] / 2.0
+        projection = np.dot(local_point, axis)
+        if np.abs(projection) > extent:
+            return False
+    return True
+    
+def are_points_inside_obb(points, obb):
+    """
+    Vectorized check if multiple points are inside the OBB by transforming the points into the OBB's local coordinate system.
+    
+    Args:
+    - points: Nx3 numpy array of points.
+    - obb: An OBB object with attributes 'center', 'R', and 'extent'.
+    
+    Returns:
+    - A boolean array indicating whether each point is inside the OBB.
+    """
+    # Translate the points to the OBB's local origin
+    local_points = points - obb.center
+    
+    # Initialize a boolean array to keep track of points inside the OBB
+    inside = np.ones(local_points.shape[0], dtype=bool)
+    
+    # Project the translated points onto the OBB's local axes and check extents
+    for i in range(3):
+        axis = np.array(obb.R[:, i])
+        extent = obb.extent[i] / 2.0
+        
+        # Calculate the projection of each point onto the current axis
+        projection = np.dot(local_points, axis)
+        
+        # Update 'inside' to False for points outside the OBB's extent on this axis
+        inside &= np.abs(projection) <= extent
+    
+    return inside
 
 
-def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, overlap,labels=None,ground=False):
+
+def chunks_from_pointcloud(dataset,pcd, T_pcd, positions, first_position, indices, R, overlap,labels=None,ground=False,chunk_size=np.array([25, 25, 25])):
 
     points = np.asarray(pcd.points)
 
@@ -56,6 +102,7 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
     center_pos = []
     center_ids = []
     chunk_bounds = []
+    obbs = []
     
     if labels != None : 
         kitti_out = {'panoptic':[],'semantic':[],'instance':[]}
@@ -63,21 +110,72 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
         kitti_out = None 
     distance = 0
     last_position = None
+    cnt = 0 
     for (position, index) in zip(positions, indices):
         if last_position is not None:
             distance += np.linalg.norm(position - last_position)
-            if distance > (R[0]-overlap): # New chunk
-
+            if distance > (min(R[0],R[1])-overlap): # New chunk
+            
                 pos_pcd = position - first_position
                 rot = np.linalg.inv(T_pcd[:3,:3])
                 pos_pcd = rot @ pos_pcd
-
+                            
                 max_position = pos_pcd + (0.5 * R)
                 min_position = pos_pcd - (0.5 * R) 
                 
 
-                ids = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
+                if dataset.nuscenes == True : 
+                    pos_last = last_position - first_position
+                    #sphere2.translate([pos_last[0],pos_last[1],pos_last[2]])
+                    
+                    
+                    direction_vector = pos_pcd - pos_last
+                    direction_vector_normalized = direction_vector / np.linalg.norm(direction_vector)
+                    
+                    y_axis = direction_vector_normalized
+                    # Choose an arbitrary vector different from y_axis for cross product
+                    z_axis = np.array([0, 0, 1]) if np.abs(y_axis[1]) != 1 else np.array([1, 0, 0])
+                    # Ensure z_axis is orthogonal to y_axis
+                    x_axis = np.cross(y_axis, z_axis)
+                    x_axis_normalized = x_axis / np.linalg.norm(x_axis)
+                    # Recompute z_axis to ensure orthogonality
+                    z_axis = np.cross(x_axis_normalized, y_axis)
+                    z_axis_normalized = z_axis / np.linalg.norm(z_axis)
+                    
+                    # Construct the rotation matrix
+                    rotation_matrix = np.vstack([x_axis_normalized, y_axis, z_axis_normalized]).T
+                    
+                    
+                    # Calculate the center of the OBB (midpoint between start and end poses)
+                    center = pos_pcd
+                    
+                    # Define the extents of the OBB (length, width, height)
+                    extents = chunk_size  # Adjust these values as needed
+                    
+                    # Create an Oriented Bounding Box (OBB)
+                    obb2 = o3d.geometry.OrientedBoundingBox(center, rotation_matrix, extents)
+                    
+                    #o3d.visualization.draw_geometries([pcd, obb2])
+                    
+                    obbs.append(obb2)
+                    
+                                    
+                    points = np.asarray(pcd.points)
+                    
+                    
+                    boolean_arr = are_points_inside_obb(points,obb2)
+                    ids = np.where(boolean_arr == 1)[0]
+                
+                else : ##use abb for KITTI 
+                    ids = np.where(np.all(points > min_position, axis=1) & np.all(points < max_position, axis=1))[0]
+                    obbs.append(0)
                 pcd_cut = pcd.select_by_index(ids)
+                #if cnt == 0 : 
+                #    pcd_cut.paint_uniform_color([0,0,1])
+                #    o3d.visualization.draw_geometries([pcd,sphere,sphere2,obb2])
+                #    o3d.visualization.draw_geometries([pcd_cut])
+                cnt += 1
+            
 
                 inlier_indices = get_statistical_inlier_indices(pcd_cut)
                 pcd_cut_final = get_subpcd(pcd_cut, inlier_indices)
@@ -103,7 +201,7 @@ def chunks_from_pointcloud(pcd, T_pcd, positions, first_position, indices, R, ov
                 distance = 0
         last_position = position
 
-    return pcd_chunks, chunk_indices, center_pos, center_ids, chunk_bounds, kitti_out
+    return pcd_chunks, chunk_indices, center_pos, center_ids, chunk_bounds, kitti_out, obbs 
 
 def indices_per_patch(T_pcd, center_positions, positions, first_position, global_indices, chunk_size):
 
@@ -124,7 +222,7 @@ def indices_per_patch(T_pcd, center_positions, positions, first_position, global
 
     return patchwise_indices
 
-def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, chunk_size, search_radius=0.1,norm=False):
+def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, chunk_size, search_radius=0.1,norm=False,obb=None):
 
     concatenated_tarl_points = np.zeros((0, 3))
     concatenated_tarl_features = np.zeros((0, 96))
@@ -144,8 +242,14 @@ def tarl_features_per_patch(dataset, pcd, T_pcd, center_position, tarl_indices, 
         T_lidar2world = dataset.get_pose(points_index)
         T_local2global = np.linalg.inv(T_pcd) @ T_lidar2world
         coords = transform_pcd(coords, T_local2global)
-        
-        mask = np.where(np.all(coords > min_position, axis=1) & np.all(coords < max_position, axis=1))[0]
+                
+        if dataset.nuscenes == True : 
+            inside_mask = are_points_inside_obb(coords,obb)
+            
+            # Find the indices of points inside the OBB
+            mask = np.where(inside_mask == 1)[0]
+        else : ##use abb for KITTI 
+            mask = np.where(np.all(coords > min_position, axis=1) & np.all(coords < max_position, axis=1))[0]
 
         coords, tarl_features = coords[mask], tarl_features[mask]
         concatenated_tarl_points = np.concatenate((concatenated_tarl_points, coords))
@@ -195,7 +299,7 @@ def is_perpendicular_and_upward(point, normal, boundary = 0.1):
 
 
 def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_size, T_pcd2world, cam_indices, cams, cam_ids: list, hpr_radius=1000, 
-                                    num_dino_features = 384, hpr_masks=None, sam = True, dino=True, rm_perp=0.0,pcd_chunk=None):
+                                    num_dino_features = 384, hpr_masks=None, sam = True, dino=True, rm_perp=0.0,pcd_chunk=None,obb=None):
 
     num_points_nc = np.asarray(chunk_nc.points).shape[0]
 
@@ -220,9 +324,11 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
         if dino:
             point2dino_nc = np.zeros((num_points_nc, len(cam_indices), num_dino_features))
 
-        sam_mask_0 = dataset.get_sam_mask(cams[cam_id], 0)
-        sam_label_0 = masks_to_image(sam_mask_0)
-        label_shape = sam_label_0.shape
+    
+        image = dataset.get_image(cams[cam_id],0)
+        w,h = image.size 
+        label_shape = (h,w)
+        print('label shape',label_shape)
 
         if hpr_masks is not None:
             assert len(cam_indices) == hpr_masks.shape[0]
@@ -249,8 +355,8 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
                 max_x,max_y,max_z = pts[:,0].max(), pts[:,1].max(), pts[:,2].max()
                 min_bound = np.array([min_x,min_y,min_z]) 
                 max_bound = np.array([max_x,max_y,max_z])  
-                pcd_camframe_world.paint_uniform_color([0,0,1])
-                #o3d.visualization.draw_geometries([pcd_camframe_world + pcd_chunk])
+                #pcd_camframe_world.paint_uniform_color([0,0,1])
+                
             
             
             if hpr_masks is None:
@@ -259,7 +365,17 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
                 if dataset.nuscenes == False : 
                     bound_indices = np.where(np.all(np.asarray(pcd_camframe_world.points) > min_bound, axis=1) & np.all(np.asarray(pcd_camframe_world.points) < max_bound, axis=1))[0] ##speedup currently only works for KITTI
                 else : 
-                    bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
+                    pcd_transformed = copy.deepcopy(pcd_camframe).transform(np.linalg.inv(T_world2cam))
+                    pts = np.asarray(pcd_chunk.points)
+                    min_x,min_y,min_z = pts[:,0].min(), pts[:,1].min(), pts[:,2].min()
+                    max_x,max_y,max_z = pts[:,0].max(), pts[:,1].max(), pts[:,2].max()
+                    min_bound = np.array([min_x,min_y,min_z]) 
+                    max_bound = np.array([max_x,max_y,max_z])  
+                    bound_indices = np.where(np.all(np.asarray(pcd_transformed.points) > min_bound, axis=1) & np.all(np.asarray(pcd_transformed.points) < max_bound, axis=1))[0] ##speedup currently only works for KITTI
+                    
+                    
+                    #o3d.visualization.draw_geometries([pcd_transformed + pcd_chunk,obb])
+                    #bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
                 pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
                 #o3d.visualization.draw_geometries([pcd_camframe_hpr])
         
@@ -274,7 +390,9 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
             
             
             frame_indices = list(set(visible_indices) & set(chunk_and_inlier_indices))
-            
+            if len(frame_indices) == 0 : 
+                print("out of view skip")
+                continue
 
             # Load the SAM label
             if sam:
@@ -303,9 +421,9 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
             
             # Apply visibility to downsampled chunk used for normalized cuts
             visible_chunk = get_subpcd(pcd_camframe, frame_indices)
-            #o3d.visualization.draw_geometries([chunk_nc])
+            #o3d.visualization.draw_geometries([visible_chunk])
             chunk_nc_camframe = copy.deepcopy(chunk_nc).transform(T_pcd2cam)
-
+            
             visible_chunk_tree = o3d.geometry.KDTreeFlann(visible_chunk)
             nc_indices = []
             for j, point in enumerate(np.asarray(chunk_nc_camframe.points)):

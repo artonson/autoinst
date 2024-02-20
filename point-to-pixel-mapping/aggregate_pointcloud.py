@@ -9,8 +9,11 @@ sys.path.insert(0,lib_path)
 import pypatchworkpp
 from visualization_utils import * 
 from tqdm import tqdm 
+import random 
 
 def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0.9, ground_segmentation=None):
+    np.random.seed(42)
+    random.seed(42)
     '''
     Returns aggregated point cloud from dataset in world coordinate system
     Args:
@@ -100,7 +103,7 @@ def aggregate_pointcloud(dataset, ind_start, ind_end, icp=False, icp_threshold=0
                 
 
             elif ground_segmentation == 'open3d':
-                _, ground_idcs = pcd.segment_plane(distance_threshold=0.2, ransac_n=3, num_iterations=2000)
+                _, ground_idcs = pcd.segment_plane(distance_threshold=0.4, ransac_n=3, num_iterations=2000)
                 nonground_idcs = np.setdiff1d(np.arange(0, np.asarray(pcd.points).shape[0]), ground_idcs)
             else:
                 raise ValueError('ground_segmentation must be either "None", "patchwork" or "open3d"')

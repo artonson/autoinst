@@ -334,7 +334,7 @@ class Metrics:
             calc_lstq=True):
         
         pred_labels = self.filter_labels(pred_labels)
-        gt_labels = self.filter_labels(gt_labels)
+        #gt_labels = self.filter_labels(gt_labels)
         all_labels = self.filter_labels(all_labels)
     
         if calc_all:
@@ -360,7 +360,7 @@ class Metrics:
             calc_lstq=True): 
         
         pred_labels = self.filter_labels(pred_labels)
-        gt_labels = self.filter_labels(gt_labels)
+        #gt_labels = self.filter_labels(gt_labels)
         all_labels = self.filter_labels(all_labels)
         
         self.eval_lstq.add_batch(all_labels, gt_labels)        

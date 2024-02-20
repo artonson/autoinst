@@ -226,7 +226,7 @@ for seq in seqs :
                 pcd_nonground_chunks, pcd_ground_chunks,\
                 pcd_nonground_chunks_major_downsampling, pcd_ground_chunks_major_downsampling, \
                 indices,indices_ground, center_positions, \
-                center_ids, chunk_bounds, kitti_labels, _ = chunk_and_downsample_point_clouds(dataset,pcd_nonground_minor, pcd_ground_minor, T_pcd, positions, 
+                center_ids, chunk_bounds, kitti_labels, _ = chunk_and_downsample_point_clouds(pcd_nonground_minor, pcd_ground_minor, T_pcd, positions, 
                                                                     first_position, sampled_indices_global, chunk_size=chunk_size, 
                                                                     overlap=overlap, major_voxel_size=major_voxel_size,kitti_labels=kitti_labels_orig)
                 
