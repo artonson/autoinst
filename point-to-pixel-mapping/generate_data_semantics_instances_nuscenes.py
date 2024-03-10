@@ -149,7 +149,7 @@ dataset_type = "v1.0-mini"
 DATASET_PATH = "/media/cedric/Datasets21/nuScenes_mini/nuScenes/"
 
 seqs = list(range(0, 10))  ## only used for mini dataset
-seq_limit = 2  ## only use first two scenes
+seq_limit = 10  ## only use first two scenes
 vis = False  ##flag for map vis after iteration
 
 seqs_trainval = [

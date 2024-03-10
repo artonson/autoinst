@@ -67,7 +67,7 @@ class nuScenesOdometryDataset(Dataset):
         self.dist_threshold = config.dist_threshold
 
         self.tarl_features_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs/TARL/"
+            self.ds_path, "outputs/TARL/LIDAR_TOP/"
         )
 
         self._poses = self.__parse_poses()
@@ -327,14 +327,19 @@ class nuScenesOdometryDataset(Dataset):
         lidar_data = self.dataset.get("sample_data", lidar_token)
 
         ##Load TARL labels
-        with np.load(
-            os.path.join(
-                self.tarl_features_path
-                + lidar_data["filename"].split("/")[-1].split(".")[0]
-                + ".npz"
-            )
-        ) as data:
-            point_features = data["feats"].reshape(-1, 96)
+        file = os.path.join(
+            self.tarl_features_path
+            + lidar_data["filename"].split("/")[-1].split(".")[0]
+            + ".bin"
+        )
+
+        with open(file, "rb") as f_in:
+            compressed_data = f_in.read()
+
+        decompressed_data = zlib.decompress(compressed_data)
+        loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
+        tarl_dim = 96
+        point_features = loaded_array.reshape(-1, tarl_dim)
 
         return point_features
 
