@@ -128,7 +128,7 @@ ncuts_threshold = config["T"]
 
 cams = ["CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT"]
 cam_ids = [0, 1, 2]
-seq_limit = 2
+
 
 dist_threshold = 5  # moving object filter threshold
 
@@ -149,7 +149,8 @@ dataset_type = "v1.0-mini"
 DATASET_PATH = "/media/cedric/Datasets21/nuScenes_mini/nuScenes/"
 
 seqs = list(range(0, 10))  ## only used for mini dataset
-
+seq_limit = 2  ## only use first two scenes
+vis = False  ##flag for map vis after iteration
 
 seqs_trainval = [
     "scene-0003",
