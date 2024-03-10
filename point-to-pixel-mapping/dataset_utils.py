@@ -11,12 +11,87 @@ from chunk_generation import subsample_positions, chunks_from_pointcloud
 from visualization_utils import * 
 import numpy as np
 import matplotlib.pyplot as plt
+import random 
 
 # Generate 30 different colors
 COLORS = plt.cm.viridis(np.linspace(0, 1, 30))
 COLORS = list(list(col) for col in COLORS) 
 COLORS = [tuple(col[:3]) for col in COLORS]
 
+
+def generate_random_colors(N):
+    colors = set()  # Use a set to store unique colors
+    while len(colors) < N:  # Keep generating colors until we have N unique ones
+        # Generate a random color and add it to the set
+        colors.add((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+
+    return list(colors)  # Convert the set to a list before returning
+
+
+
+
+def masks_to_colored_image(masks):
+    '''
+    Function that takes an array of masks and returns a pixel-wise colored label map.
+    Assumes each mask in masks is a dictionary with a "segmentation" key containing a binary mask.
+    '''
+
+
+    # Assuming all masks are the same size, get the dimensions from the first mask
+    height, width = masks[0]["segmentation"].shape
+    image_labels = np.zeros((height, width, 3), dtype=np.uint8)  # Use uint8 for image data
+
+    colors = generate_random_colors(len(masks))  # Generate colors for each mask
+
+    for i, mask in enumerate(masks):
+        # Apply the color to the region specified by the mask
+        for c in range(3):  # Iterate over color channels
+            image_labels[:, :, c][mask['segmentation']] = colors[i][c]
+
+    #cv2.imshow('Colored Masks', image_labels)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()  # Close the window after key press
+
+    return image_labels
+
+def get_data_from_dataset(dataset, points_index, left_cam, right_cam,pcd_chunk):
+    """
+    Returns the point cloud, left and right images, left and right labels, and the calibration matrices for a given index in the dataset.
+    Args:
+        dataset:        The kitty dataset object
+        points_index:   The index of the point cloud in the dataset
+        left_cam:       The left camera name
+        right_cam:      The right camera name
+    """
+
+    pcd_o3d = get_pcd(dataset.get_point_cloud(points_index))
+    
+    #worlpcd_o3d.transform(dataset.get_pose(points_index))
+    #pcd_chunk.paint_uniform_color([0,0,1])
+    #o3d.visualization.draw_geometries([pcd_o3d,pcd_chunk])
+    pcd = np.asarray(pcd_o3d.points)
+
+    left_image_PIL = dataset.get_image(left_cam, points_index)    
+    left_image = cv2.cvtColor(np.array(left_image_PIL), cv2.COLOR_RGB2BGR)
+
+    right_image_PIL = dataset.get_image(right_cam, points_index)
+    right_image = cv2.cvtColor(np.array(right_image_PIL), cv2.COLOR_RGB2BGR)
+
+    left_label= dataset.get_sam_mask(left_cam, points_index)
+    left_label = masks_to_colored_image(left_label)    
+    #left_label = cv2.cvtColor(np.array(left_label_PIL), cv2.COLOR_RGB2BGR)
+
+    right_label = dataset.get_sam_mask(right_cam, points_index)
+    right_label = masks_to_colored_image(right_label)  
+    #right_label = cv2.cvtColor(np.array(right_label_PIL), cv2.COLOR_RGB2BGR)
+
+    T_lidar2leftcam, K_leftcam = dataset.get_calibration_matrices(left_cam)
+    T_lidar2rightcam, K_rightcam = dataset.get_calibration_matrices(right_cam)
+    T_lidar2world = dataset.get_pose(points_index)
+                        
+     
+
+    return pcd, (left_image, right_image), (left_label, right_label), (T_lidar2leftcam, T_lidar2rightcam), (K_leftcam, K_rightcam), T_lidar2world
 
 def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None,semantics=False):
     
@@ -49,7 +124,7 @@ def color_pcd_by_labels(pcd, labels,colors=None,gt_labels=None,semantics=False):
         pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors/255)
     return pcd_colored
 
-def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred", 
+def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="sam_pred_underseg", 
                                 dinov2_folder_name="dinov2_features", correct_scan_calibration=True, range_min=3, 
                                 range_max=25,ncuts_mode=True):
     if ncuts_mode : 
@@ -78,7 +153,7 @@ def create_kitti_odometry_dataset(dataset_path, sequence_num, cache=True, sam_fo
 
 def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam_folder_name="SAM_Underseg", 
                                 dinov2_folder_name="Dinov2", correct_scan_calibration=True, range_min=3, 
-                                range_max=25,ncuts_mode=True,dist_threshold=5,dataset_type='v1.0-mini'):
+                                range_max=25,ncuts_mode=True,dist_threshold=5,dataset_type='v1.0-mini',scene=None):
     
     
     if ncuts_mode : 
@@ -103,7 +178,7 @@ def create_nuscenes_odometry_dataset(dataset_path, sequence_num, cache=True, sam
         dist_threshold=dist_threshold,
     )
         
-    dataset = nuScenesOdometryDataset(config_filtered, sequence_num,dataset_type)
+    dataset = nuScenesOdometryDataset(config_filtered, sequence_num,dataset_type,scene=scene)
     return dataset
 
 def process_and_save_point_clouds(dataset, ind_start, ind_end, ground_segmentation_method="patchwork", icp=True, 
@@ -140,6 +215,7 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
         first_position = T_pcd[:3, 3]
 
     # Load point clouds
+    print("pcd load")
     if ground_mode is not None : 
         pcd_ground = o3d.io.read_point_cloud(f'{out_folder}ground{sequence_num}_{cur_idx}.pcd')
     pcd_nonground = o3d.io.read_point_cloud(f'{out_folder}non_ground{sequence_num}_{cur_idx}.pcd')
@@ -172,7 +248,9 @@ def load_and_downsample_point_clouds(out_folder, sequence_num, minor_voxel_size=
     pcd_nonground_minor,_,_ = pcd_nonground.voxel_down_sample_and_trace(minor_voxel_size, pcd_nonground.get_min_bound(), 
                                                                      pcd_nonground.get_max_bound(), False)
     
+    del pcd_ground, pcd_nonground
     
+    print('downsample')
     # KDTree for finding nearest neighbors
     pcd_tree = o3d.geometry.KDTreeFlann(instance_non_ground_orig)
     instance_non_ground = o3d.geometry.PointCloud() 
@@ -314,3 +392,6 @@ def chunk_and_downsample_point_clouds(dataset,pcd_nonground_minor, pcd_ground_mi
     return pcd_nonground_chunks,pcd_ground_chunks,pcd_nonground_chunks_major_downsampling, \
         pcd_ground_chunks_major_downsampling, \
         indices, indices_ground,center_positions, center_ids, chunk_bounds, kitti_labels,obbs
+
+
+

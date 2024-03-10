@@ -258,20 +258,20 @@ class KittiOdometryDataset(Dataset):
         """
         cur_file = self.tarl_features_path
         
+
+        index_file = str(index).zfill(6) + '.bin'
+        file = os.path.join(cur_file, index_file)
+        
         try : 
-            index_file = str(index).zfill(6) + '.npz'
-            file = os.path.join(cur_file, index_file)
-            data = np.load(file)
-            tarl_dim = 96
-            point_features = data['data_store'].reshape(-1,tarl_dim)
-            
-        except: 
-            index_file = str(index).zfill(6) + '.bin'
-            file = os.path.join(cur_file, index_file)
-            
             with open(file, 'rb') as f_in:
                 compressed_data = f_in.read()
        
+            decompressed_data = zlib.decompress(compressed_data)
+            loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
+            tarl_dim = 96
+            point_features = loaded_array.reshape(-1,tarl_dim)
+        except : 
+            print('file',file)
             decompressed_data = zlib.decompress(compressed_data)
             loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
             tarl_dim = 96

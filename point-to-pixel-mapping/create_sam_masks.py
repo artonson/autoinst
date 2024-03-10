@@ -90,7 +90,7 @@ def generate_small_masks(sam_masks):
 unique_colors = list(generate_unique_colors(200)) 
 
 sequences = [
-	'08','09',
+	'00',
 	]
 
 for seq in sequences : 
@@ -98,10 +98,10 @@ for seq in sequences :
 	for image_name in images : 
 		print("image name",image_name)
 		
-		directory_sam_feats = '/media/cedric/Datasets1/semantic_kitti/sam_pred/' + seq + '/' + image_name + '/'
+		directory_sam_feats = '/media/cedric/Datasets2/semantic_kitti/outputs/' + seq + '/' + image_name + '/'
 		
-		out_path = '/media/cedric/Datasets1/semantic_kitti/sam_pred_medium/' + seq + '/' + image_name + '/'
-		raw_imgs_dir = '/media/cedric/Datasets1/semantic_kitti/sequences/' + seq + '/' + image_name + '/'
+		out_path = '/media/cedric/Datasets2/semantic_kitti/sam_pred_underseg/' + seq + '/' + image_name + '/'
+		raw_imgs_dir = '/media/cedric/Datasets2/semantic_kitti/sequences/' + seq + '/' + image_name + '/'
 		
 		imgs = os.listdir(raw_imgs_dir)
 		imgs = [img for img in imgs if img.endswith('.png')]

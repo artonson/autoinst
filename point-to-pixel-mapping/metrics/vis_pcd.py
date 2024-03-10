@@ -60,12 +60,15 @@ def color_pcd_by_labels(pcd, labels):
     return pcd_colored
 
 #base_fn = '/home/cedric/unsup_3d_instances/point-to-pixel-mapping/pcd_preprocessed/output_chunks/'
-base_fn = '/home/cedric/unsup_3d_instances/point-to-pixel-mapping/pcd_preprocessed/out_maps/5/'
+#base_fn = '/home/cedric/unsup_3d_instances/point-to-pixel-mapping/pcd_preprocessed/out_maps/5/'
 #cur = 'tarl_spatial_data/'
-fn = os.listdir(base_fn)
-fn = [f for f in fn if f.endswith('pcd')]
-fn = sorted(fn)
+#fn = os.listdir(base_fn)
+#fn = [f for f in fn if f.endswith('pcd')]
+#fn = sorted(fn)
 #pcd = o3d.io.read_point_cloud(fp)
+
+pcd = o3d.io.read_point_cloud('../pcd_preprocessed/sam3d5.pcd')
+o3d.visualization.draw_geometries([pcd])
 
 for f in fn :
     fp = base_fn +  f 
@@ -78,4 +81,10 @@ for f in fn :
     #pcd = color_pcd_by_labels(pcd,labels)
 
     o3d.visualization.draw_geometries([pcd])
+
+
+
+
+
+
 

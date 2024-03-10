@@ -5,8 +5,12 @@ from point_cloud_utils import transform_pcd, filter_points_from_dict, filter_poi
 from point_to_pixels import point_to_pixel
 from visualization_utils import color_pcd_with_labels, visualize_associations_in_img
 from merge_pointclouds import build_associations, apply_associations_to_dict, merge_label_predictions, merge_pointclouds, build_associations_across_timesteps
+import copy 
+import open3d as o3d 
+import numpy as np 
+from visualization_utils import * 
 
-def merged_sequence(dataset, start_index, sequence_length, labelling=True):
+def merged_sequence(dataset, start_index, sequence_length, pcd_chunk,labelling=True):
     '''
     Args:
         dataset:            dataset object
@@ -29,10 +33,19 @@ def merged_sequence(dataset, start_index, sequence_length, labelling=True):
 
         for i in range(sequence_length):
             points_index = start_index + i
+            if points_index >= len(dataset): 
+                break 
 
-            pcd, images, labels, T_matrices, K_matrices = get_data_from_dataset(dataset, points_index, left_cam, right_cam)
+            pcd, images, labels, T_matrices, K_matrices, T_lidar2world = get_data_from_dataset(dataset, points_index, left_cam, right_cam,pcd_chunk)
             
-            pcd_camframes = (transform_pcd(pcd, T_matrices[0]), transform_pcd(pcd, T_matrices[1]))
+            pcd_world = transform_pcd(copy.deepcopy(pcd),T_lidar2world)
+            
+            pcd_camframes = (transform_pcd(copy.deepcopy(pcd), T_matrices[0]), transform_pcd(copy.deepcopy(pcd), T_matrices[1]))    
+            
+            #test_pcd = o3d.geometry.PointCloud()
+            #test_pcd.points = o3d.utility.Vector3dVector(pcd)
+            #pcd_chunk.paint_uniform_color([0,0,1])
+            #o3d.visualization.draw_geometries([test_pcd,pcd_chunk])
 
             hpr_mask_camframes = (hidden_point_removal_o3d(pcd_camframes[0], camera=[0,0,0], radius_factor=400), 
                                 hidden_point_removal_o3d(pcd_camframes[1], camera=[0,0,0], radius_factor=400))
@@ -69,23 +82,44 @@ def merged_sequence(dataset, start_index, sequence_length, labelling=True):
 
             label_history.append(last_label)
             
+            #o3d.visualization.draw_geometries([pcd_merge,pcd_chunk])
+
             
-            pcd_merged_labels_rl = filter_points_from_dict(pcd, merged_labels_rl)
+            pcd_merged_labels_rl = filter_points_from_dict(pcd_world, merged_labels_rl)
             pcd_merged_labels_rl = color_pcd_with_labels(pcd_merged_labels_rl, merged_labels_rl)
+            
+            
+            #test_pcd = o3d.geometry.PointCloud()
+            #test_pcd.points = o3d.utility.Vector3dVector(pcd)
+            #pcd_chunk.paint_uniform_color([0,0,1])
+            #o3d.visualization.draw_geometries([test_pcd,pcd_chunk,pcd_merged_labels_rl])
 
             if pcd_merge is None:
                 pcd_merge = pcd_merged_labels_rl
+                #o3d.visualization.draw_geometries([pcd_merge,pcd_chunk])
             else:
                 pose = dataset.get_pose(points_index)
                 pcd_merge = merge_pointclouds(pcd_merge, pcd_merged_labels_rl, first_pose, pose)
-    else:
-
+                
+        unique_colors, labels_cur = np.unique(np.asarray(pcd_merge.colors), axis=0, return_inverse=True)
+        pcd_merge = color_pcd_by_labels(pcd_merge,labels_cur + 3)
+        
+    else : 
         for i in range(sequence_length):
             points_index = start_index + i
+            if points_index >= len(dataset): 
+                break 
 
-            pcd, images, labels, T_matrices, K_matrices = get_data_from_dataset(dataset, points_index, left_cam, right_cam)
+            pcd, images, labels, T_matrices, K_matrices, T_lidar2world = get_data_from_dataset(dataset, points_index, left_cam, right_cam,pcd_chunk)
             
-            pcd_camframes = (transform_pcd(pcd, T_matrices[0]), transform_pcd(pcd, T_matrices[1]))
+            pcd_world = transform_pcd(copy.deepcopy(pcd),T_lidar2world)
+            
+            pcd_camframes = (transform_pcd(copy.deepcopy(pcd), T_matrices[0]), transform_pcd(copy.deepcopy(pcd), T_matrices[1]))    
+            
+            #test_pcd = o3d.geometry.PointCloud()
+            #test_pcd.points = o3d.utility.Vector3dVector(pcd)
+            #pcd_chunk.paint_uniform_color([0,0,1])
+            #o3d.visualization.draw_geometries([test_pcd,pcd_chunk])
 
             hpr_mask_camframes = (hidden_point_removal_o3d(pcd_camframes[0], camera=[0,0,0], radius_factor=400), 
                                 hidden_point_removal_o3d(pcd_camframes[1], camera=[0,0,0], radius_factor=400))
@@ -95,12 +129,12 @@ def merged_sequence(dataset, start_index, sequence_length, labelling=True):
 
             point_to_pixel_dicts = (point_to_pixel(pcd_camframes_hpr[0], K_matrices[0], images[0].shape[0], images[0].shape[1]),
                                     point_to_pixel(pcd_camframes_hpr[1], K_matrices[1], images[1].shape[0], images[1].shape[1]))
-
+            
             point_to_pixel_dicts_mapped = (change_point_indices(point_to_pixel_dicts[0], hpr_mask_camframes[0]),
-                                           change_point_indices(point_to_pixel_dicts[1], hpr_mask_camframes[1]))
+                                        change_point_indices(point_to_pixel_dicts[1], hpr_mask_camframes[1]))
             
             merged_points = set(point_to_pixel_dicts_mapped[0].keys()) | set(point_to_pixel_dicts_mapped[1].keys())
-            filtered_pcd = get_pcd(filter_points_from_list(pcd, merged_points))
+            filtered_pcd = get_pcd(filter_points_from_list(pcd_world, merged_points))
 
             if pcd_merge is None:
                 pcd_merge = filtered_pcd
@@ -108,4 +142,6 @@ def merged_sequence(dataset, start_index, sequence_length, labelling=True):
                 pose = dataset.get_pose(points_index)
                 pcd_merge = merge_pointclouds(pcd_merge, filtered_pcd, first_pose, pose)
 
+    
+            
     return label_history, pcd_merge

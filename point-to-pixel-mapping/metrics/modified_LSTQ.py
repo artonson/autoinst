@@ -73,7 +73,8 @@ class evaluator:
                         TPA_area = intersects[TPA_id]
                         inner_sum_iou += TPA_area * (TPA_area / (gt_area + pred_area - TPA_area))
                 outer_sum_iou += float(inner_sum_iou) / float(gt_area)
-            S_assoc = outer_sum_iou / len(list(gts.items()))
-            self.S_assoc_list.append(S_assoc)
+            if len(list(gts.items())) > 0 :
+                S_assoc = outer_sum_iou / len(list(gts.items()))
+                self.S_assoc_list.append(S_assoc)
         
         return np.average(self.S_assoc_list)

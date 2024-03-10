@@ -29,63 +29,80 @@ class nuScenesDatasetConfig(DatasetConfig):
     # to correct the calibration of KITTI's HDL-64 scan
     cache: bool
 
+
 class nuScenesOdometryDataset(Dataset):
-    def __init__(self, config: nuScenesDatasetConfig, seq_num: int,dataset_type) -> None:
+    def __init__(
+        self, config: nuScenesDatasetConfig, seq_num: int, dataset_type, scene
+    ) -> None:
 
         # parse inputs
         self.nuscenes = True
         self.config = config
         self.seq_num = seq_num
         self.ds_path: DatasetPathLike = self.config.dataset_path
+        self.dataset = NuScenes(
+            version=dataset_type, dataroot=self.ds_path, verbose=True
+        )
 
-        self.dataset = NuScenes(version=dataset_type, dataroot=self.ds_path, verbose=True)
+        if dataset_type == "v1.0-trainval":
+            for i, scene_dict in enumerate(self.dataset.scene):
+                if scene_dict["name"] == scene:
+                    break
+                self.seq_num = i
+
+        print(" sequence number", self.seq_num)
         self.scene = self.dataset.scene[self.seq_num]
-
+        print(self.dataset.scene[self.seq_num])
         self.sample_tokens = self.__parse_tokens()
 
         # class members
-        self.camera_names = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT")
+        self.camera_names = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT")
 
         self.sam_label_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs", self.config.sam_folder_name)
+            self.ds_path, "outputs", self.config.sam_folder_name
+        )
         self.dinov2_features_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs",self.config.dinov2_folder_name)
+            self.ds_path, "outputs", self.config.dinov2_folder_name
+        )
         self.dist_threshold = config.dist_threshold
 
         self.tarl_features_path: os.PathLike = os.path.join(
-            self.ds_path, "outputs/TARL/LIDAR_TOP/")
+            self.ds_path, "outputs/TARL/"
+        )
 
         self._poses = self.__parse_poses()
 
-    
     def __parse_tokens(self):
         sample_tokens = []
-        next_sample_token = self.scene['first_sample_token']
-        while next_sample_token != '':
-            next_sample = self.dataset.get('sample', next_sample_token)
-            sample_tokens.append(next_sample['token'])
-            next_sample_token = next_sample['next']
+        next_sample_token = self.scene["first_sample_token"]
+
+        while next_sample_token != "":
+            next_sample = self.dataset.get("sample", next_sample_token)
+            sample_tokens.append(next_sample["token"])
+            next_sample_token = next_sample["next"]
         return sample_tokens
-    
+
     def __len__(self) -> int:
         return len(self.sample_tokens)
-    
+
     def __parse_poses(self) -> NDArray[Shape["*, 4, 4"], Float]:
-       
+
         poses = []
 
         for token in self.sample_tokens:
-            sample = self.dataset.get('sample', token)
-            lidar_token = sample['data']['LIDAR_TOP']
-            lidar_data = self.dataset.get('sample_data', lidar_token)
-            calib_data = self.dataset.get("calibrated_sensor", lidar_data["calibrated_sensor_token"])
+            sample = self.dataset.get("sample", token)
+            lidar_token = sample["data"]["LIDAR_TOP"]
+            lidar_data = self.dataset.get("sample_data", lidar_token)
+            calib_data = self.dataset.get(
+                "calibrated_sensor", lidar_data["calibrated_sensor_token"]
+            )
 
-            rotation = Quaternion(calib_data['rotation']).rotation_matrix
+            rotation = Quaternion(calib_data["rotation"]).rotation_matrix
             translation = np.array(calib_data["translation"])
             lidar2vehicle = transformation_matrix(rotation, translation)
 
-            egopose_data = self.dataset.get('ego_pose', lidar_data["ego_pose_token"])
-            rotation = Quaternion(egopose_data['rotation']).rotation_matrix
+            egopose_data = self.dataset.get("ego_pose", lidar_data["ego_pose_token"])
+            rotation = Quaternion(egopose_data["rotation"]).rotation_matrix
             translation = np.array(egopose_data["translation"])
             vehicle2world = transformation_matrix(rotation, translation)
 
@@ -97,7 +114,6 @@ class nuScenesOdometryDataset(Dataset):
 
     def get_pose(self, index: int) -> NDArray[Shape["4, 4"], Float]:
         return self._poses[index]
-    
 
     @cache_points
     def get_point_cloud(self, index: int) -> NDArray[Shape["*, 3"], Float]:
@@ -112,10 +128,12 @@ class nuScenesOdometryDataset(Dataset):
         """
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        lidar_token = sample['data']['LIDAR_TOP']
-        lidar_data = self.dataset.get('sample_data', lidar_token)
-        scan = np.fromfile(os.path.join(self.ds_path, lidar_data["filename"]), dtype=np.float32)
+        sample = self.dataset.get("sample", sample_token)
+        lidar_token = sample["data"]["LIDAR_TOP"]
+        lidar_data = self.dataset.get("sample_data", lidar_token)
+        scan = np.fromfile(
+            os.path.join(self.ds_path, lidar_data["filename"]), dtype=np.float32
+        )
         points = scan.reshape((-1, 5))[:, :3]
 
         return points
@@ -132,23 +150,24 @@ class nuScenesOdometryDataset(Dataset):
         """
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        lidar_token = sample['data']['LIDAR_TOP']
-        lidar_data = self.dataset.get('sample_data', lidar_token)
-        scan = np.fromfile(os.path.join(self.ds_path, lidar_data["filename"]), dtype=np.float32)
+        sample = self.dataset.get("sample", sample_token)
+        lidar_token = sample["data"]["LIDAR_TOP"]
+        lidar_data = self.dataset.get("sample_data", lidar_token)
+        scan = np.fromfile(
+            os.path.join(self.ds_path, lidar_data["filename"]), dtype=np.float32
+        )
         intensity = scan.reshape((-1, 5))[:, 3]
 
         return intensity
 
     def get_panoptic_labels(self, index: int):
 
-
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        lidar_token = sample['data']['LIDAR_TOP']
-        pantopic_data = self.dataset.get('panoptic', lidar_token)
+        sample = self.dataset.get("sample", sample_token)
+        lidar_token = sample["data"]["LIDAR_TOP"]
+        pantopic_data = self.dataset.get("panoptic", lidar_token)
         label_file_path = os.path.join(self.ds_path, pantopic_data["filename"])
-        panoptic = load_bin_file(label_file_path, 'panoptic')
+        panoptic = load_bin_file(label_file_path, "panoptic")
         panoptic = panoptic[np.newaxis].T
 
         return panoptic
@@ -156,11 +175,11 @@ class nuScenesOdometryDataset(Dataset):
     def get_semantic_labels(self, index: int):
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        lidar_token = sample['data']['LIDAR_TOP']
-        lidarseg_data = self.dataset.get('lidarseg', lidar_token)
+        sample = self.dataset.get("sample", sample_token)
+        lidar_token = sample["data"]["LIDAR_TOP"]
+        lidarseg_data = self.dataset.get("lidarseg", lidar_token)
         label_file_path = os.path.join(self.ds_path, lidarseg_data["filename"])
-        lidarseg = load_bin_file(label_file_path, 'lidarseg')
+        lidarseg = load_bin_file(label_file_path, "lidarseg")
         lidarseg = lidarseg[np.newaxis].T
 
         return lidarseg
@@ -188,13 +207,13 @@ class nuScenesOdometryDataset(Dataset):
             raise ValueError("Invalid camera name")
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        camera_token = sample['data'][camera_name]
-        camera_data = self.dataset.get('sample_data', camera_token)
+        sample = self.dataset.get("sample", sample_token)
+        camera_token = sample["data"][camera_name]
+        camera_data = self.dataset.get("sample_data", camera_token)
         image = Image.open(os.path.join(self.ds_path, camera_data["filename"]))
 
         return image
-    
+
     def get_sam_label(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
         Retrieves the SAM label of the specified index and camera
@@ -209,18 +228,23 @@ class nuScenesOdometryDataset(Dataset):
         available_cams = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT")
 
         if camera_name not in available_cams:
-            raise ValueError("Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT")
+            raise ValueError(
+                "Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT"
+            )
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        camera_token = sample['data'][camera_name]
-        camera_data = self.dataset.get('sample_data', camera_token)
+        sample = self.dataset.get("sample", sample_token)
+        camera_token = sample["data"][camera_name]
+        camera_data = self.dataset.get("sample_data", camera_token)
 
-        file = os.path.join(self.sam_label_path, camera_name, camera_data["filename"].split('/')[-1].split('.')[0] + '.jpg')
+        file = os.path.join(
+            self.sam_label_path,
+            camera_name,
+            camera_data["filename"].split("/")[-1].split(".")[0] + ".jpg",
+        )
 
-        return utils.load_image(file, mode='RGB')
+        return utils.load_image(file, mode="RGB")
 
-    
     def get_sam_mask(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
         Retrieves the SAM label of the specified index and camera
@@ -235,17 +259,22 @@ class nuScenesOdometryDataset(Dataset):
         available_cams = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT")
 
         if camera_name not in available_cams:
-            raise ValueError("Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT")
+            raise ValueError(
+                "Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT"
+            )
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        camera_token = sample['data'][camera_name]
-        camera_data = self.dataset.get('sample_data', camera_token)
+        sample = self.dataset.get("sample", sample_token)
+        camera_token = sample["data"][camera_name]
+        camera_data = self.dataset.get("sample_data", camera_token)
 
-        file = os.path.join(self.sam_label_path, camera_name, camera_data["filename"].split('/')[-1].split('.')[0] + '.npz')
+        file = os.path.join(
+            self.sam_label_path,
+            camera_name,
+            camera_data["filename"].split("/")[-1].split(".")[0] + ".npz",
+        )
 
-        return np.load(file, allow_pickle=True)['masks']
-
+        return np.load(file, allow_pickle=True)["masks"]
 
     def get_dinov2_features(self, camera_name: str, index: int):
         """
@@ -261,15 +290,23 @@ class nuScenesOdometryDataset(Dataset):
         available_cams = ("CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT")
 
         if camera_name not in available_cams:
-            raise ValueError("Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT")
+            raise ValueError(
+                "Invalid camera name. SAM labels only available for CAM_FRONT, CAM_FRONT_LEFT, CAM_FRONT_RIGHT"
+            )
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        camera_token = sample['data'][camera_name]
-        camera_data = self.dataset.get('sample_data', camera_token)
+        sample = self.dataset.get("sample", sample_token)
+        camera_token = sample["data"][camera_name]
+        camera_data = self.dataset.get("sample_data", camera_token)
 
-        dinov2_features = np.load(os.path.join(self.dinov2_features_path, camera_name, 
-                                                camera_data["filename"].split('/')[-1].split('.')[0] + '.npz'), allow_pickle=True)["feature_map"]
+        dinov2_features = np.load(
+            os.path.join(
+                self.dinov2_features_path,
+                camera_name,
+                camera_data["filename"].split("/")[-1].split(".")[0] + ".npz",
+            ),
+            allow_pickle=True,
+        )["feature_map"]
 
         return dinov2_features
 
@@ -285,22 +322,22 @@ class nuScenesOdometryDataset(Dataset):
         """
 
         sample_token = self.sample_tokens[index]
-        sample = self.dataset.get('sample', sample_token)
-        lidar_token = sample['data']['LIDAR_TOP']
-        lidar_data = self.dataset.get('sample_data', lidar_token)
+        sample = self.dataset.get("sample", sample_token)
+        lidar_token = sample["data"]["LIDAR_TOP"]
+        lidar_data = self.dataset.get("sample_data", lidar_token)
 
-        ##Load TARL labels 
-        compressed_file = os.path.join(self.tarl_features_path + lidar_data["filename"].split('/')[-1].split('.')[0] + '.bin')
-        with open(compressed_file, 'rb') as f_in:
-            compressed_data = f_in.read()
-        decompressed_data = zlib.decompress(compressed_data)
-        loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
-        tarl_dim = 96
-        point_features = loaded_array.reshape(-1,tarl_dim) #these are TARL per point features
+        ##Load TARL labels
+        with np.load(
+            os.path.join(
+                self.tarl_features_path
+                + lidar_data["filename"].split("/")[-1].split(".")[0]
+                + ".npz"
+            )
+        ) as data:
+            point_features = data["feats"].reshape(-1, 96)
 
         return point_features
-    
-       
+
     def get_calibration_matrices(self, cam: str):
         """
         Retrieves the extriniscs and intrinsics matrix of the specified camera
@@ -309,25 +346,29 @@ class nuScenesOdometryDataset(Dataset):
             raise ValueError("Invalid camera name")
 
         sample_token = self.sample_tokens[0]
-        sample = self.dataset.get('sample', sample_token)
-        lidar_token = sample['data']['LIDAR_TOP']
-        lidar_data = self.dataset.get('sample_data', lidar_token)
-        cs_record = self.dataset.get('calibrated_sensor', lidar_data['calibrated_sensor_token'])
+        sample = self.dataset.get("sample", sample_token)
+        lidar_token = sample["data"]["LIDAR_TOP"]
+        lidar_data = self.dataset.get("sample_data", lidar_token)
+        cs_record = self.dataset.get(
+            "calibrated_sensor", lidar_data["calibrated_sensor_token"]
+        )
 
-        rotation = Quaternion(cs_record['rotation']).rotation_matrix
-        translation = np.array(cs_record['translation'])
+        rotation = Quaternion(cs_record["rotation"]).rotation_matrix
+        translation = np.array(cs_record["translation"])
         T_lidar2ego = transformation_matrix(rotation, translation)
 
         camera_token = sample["data"][cam]
-        camera_data = self.dataset.get('sample_data', camera_token)
-        cs_record = self.dataset.get('calibrated_sensor', camera_data['calibrated_sensor_token'])
-        K = np.array(cs_record['camera_intrinsic'])
+        camera_data = self.dataset.get("sample_data", camera_token)
+        cs_record = self.dataset.get(
+            "calibrated_sensor", camera_data["calibrated_sensor_token"]
+        )
+        K = np.array(cs_record["camera_intrinsic"])
 
-        rotation = Quaternion(cs_record['rotation']).rotation_matrix.T
-        translation = - rotation @ np.array(cs_record['translation'])
+        rotation = Quaternion(cs_record["rotation"]).rotation_matrix.T
+        translation = -rotation @ np.array(cs_record["translation"])
         T_ego2cam = transformation_matrix(rotation, translation)
 
-        T_lidar2cam  = T_ego2cam @ T_lidar2ego
+        T_lidar2cam = T_ego2cam @ T_lidar2ego
 
         return T_lidar2cam, K
 

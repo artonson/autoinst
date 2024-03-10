@@ -111,7 +111,7 @@ def chunks_from_pointcloud(dataset,pcd, T_pcd, positions, first_position, indice
     distance = 0
     last_position = None
     cnt = 0 
-    for (position, index) in zip(positions, indices):
+    for (position, index) in tqdm(zip(positions, indices),total=len(positions)):
         if last_position is not None:
             distance += np.linalg.norm(position - last_position)
             if distance > (min(R[0],R[1])-overlap): # New chunk
@@ -360,7 +360,7 @@ def image_based_features_per_patch(dataset, pcd, chunk_indices, chunk_nc, voxel_
             
             
             if hpr_masks is None:
-                
+               
                 hpr_bounds = np.array([25,25,25])
                 if dataset.nuscenes == False : 
                     bound_indices = np.where(np.all(np.asarray(pcd_camframe_world.points) > min_bound, axis=1) & np.all(np.asarray(pcd_camframe_world.points) < max_bound, axis=1))[0] ##speedup currently only works for KITTI

@@ -179,13 +179,13 @@ def merge_pointclouds(pcd_to, pcd_from, pose_to: np.array, pose_from: np.array):
     points_from = np.asarray(pcd_from.points)
 
     # Transform points_from into coordinate system of t=0
-    points_from_t0 = transform_pcd(points_from, pose_from)
+    #points_from_t0 = transform_pcd(points_from, pose_from)
 
     # Transform points_from_t0 into coordinate system of points_to
-    pose_to_inv = np.linalg.inv(pose_to)
-    points_from_transformed = transform_pcd(points_from_t0, pose_to_inv)
+    #pose_to_inv = np.linalg.inv(pose_to)
+    #points_from_transformed = transform_pcd(points_from_t0, pose_to_inv)
 
-    merged_points = np.vstack([points_to, points_from_transformed])
+    merged_points = np.vstack([points_to, points_from])
     merged_pcd = get_pcd(merged_points)
 
     if pcd_to.has_colors() and pcd_from.has_colors():
