@@ -107,11 +107,11 @@ config_dino_spatial = {
     "gamma": 0.1,
     "alpha": 0.1,
     "theta": 0.0,
-    "T": 0.05,
+    "T": 0.1,
     "gt": True,
 }
 
-config = config_tarl_spatial
+config = config_dino_spatial
 config["data_gen"] = True  ##for storing training refinement data
 if "maskpls" in config["name"]:
     maskpls = RefinerModel(dataset="nuscenes")
