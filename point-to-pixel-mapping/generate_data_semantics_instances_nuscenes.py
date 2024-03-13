@@ -95,9 +95,9 @@ config_spatial = {
     "name": "spatial_0.1",
     "out_folder": "ncuts_data_spatial/",
     "gamma": 0.0,
-    "alpha": 1.0,
+    "alpha": 2.0,
     "theta": 0.0,
-    "T": 0.2,
+    "T": 0.02,
     "gt": True,
 }
 
@@ -112,7 +112,7 @@ config_dino_spatial = {
 }
 
 config = config_spatial
-config["data_gen"] = False  ##for storing training refinement data
+config["data_gen"] = True  ##for storing training refinement data
 if "maskpls" in config["name"]:
     maskpls = RefinerModel(dataset="nuscenes")
 
@@ -143,13 +143,13 @@ NCUT_ground = False
 sem_classes = [9, 10, 28, 30]
 ignore_labels = [0, 24, 25, 26, 27, 31]
 
-dataset_type = "v1.0-mini"
-# dataset_type = "v1.0-trainval"
+# dataset_type = "v1.0-mini"
+dataset_type = "v1.0-trainval"
 
 DATASET_PATH = "/media/cedric/Datasets21/nuScenes_mini/nuScenes/"
 
-seqs = list(range(0, 10))  ## only used for mini dataset
-seq_limit = 10  ## only use first two scenes
+# seqs = list(range(0, 10))  ## only used for mini dataset
+# seq_limit = 10  ## only use first two scenes
 vis = False  ##flag for map vis after iteration
 
 seqs_trainval = [
@@ -313,7 +313,7 @@ if (
     seqs = seqs_trainval
 
 
-out_folder = "pcd_preprocessed_nuscenes/semantics/" + dataset_type + "/"
+out_folder = "/media/cedric/Datasets21/pcd_preprocessed_nuscenes/" + dataset_type + "/"
 
 
 def downsample_chunk(points):
@@ -724,7 +724,7 @@ metrics_ncuts = Metrics(name="ncuts", min_points=min_pts)
 # metrics_domain_transfer_maskpls = Metrics(name='maskpls',min_points=20)
 
 
-for seq in tqdm(seqs[:seq_limit]):
+for seq in tqdm(seqs):
     print("Sequence", seq)
     SEQUENCE_NUM = seq
     dataset = create_nuscenes_odometry_dataset(
@@ -933,85 +933,52 @@ for seq in tqdm(seqs[:seq_limit]):
         out_data = []
         semantics_kitti = []
         for sequence in range(0, len(center_ids)):
-            # try :
-            print("sequence", sequence)
-            if "maskpls" not in config["name"]:
-                (
-                    merged_chunk,
-                    file_name,
-                    pcd_chunk,
-                    pcd_chunk_ground,
-                    inliers,
-                    inliers_ground,
-                ) = ncuts_chunk(
-                    dataset,
-                    indices,
-                    pcd_nonground_chunks,
-                    pcd_ground_chunks,
-                    pcd_nonground_chunks_major_downsampling,
-                    pcd_nonground_minor,
-                    T_pcd,
-                    center_positions,
-                    center_ids,
-                    positions,
-                    first_position,
-                    sampled_indices_global,
-                    chunk_size=chunk_size,
-                    major_voxel_size=major_voxel_size,
-                    alpha=alpha,
-                    beta=beta,
-                    gamma=gamma,
-                    theta=theta,
-                    proximity_threshold=proximity_threshold,
-                    ncuts_threshold=ncuts_threshold,
-                    cams=cams,
-                    cam_ids=cam_ids,
-                    out_folder="",
-                    ground_mode=False,
-                    sequence=sequence,
-                    patchwise_indices=patchwise_indices,
-                    adjacent_frames_cam=(4, 5),
-                    adjacent_frames_tarl=(5, 5),
-                    norm=tarl_norm,
-                    obb=obbs[sequence],
-                )
 
-                pred_pcd = pcd_chunk + pcd_chunk_ground
-                inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
-                    inliers_ground
-                ]
-                kitti_chunk_instance = color_pcd_by_labels(
-                    copy.deepcopy(pcd_chunk),
-                    kitti_labels["nonground"]["instance"][sequence].reshape(
-                        -1,
-                    ),
-                    colors=colors,
-                    gt_labels=kitti_labels_orig["instance_nonground"],
-                )
+            try:
+                print("sequence", sequence)
+                if "maskpls" not in config["name"]:
+                    (
+                        merged_chunk,
+                        file_name,
+                        pcd_chunk,
+                        pcd_chunk_ground,
+                        inliers,
+                        inliers_ground,
+                    ) = ncuts_chunk(
+                        dataset,
+                        indices,
+                        pcd_nonground_chunks,
+                        pcd_ground_chunks,
+                        pcd_nonground_chunks_major_downsampling,
+                        pcd_nonground_minor,
+                        T_pcd,
+                        center_positions,
+                        center_ids,
+                        positions,
+                        first_position,
+                        sampled_indices_global,
+                        chunk_size=chunk_size,
+                        major_voxel_size=major_voxel_size,
+                        alpha=alpha,
+                        beta=beta,
+                        gamma=gamma,
+                        theta=theta,
+                        proximity_threshold=proximity_threshold,
+                        ncuts_threshold=ncuts_threshold,
+                        cams=cams,
+                        cam_ids=cam_ids,
+                        out_folder="",
+                        ground_mode=False,
+                        sequence=sequence,
+                        patchwise_indices=patchwise_indices,
+                        adjacent_frames_cam=(4, 5),
+                        adjacent_frames_tarl=(5, 5),
+                        norm=tarl_norm,
+                        obb=obbs[sequence],
+                    )
 
-                kitti_chunk_instance_ground = color_pcd_by_labels(
-                    copy.deepcopy(pcd_chunk_ground),
-                    inst_ground.reshape(
-                        -1,
-                    ),
-                    colors=colors,
-                    gt_labels=instances,
-                )
-                name = str(center_ids[sequence]).zfill(6) + ".pcd"
-                instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
-                o3d.io.write_point_cloud(
-                    out_folder_instances_cur + name,
-                    instance_pcd,
-                    write_ascii=False,
-                    compressed=False,
-                    print_progress=False,
-                )
-
-                if config["gt"]:
+                    pred_pcd = pcd_chunk + pcd_chunk_ground
                     inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
-                        inliers_ground
-                    ]
-                    seg_ground = kitti_labels["ground"]["semantic"][sequence][inliers][
                         inliers_ground
                     ]
                     kitti_chunk_instance = color_pcd_by_labels(
@@ -1031,138 +998,185 @@ for seq in tqdm(seqs[:seq_limit]):
                         colors=colors,
                         gt_labels=instances,
                     )
-
-                    semantics_non_ground = color_pcd_kitti(
-                        copy.deepcopy(pcd_chunk),
-                        kitti_labels["nonground"]["semantic"][sequence].reshape(
-                            -1,
-                        ),
-                    )
-                    semantics_ground = color_pcd_kitti(
-                        copy.deepcopy(pcd_chunk_ground),
-                        seg_ground.reshape(
-                            -1,
-                        ),
-                    )
-                    kitti_semantics = np.hstack(
-                        (
-                            kitti_labels["nonground"]["semantic"][sequence].reshape(
-                                -1,
-                            ),
-                            seg_ground.reshape(
-                                -1,
-                            ),
-                        )
-                    )
-                    gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
-                    unique_colors, labels_ncuts = np.unique(
-                        np.asarray(pred_pcd.colors), axis=0, return_inverse=True
-                    )
-                    unique_colors, labels_kitti = np.unique(
-                        np.asarray(gt_pcd.colors), axis=0, return_inverse=True
-                    )
-                    semantics_pcd = semantics_non_ground + semantics_ground
                     name = str(center_ids[sequence]).zfill(6) + ".pcd"
+                    instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
                     o3d.io.write_point_cloud(
-                        out_folder_semantics_cur + name,
-                        semantics_pcd,
+                        out_folder_instances_cur + name,
+                        instance_pcd,
                         write_ascii=False,
                         compressed=False,
                         print_progress=False,
                     )
 
-            else:
-                pcd_chunk = pcd_nonground_chunks[sequence]
-                pcd_ground_chunk = pcd_ground_chunks[sequence]
-                inliers = get_statistical_inlier_indices(pcd_ground_chunk)
-                ground_inliers = get_subpcd(pcd_ground_chunk, inliers)
-                mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
-                in_idcs = np.where(
-                    np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.2)
-                )[0]
-                pcd_chunk_ground = get_subpcd(ground_inliers, in_idcs)
-                pcd_chunk_ground.paint_uniform_color([0, 0, 0])
-                merged_chunk = pcd_chunk + pcd_chunk_ground
-                pred_pcd = maskpls.forward_and_project(merged_chunk)
-                unique_colors, labels_ncuts = np.unique(
-                    np.asarray(pred_pcd.colors), axis=0, return_inverse=True
-                )
-                # o3d.visualization.draw_geometries([pred_pcd])
-                inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
-                    in_idcs
-                ]
-                kitti_chunk_instance = color_pcd_by_labels(
-                    copy.deepcopy(pcd_chunk),
-                    kitti_labels["nonground"]["instance"][sequence].reshape(
-                        -1,
-                    ),
-                    colors=colors,
-                    gt_labels=kitti_labels_orig["instance_nonground"],
+                    if config["gt"]:
+                        inst_ground = kitti_labels["ground"]["instance"][sequence][
+                            inliers
+                        ][inliers_ground]
+                        seg_ground = kitti_labels["ground"]["semantic"][sequence][
+                            inliers
+                        ][inliers_ground]
+                        kitti_chunk_instance = color_pcd_by_labels(
+                            copy.deepcopy(pcd_chunk),
+                            kitti_labels["nonground"]["instance"][sequence].reshape(
+                                -1,
+                            ),
+                            colors=colors,
+                            gt_labels=kitti_labels_orig["instance_nonground"],
+                        )
+
+                        kitti_chunk_instance_ground = color_pcd_by_labels(
+                            copy.deepcopy(pcd_chunk_ground),
+                            inst_ground.reshape(
+                                -1,
+                            ),
+                            colors=colors,
+                            gt_labels=instances,
+                        )
+
+                        semantics_non_ground = color_pcd_kitti(
+                            copy.deepcopy(pcd_chunk),
+                            kitti_labels["nonground"]["semantic"][sequence].reshape(
+                                -1,
+                            ),
+                        )
+                        semantics_ground = color_pcd_kitti(
+                            copy.deepcopy(pcd_chunk_ground),
+                            seg_ground.reshape(
+                                -1,
+                            ),
+                        )
+                        kitti_semantics = np.hstack(
+                            (
+                                kitti_labels["nonground"]["semantic"][sequence].reshape(
+                                    -1,
+                                ),
+                                seg_ground.reshape(
+                                    -1,
+                                ),
+                            )
+                        )
+                        gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
+                        unique_colors, labels_ncuts = np.unique(
+                            np.asarray(pred_pcd.colors), axis=0, return_inverse=True
+                        )
+                        unique_colors, labels_kitti = np.unique(
+                            np.asarray(gt_pcd.colors), axis=0, return_inverse=True
+                        )
+                        # o3d.visualization.draw_geometries([gt_pcd])
+                        semantics_pcd = semantics_non_ground + semantics_ground
+                        name = str(center_ids[sequence]).zfill(6) + ".pcd"
+                        o3d.io.write_point_cloud(
+                            out_folder_semantics_cur + name,
+                            semantics_pcd,
+                            write_ascii=False,
+                            compressed=False,
+                            print_progress=False,
+                        )
+
+                else:
+                    pcd_chunk = pcd_nonground_chunks[sequence]
+                    pcd_ground_chunk = pcd_ground_chunks[sequence]
+                    inliers = get_statistical_inlier_indices(pcd_ground_chunk)
+                    ground_inliers = get_subpcd(pcd_ground_chunk, inliers)
+                    mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
+                    in_idcs = np.where(
+                        np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.2)
+                    )[0]
+                    pcd_chunk_ground = get_subpcd(ground_inliers, in_idcs)
+                    pcd_chunk_ground.paint_uniform_color([0, 0, 0])
+                    merged_chunk = pcd_chunk + pcd_chunk_ground
+                    pred_pcd = maskpls.forward_and_project(merged_chunk)
+                    unique_colors, labels_ncuts = np.unique(
+                        np.asarray(pred_pcd.colors), axis=0, return_inverse=True
+                    )
+                    # o3d.visualization.draw_geometries([pred_pcd])
+                    inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
+                        in_idcs
+                    ]
+                    kitti_chunk_instance = color_pcd_by_labels(
+                        copy.deepcopy(pcd_chunk),
+                        kitti_labels["nonground"]["instance"][sequence].reshape(
+                            -1,
+                        ),
+                        colors=colors,
+                        gt_labels=kitti_labels_orig["instance_nonground"],
+                    )
+
+                    kitti_chunk_instance_ground = color_pcd_by_labels(
+                        copy.deepcopy(pcd_chunk_ground),
+                        inst_ground.reshape(
+                            -1,
+                        ),
+                        colors=colors,
+                        gt_labels=instances,
+                    )
+                    name = str(center_ids[sequence]).zfill(6) + ".pcd"
+                    instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
+                    o3d.io.write_point_cloud(
+                        out_folder_instances_cur + name,
+                        instance_pcd,
+                        write_ascii=False,
+                        compressed=False,
+                        print_progress=False,
+                    )
+
+                pcd_nonground_hdbscan = clustering_logic(copy.deepcopy(pcd_chunk))
+                cluster_pcd = pcd_nonground_hdbscan + pcd_chunk_ground
+                print(pred_pcd)
+                print(instance_pcd)
+                print(cluster_pcd)
+
+                name = str(center_ids[sequence]).zfill(6) + ".pcd"
+
+                pts = np.asarray(pred_pcd.points)
+                if config["data_gen"] == True:
+                    points, labels_ncuts, labels_kitti, downsampled_semantics = (
+                        downsample_chunk_data(
+                            pts, labels_ncuts, labels_kitti, kitti_semantics
+                        )
+                    )
+                    print("output", data_store_folder + name.split(".")[0])
+
+                    if (
+                        labels_ncuts.shape[0]
+                        != points.shape[0]
+                        != downsampled_semantics.shape[0]
+                        != labels_kitti.shape[0]
+                    ):
+                        AssertionError
+
+                np.savez(
+                    data_store_folder_train_cur
+                    + name.split(".")[0]
+                    + str(cur_idx)
+                    + ".npz",
+                    pts=points,
+                    ncut_labels=labels_ncuts,
+                    kitti_labels=labels_kitti,
+                    cluster_labels=np.zeros_like(labels_ncuts),
+                    semantic=downsampled_semantics,
                 )
 
-                kitti_chunk_instance_ground = color_pcd_by_labels(
-                    copy.deepcopy(pcd_chunk_ground),
-                    inst_ground.reshape(
-                        -1,
-                    ),
-                    colors=colors,
-                    gt_labels=instances,
-                )
-                name = str(center_ids[sequence]).zfill(6) + ".pcd"
-                instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
                 o3d.io.write_point_cloud(
-                    out_folder_instances_cur + name,
-                    instance_pcd,
+                    out_folder_ncuts_cur + name,
+                    pred_pcd,
+                    write_ascii=False,
+                    compressed=False,
+                    print_progress=False,
+                )
+                o3d.io.write_point_cloud(
+                    out_folder_dbscan_cur + name,
+                    cluster_pcd,
                     write_ascii=False,
                     compressed=False,
                     print_progress=False,
                 )
 
-            pcd_nonground_hdbscan = clustering_logic(copy.deepcopy(pcd_chunk))
-            cluster_pcd = pcd_nonground_hdbscan + pcd_chunk_ground
-            print(pred_pcd)
-            print(instance_pcd)
-            print(cluster_pcd)
+                del pred_pcd, pcd_chunk, pcd_chunk_ground
+                gc.collect()
 
-            name = str(center_ids[sequence]).zfill(6) + ".pcd"
-
-            pts = np.asarray(pred_pcd.points)
-            if config["data_gen"] == True:
-                points, labels_ncuts, labels_kitti, downsampled_semantics = (
-                    downsample_chunk_data(
-                        pts, labels_ncuts, labels_kitti, kitti_semantics
-                    )
-                )
-                print("output", data_store_folder + name.split(".")[0])
-
-                if (
-                    labels_ncuts.shape[0]
-                    != points.shape[0]
-                    != downsampled_semantics.shape[0]
-                    != labels_kitti.shape[0]
-                ):
-                    AssertionError
-
-            # np.savez(data_store_folder_train_cur + name.split('.')[0] + str(cur_idx) + '.npz',pts=points,ncut_labels=labels_ncuts,
-            #        kitti_labels=labels_kitti,cluster_labels=np.zeros_like(labels_ncuts),semantic=downsampled_semantics)
-
-            o3d.io.write_point_cloud(
-                out_folder_ncuts_cur + name,
-                pred_pcd,
-                write_ascii=False,
-                compressed=False,
-                print_progress=False,
-            )
-            o3d.io.write_point_cloud(
-                out_folder_dbscan_cur + name,
-                cluster_pcd,
-                write_ascii=False,
-                compressed=False,
-                print_progress=False,
-            )
-
-            del pred_pcd, pcd_chunk, pcd_chunk_ground
-            gc.collect()
+            except:
+                print("Skip due to convergence issue ")
 
         pcds_clustering = get_merge_pcds(out_folder_dbscan_cur)
         if len(pcds_clustering) == 0:

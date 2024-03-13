@@ -25,6 +25,7 @@ from ncuts_utils import (
     get_merge_pcds,
 )
 from dataset_utils import *
+
 from point_cloud_utils import (
     get_pcd,
     transform_pcd,
@@ -35,12 +36,15 @@ from point_cloud_utils import (
     merge_chunks_unite_instances,
 )
 from aggregate_pointcloud import aggregate_pointcloud
+
 from visualization_utils import (
     generate_random_colors,
     color_pcd_by_labels,
     generate_random_colors_map,
 )
+
 from sam_label_distace import sam_label_distance
+
 from chunk_generation import (
     subsample_positions,
     chunks_from_pointcloud,
@@ -55,7 +59,11 @@ from predict_maskpls import RefinerModel
 from point_cloud_utils import *
 from visualization_utils import *
 from sam3d_util import *
+
 from predict_maskpls import RefinerModel
+from utils.maskpls_domain_transfer.predict_maskpls_transfer import (
+    RefinerModel as RefinerModelSupervised,
+)
 
 
 config_tarl_spatial_dino = {
@@ -108,9 +116,49 @@ config_3duis = {
     "gt": False,
 }
 
-config_maskpls = {
-    "name": "maskpls_hdbscan",
-    "out_folder": "refine_hdbscan/",
+config_maskpls_unsup_compare = {
+    "name": "maskpls_unsup_compare",
+    "out_folder": "maskpls_unsup_compare/",
+    "gamma": 0.0,
+    "alpha": 0.0,
+    "theta": 0.0,
+    "T": 0.0,
+    "gt": False,
+}
+
+config_maskpls_tarl_spatial = {
+    "name": "maskpls_comp_",
+    "out_folder": "maskpls_7/",
+    "gamma": 0.0,
+    "alpha": 0.0,
+    "theta": 0.0,
+    "T": 0.0,
+    "gt": False,
+}
+
+config_maskpls_supervised = {
+    "name": "maskpls_supervised",
+    "out_folder": "maskpls_sup_compare/",
+    "gamma": 0.0,
+    "alpha": 0.0,
+    "theta": 0.0,
+    "T": 0.0,
+    "gt": False,
+}
+
+config_maskpls_hdbscan = {
+    "name": "maskpls_hdbscan_7_",
+    "out_folder": "maskpls_hdbscan/",
+    "gamma": 0.0,
+    "alpha": 0.0,
+    "theta": 0.0,
+    "T": 0.0,
+    "gt": False,
+}
+
+config_maskpls_tarl_spatial_dino = {
+    "name": "maskpls_tarl_spatial_dino_5_",
+    "out_folder": "maskpls_7/",
     "gamma": 0.0,
     "alpha": 0.0,
     "theta": 0.0,
@@ -121,12 +169,11 @@ config_maskpls = {
 start_chunk = 0
 start_seq = 0
 seqs = list(range(0, 11))
-config = config_sam3d
+# seqs = [8, 10]
+config = config_maskpls_tarl_spatial_dino
 if "3duis" in config["name"]:
     from utils_3duis import UIS3D_clustering
 
-if "maskpls" in config["name"]:
-    maskpls = RefinerModel(dataset="kitti")
 
 print("Starting with config ", config)
 
@@ -480,6 +527,13 @@ for seq in seqs:
         print("ind start", ind_start)
         print("ind end", ind_end)
 
+        if "maskpls" in config["name"] and config["name"] != "maskpls_supervised":
+            maskpls = RefinerModel(dataset="kitti")
+
+        if config["name"] == "maskpls_supervised":
+            print("Supervised model")
+            maskpls = RefinerModelSupervised()
+
         if (
             os.path.exists(f"{out_folder}non_ground{SEQUENCE_NUM}_{cur_idx}.pcd")
             == False
@@ -662,6 +716,7 @@ for seq in seqs:
         out_data = []
         semantics_kitti = []
         for sequence in tqdm(range(start_seq, len(center_ids))):
+
             # try :
             print("sequence", sequence)
             if (
@@ -830,7 +885,12 @@ for seq in seqs:
 
                 input_pcd = pcd_nonground_chunks[sequence] + pcd_chunk_ground
 
-                pred_pcd = maskpls.forward_and_project(input_pcd)
+                if "supervised" not in config["name"]:
+                    print("unsupervised")
+                    pred_pcd = maskpls.forward_and_project(input_pcd)
+                else:
+                    pred_pcd = maskpls.forward_and_project(input_pcd)
+                # o3d.visualization.draw_geometries([pred_pcd])
 
             else:  # '3duis'
                 pcd_3duis = UIS3D_clustering(
@@ -859,9 +919,15 @@ for seq in seqs:
 
             gc.collect()
 
-        merge_ncuts = merge_chunks_unite_instances2(
-            get_merge_pcds(out_folder_ncuts_cur[:-1])
-        )
+        if "supervised" not in config["name"]:
+            merge_ncuts = merge_chunks_unite_instances2(
+                get_merge_pcds(out_folder_ncuts_cur[:-1])
+            )
+        else:
+            print("merge unite supervised")
+            merge_ncuts = merge_unite_gt(get_merge_pcds(out_folder_ncuts_cur[:-1]))
+        # o3d.visualization.draw_geometries([merge_ncuts])
+
         if config["gt"]:
             merge_dbscan = merge_chunks_unite_instances2(
                 get_merge_pcds(out_folder_dbscan_cur[:-1])
@@ -879,6 +945,7 @@ for seq in seqs:
                 col_cur = np.asarray(kitti_pcd.colors)[idcs][0]
                 updated_labels[idcs] = reverse_color_dict[tuple(col_cur)]
 
+            # o3d.visualization.draw_geometries([merge_ncuts])
             o3d.io.write_point_cloud(
                 data_store_folder
                 + "hdbscan"
@@ -900,18 +967,33 @@ for seq in seqs:
                 + ".npz",
                 labels=updated_labels,
             )
-            o3d.io.write_point_cloud(
+
+        if "maskpls" in config["name"]:
+
+            with open(
                 data_store_folder
-                + "kitti_instances"
+                + config["name"]
+                + "_confs"
                 + str(SEQUENCE_NUM)
                 + "_"
                 + str(cur_idx)
-                + ".pcd",
-                map_instances,
-                write_ascii=False,
-                compressed=False,
-                print_progress=False,
-            )
+                + ".json",
+                "w",
+            ) as fp:
+
+                json.dump(maskpls.confs_dict, fp)
+
+        """
+        np.savez(
+            data_store_folder
+            + "kitti_semantic"
+            + str(SEQUENCE_NUM)
+            + "_"
+            + str(cur_idx)
+            + ".npz",
+            labels=updated_labels,
+        )
+        """
 
         o3d.io.write_point_cloud(
             data_store_folder

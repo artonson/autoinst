@@ -58,16 +58,16 @@ from predict_maskpls import RefinerModel
 
 
 alpha = 1.0
-gamma = 0.1
+gamma = 0.0
 beta = 0.0
 theta = 0.5
-ncuts_threshold = 0.005
+ncuts_threshold = 0.03
 proximity_threshold = 1.0
 overlap = 24  # meters
 
 
-seqs = list(range(2, 3))
-chunk_start = 12
+seqs = list(range(3, 4))
+chunk_start = 0
 
 
 def intersect(pred_indices, gt_indices):
@@ -257,7 +257,7 @@ ground_segmentation_method = "patchwork"
 NCUT_ground = False
 out_folder_ncuts = "test_data/"
 
-out_folder = "pcd_preprocessed/train_data/"
+out_folder = "pcd_preprocessed/train_data_no_filter/"
 if os.path.exists(out_folder) == False:
     os.makedirs(out_folder)
 
@@ -275,7 +275,9 @@ for seq in seqs:
     if seq in exclude:
         continue
     SEQUENCE_NUM = seq
-    dataset = create_kitti_odometry_dataset(DATASET_PATH, SEQUENCE_NUM, ncuts_mode=True)
+    dataset = create_kitti_odometry_dataset_no_filter(
+        DATASET_PATH, SEQUENCE_NUM, ncuts_mode=True
+    )
     chunks_idcs = divide_indices_into_chunks(len(dataset))
 
     data_store_folder = (

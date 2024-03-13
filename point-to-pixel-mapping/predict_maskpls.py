@@ -42,9 +42,13 @@ class RefinerModel:
         cfg.EVALUATE = True
 
         self.model = MaskPS(cfg)
-        # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=07.ckpt"
-
+        # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=05.ckpt"
+        # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=06.ckpt"
         # w = "/media/cedric/Datasets21/Weights/clustering/mask_pls_oversegmented_epoch=06.ckpt"
+
+        # w = "/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial_Dino/mask_pls_oversegmented_epoch=05.ckpt"
+        # w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=07.ckpt"
+        w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=05.ckpt"
         if dataset == "nuscenes":
             w = "/media/cedric/Datasets21/check/checkpoints/mask_pls_oversegmented_epoch=08.ckpt"
         print("using weights", w)
@@ -125,13 +129,13 @@ class RefinerModel:
             cur_confs = confs[idcs].mean()
             if i == largest_cluster_idx:
                 pcd_colors[idcs] = np.array([0, 0, 0])
-                self.confs_dict[str(0) + "|" + str(0) + "|" + str(0)] = cur_confs
+                self.confs_dict[str(0) + "|" + str(0) + "|" + str(0)] = cur_confs.item()
             else:
                 col_val = np.array(colors[unique_labels.index(i)])
                 pcd_colors[idcs] = col_val
                 self.confs_dict[
                     str(col_val[0]) + "|" + str(col_val[1]) + "|" + str(col_val[2])
-                ] = cur_confs
+                ] = cur_confs.item()
 
             # if labels[i] != (-1):
             #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255

@@ -61,51 +61,53 @@ class KittiOdometryDataset(Dataset):
         self.tarl_features_path: os.PathLike = os.path.join(
             self.ds_path, "tarl_features", self.seq_str, ""
         )
-        self.labels_datapath = self.ds_path + "/sequences/" + str(seq_num).zfill(2) + "/labels/"
+        self.labels_datapath = (
+            self.ds_path + "/sequences/" + str(seq_num).zfill(2) + "/labels/"
+        )
 
         # class members
         self.camera_names = ("cam0", "cam1", "cam2", "cam3")
         self.dataset: pykitti.odometry = pykitti.odometry(self.ds_path, self.seq_str)
         self._poses = self.__parse_poses()
-        
-    def get_panoptic_labels(self,index):
-        label_path = self.labels_datapath + str(index).zfill(6) + '.label'
+
+    def get_panoptic_labels(self, index):
+        label_path = self.labels_datapath + str(index).zfill(6) + ".label"
         labels_orig = np.fromfile(label_path, dtype=np.uint32).reshape((-1))
         labels = labels_orig & 0xFFFF
         instance_labels = labels_orig & 0xFFFF0000
-        instance_labels = instance_labels.reshape((-1,1))
-        
-        labels = labels.reshape((-1,1))
-        
-        #unlabeled = labels[:,0] == 0
+        instance_labels = instance_labels.reshape((-1, 1))
+
+        labels = labels.reshape((-1, 1))
+
+        # unlabeled = labels[:,0] == 0
         indices = np.where(instance_labels == 0)
         instance_labels[indices] = labels[indices]
-        
+
         return instance_labels
-        
-    def get_semantic_labels(self,index):
-        label_path = self.labels_datapath + str(index).zfill(6) + '.label'
+
+    def get_semantic_labels(self, index):
+        label_path = self.labels_datapath + str(index).zfill(6) + ".label"
         labels_orig = np.fromfile(label_path, dtype=np.uint32).reshape((-1))
         labels = labels_orig & 0xFFFF
 
-        labels = labels.reshape((-1,1))
-        
-        return labels 
-    
-    def get_instance_labels(self,index):
-        label_path = self.labels_datapath + str(index).zfill(6) + '.label'
+        labels = labels.reshape((-1, 1))
+
+        return labels
+
+    def get_instance_labels(self, index):
+        label_path = self.labels_datapath + str(index).zfill(6) + ".label"
         labels_orig = np.fromfile(label_path, dtype=np.uint32).reshape((-1))
         instance_labels = labels_orig & 0xFFFF0000
-        instance_labels = instance_labels.reshape((-1,1))
-        
-        return instance_labels
-        
+        instance_labels = instance_labels.reshape((-1, 1))
+        sem_labels = labels_orig & 0xFFFF + 10
+
+        return instance_labels * sem_labels.reshape((-1, 1))
 
     def __parse_poses(self) -> NDArray[Shape["*, 4, 4"], Float]:
         t_cam_velo = self.dataset.calib.T_cam0_velo
         t_velo_cam = np.linalg.inv(t_cam_velo)
         # Poses only available for sequence 00-10
-        try:    
+        try:
             poses = t_velo_cam @ self.dataset.poses @ t_cam_velo
         except:
             poses = None
@@ -149,9 +151,9 @@ class KittiOdometryDataset(Dataset):
         """
 
         points = self.dataset.get_velo(index)
-        intensity = points[:,3]
-        
-        return  intensity
+        intensity = points[:, 3]
+
+        return intensity
 
     def get_image(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
@@ -174,7 +176,7 @@ class KittiOdometryDataset(Dataset):
 
         files, get = camera_func[camera_name]
         return get(index) if len(files) > index else None
-    
+
     def get_sam_label(self, camera_name: str, index: int) -> Union[Image.Image, None]:
         """
         Retrieves the SAM label of the specified index and camera
@@ -187,37 +189,37 @@ class KittiOdometryDataset(Dataset):
             corresponding label
         """
         file = self.sam_label_path
-        index_file = str(index).zfill(6) + '.png'
+        index_file = str(index).zfill(6) + ".png"
 
         if camera_name == "cam0":
-            file = os.path.join(file, "image_0/overlays" , index_file)
+            file = os.path.join(file, "image_0/overlays", index_file)
         elif camera_name == "cam1":
-            file = os.path.join(file, "image_1/overlays" , index_file)
+            file = os.path.join(file, "image_1/overlays", index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "image_2/overlays" , index_file)
+            file = os.path.join(file, "image_2/overlays", index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "image_3/overlays" , index_file)
+            file = os.path.join(file, "image_3/overlays", index_file)
         else:
             raise ValueError("Invalid camera name")
 
-        return utils.load_image(file, mode='RGB')
+        return utils.load_image(file, mode="RGB")
 
     def get_sam_mask(self, camera_name, index):
         file = self.sam_label_path
-        index_file = '{}.npz'.format(str(index).zfill(6))
-        
+        index_file = "{}.npz".format(str(index).zfill(6))
+
         if camera_name == "cam0":
-            file = os.path.join(file, "image_0/masks" , index_file)
+            file = os.path.join(file, "image_0/masks", index_file)
         elif camera_name == "cam1":
-            file = os.path.join(file, "image_1/masks" , index_file)
+            file = os.path.join(file, "image_1/masks", index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "image_2" , index_file)
+            file = os.path.join(file, "image_2", index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "image_3" , index_file)
+            file = os.path.join(file, "image_3", index_file)
         else:
             raise ValueError("Invalid camera name")
 
-        return np.load(file, allow_pickle=True)['masks']
+        return np.load(file, allow_pickle=True)["masks"]
 
     def get_dinov2_features(self, camera_name: str, index: int):
         """
@@ -231,20 +233,20 @@ class KittiOdometryDataset(Dataset):
             corresponding dinov2 features
         """
         file = self.dinov2_features_path
-        index_file = str(index).zfill(6) + '.npz'
+        index_file = str(index).zfill(6) + ".npz"
 
         if camera_name == "cam0":
-            file = os.path.join(file, "cam0" , index_file)
+            file = os.path.join(file, "cam0", index_file)
         elif camera_name == "cam1":
-            file = os.path.join(file, "cam1" , index_file)
+            file = os.path.join(file, "cam1", index_file)
         elif camera_name == "cam2":
-            file = os.path.join(file, "image_2" , index_file)
+            file = os.path.join(file, "image_2", index_file)
         elif camera_name == "cam3":
-            file = os.path.join(file, "image_3" , index_file)
+            file = os.path.join(file, "image_3", index_file)
         else:
             raise ValueError("Invalid camera name")
 
-        return  np.load(file, allow_pickle=True)["feature_map"]
+        return np.load(file, allow_pickle=True)["feature_map"]
 
     def get_tarl_features(self, index: int):
         """
@@ -257,30 +259,27 @@ class KittiOdometryDataset(Dataset):
             corresponding tarl features
         """
         cur_file = self.tarl_features_path
-        
 
-        index_file = str(index).zfill(6) + '.bin'
+        index_file = str(index).zfill(6) + ".bin"
         file = os.path.join(cur_file, index_file)
-        
-        try : 
-            with open(file, 'rb') as f_in:
+
+        try:
+            with open(file, "rb") as f_in:
                 compressed_data = f_in.read()
-       
+
             decompressed_data = zlib.decompress(compressed_data)
             loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
             tarl_dim = 96
-            point_features = loaded_array.reshape(-1,tarl_dim)
-        except : 
-            print('file',file)
+            point_features = loaded_array.reshape(-1, tarl_dim)
+        except:
+            print("file", file)
             decompressed_data = zlib.decompress(compressed_data)
             loaded_array = np.frombuffer(decompressed_data, dtype=np.float32)
             tarl_dim = 96
-            point_features = loaded_array.reshape(-1,tarl_dim)
-            
+            point_features = loaded_array.reshape(-1, tarl_dim)
 
         return point_features
-    
-       
+
     def get_calibration_matrices(self, cam: str):
         """
         Retrieves the extriniscs and intrinsics matrix of the specified camera
