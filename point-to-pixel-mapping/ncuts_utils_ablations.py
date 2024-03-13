@@ -68,6 +68,7 @@ def ncuts_chunk(
     obb=None,
     mean_height=0.2,
     hpr_radius=100,
+    visible=True,
 ):
 
     print_flag = False
@@ -123,85 +124,32 @@ def ncuts_chunk(
     end = time.time() - cur_start
     # print("Spatial construction took ", end  , " s")
 
-    if beta and not gamma:
-        sam_features_major_list = image_based_features_per_patch(
-            dataset,
-            pcd_nonground_minor,
-            chunk_indices,
-            chunk_major,
-            major_voxel_size,
-            T_pcd,
-            cam_indices_global,
-            cams,
-            cam_ids=cam_ids,
-            hpr_radius=1000,
-            sam=True,
-            dino=False,
-            rm_perp=0.0,
-        )
+    cur_start = time.time()
+    point2dino_list, visibility_mask = image_based_features_per_patch(
+        dataset,
+        pcd_nonground_minor,
+        chunk_indices,
+        chunk_major,
+        major_voxel_size,
+        T_pcd,
+        cam_indices_global,
+        cams,
+        cam_ids=cam_ids,
+        hpr_radius=hpr_radius,
+        num_dino_features=384,
+        sam=False,
+        dino=True,
+        rm_perp=0.0,
+        pcd_chunk=pcd_chunk,
+        obb=obb,
+        vis=True,
+    )
+    dinov2_features_major_list = []
+    for point2dino in point2dino_list:
+        dinov2_features_major_list.append(dinov2_mean(point2dino))
 
-    elif gamma and not beta:
-        cur_start = time.time()
-        point2dino_list, visibility_mask = image_based_features_per_patch(
-            dataset,
-            pcd_nonground_minor,
-            chunk_indices,
-            chunk_major,
-            major_voxel_size,
-            T_pcd,
-            cam_indices_global,
-            cams,
-            cam_ids=cam_ids,
-            hpr_radius=hpr_radius,
-            num_dino_features=384,
-            sam=False,
-            dino=True,
-            rm_perp=0.0,
-            pcd_chunk=pcd_chunk,
-            obb=obb,
-            vis=True,
-        )
-        dinov2_features_major_list = []
-        for point2dino in point2dino_list:
-            dinov2_features_major_list.append(dinov2_mean(point2dino))
-        end_hpr = time.time() - cur_start
-        # print("dino construction took  ", end_hpr  , " s")
-
-    elif beta and gamma:
-        sam_features_major_list, point2dino_list = image_based_features_per_patch(
-            dataset,
-            pcd_nonground_minor,
-            chunk_indices,
-            chunk_major,
-            major_voxel_size,
-            T_pcd,
-            cam_indices_global,
-            cams,
-            cam_ids=cam_ids,
-            hpr_radius=1000,
-            num_dino_features=384,
-            sam=True,
-            dino=True,
-            rm_perp=0.0,
-            obb=obb,
-            vis=True,
-        )
-        dinov2_features_major_list = []
-        for point2dino in point2dino_list:
-            dinov2_features_major_list.append(dinov2_mean(point2dino))
-
-    sam_edge_weights = copy.deepcopy(mask)
     dinov2_edge_weights = copy.deepcopy(mask)
-
-    if beta:
-        if len(sam_features_major_list) == 0:
-            raise ValueError("The length should be longer than 0!")
-
-        for sam_features_major in sam_features_major_list:
-            sam_edge_weights_cam, _ = sam_label_distance(
-                sam_features_major, spatial_distance, proximity_threshold, beta
-            )
-            sam_edge_weights = sam_edge_weights * sam_edge_weights_cam
+    sam_edge_weights = copy.deepcopy(mask)
 
     if gamma:
         if len(dinov2_features_major_list) == 0:

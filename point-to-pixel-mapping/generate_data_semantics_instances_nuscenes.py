@@ -75,9 +75,9 @@ config_tarl_spatial = {
     "out_folder": "ncuts_data_tarl_spatial/",
     "gamma": 0.0,
     "alpha": 0.1,
-    "theta": 0.1,
-    "T": 0.0,
-    "gt": False,
+    "theta": 0.2,
+    "T": 0.01,
+    "gt": True,
 }
 
 config_maskpls = {
@@ -111,10 +111,12 @@ config_dino_spatial = {
     "gt": True,
 }
 
-config = config_tarl_spatial_dino
+config = config_tarl_spatial
 config["data_gen"] = True  ##for storing training refinement data
 if "maskpls" in config["name"]:
     maskpls = RefinerModel(dataset="nuscenes")
+
+seq_limit = 5
 
 print(config)
 alpha = config["alpha"]
@@ -721,8 +723,9 @@ if os.path.exists(data_store_train) == False:
 
 metrics_clustering = Metrics(name="hdbscan", min_points=min_pts)
 metrics_ncuts = Metrics(name="ncuts", min_points=min_pts)
+cnt = 0
 
-for seq in tqdm(seqs):
+for seq in tqdm(seqs[:seq_limit]):
     print("Sequence", seq)
     SEQUENCE_NUM = seq
     dataset = create_nuscenes_odometry_dataset(
@@ -1010,6 +1013,10 @@ for seq in tqdm(seqs):
                     print_progress=False,
                 )
 
+                unique_colors, labels_ncuts = np.unique(
+                    np.asarray(pred_pcd.colors), axis=0, return_inverse=True
+                )
+
                 if config["gt"]:
                     inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
                         inliers_ground
@@ -1058,9 +1065,7 @@ for seq in tqdm(seqs):
                         )
                     )
                     gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
-                    unique_colors, labels_ncuts = np.unique(
-                        np.asarray(pred_pcd.colors), axis=0, return_inverse=True
-                    )
+
                     unique_colors, labels_kitti = np.unique(
                         np.asarray(gt_pcd.colors), axis=0, return_inverse=True
                     )
@@ -1178,7 +1183,8 @@ for seq in tqdm(seqs):
             gc.collect()
 
             # except:
-            print("Skip due to convergence issue ")
+            cnt += 1
+            print("Skip due to convergence issue ", cnt)
 
         pcds_clustering = get_merge_pcds(out_folder_dbscan_cur)
         if len(pcds_clustering) == 0:
@@ -1318,7 +1324,7 @@ for seq in tqdm(seqs):
             compressed=False,
             print_progress=False,
         )
-
+print("Total skipped due to convergence issue", cnt)
 print(config)
 metrics_clustering.compute_stats_final()
 print(" Semantic Results HDBScan ---------------")

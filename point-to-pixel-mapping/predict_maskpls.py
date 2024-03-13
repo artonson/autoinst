@@ -48,7 +48,7 @@ class RefinerModel:
 
         # w = "/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial_Dino/mask_pls_oversegmented_epoch=05.ckpt"
         # w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=07.ckpt"
-        w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=06.ckpt"
+        w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=03.ckpt"
         if dataset == "nuscenes":
             w = "/media/cedric/Datasets21/check/checkpoints/mask_pls_oversegmented_epoch=08.ckpt"
         print("using weights", w)
