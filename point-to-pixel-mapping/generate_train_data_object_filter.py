@@ -66,7 +66,8 @@ proximity_threshold = 1.0
 overlap = 24  # meters
 
 
-seqs = list(range(3, 4))
+#seqs = list(range(3, 4))
+seqs = [0,1]
 chunk_start = 0
 
 

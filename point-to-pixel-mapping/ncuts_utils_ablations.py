@@ -67,6 +67,7 @@ def ncuts_chunk(
     split_lim=0.01,
     obb=None,
     mean_height=0.2,
+    hpr_radius=100,
 ):
 
     print_flag = False
@@ -141,7 +142,7 @@ def ncuts_chunk(
 
     elif gamma and not beta:
         cur_start = time.time()
-        point2dino_list, vis_mask = image_based_features_per_patch(
+        point2dino_list, visibility_mask = image_based_features_per_patch(
             dataset,
             pcd_nonground_minor,
             chunk_indices,
@@ -151,13 +152,14 @@ def ncuts_chunk(
             cam_indices_global,
             cams,
             cam_ids=cam_ids,
-            hpr_radius=1000,
+            hpr_radius=hpr_radius,
             num_dino_features=384,
             sam=False,
             dino=True,
             rm_perp=0.0,
             pcd_chunk=pcd_chunk,
             obb=obb,
+            vis=True,
         )
         dinov2_features_major_list = []
         for point2dino in point2dino_list:
@@ -182,6 +184,7 @@ def ncuts_chunk(
             dino=True,
             rm_perp=0.0,
             obb=obb,
+            vis=True,
         )
         dinov2_features_major_list = []
         for point2dino in point2dino_list:
@@ -284,6 +287,8 @@ def ncuts_chunk(
     for i, s in enumerate(grouped_labels):
         for j in s:
             pcd_color[j] = np.array(random_colors[i]) / 255
+            if visibility_mask[j] == 0:
+                pcd_color[j] = np.array([0, 0, 0])
 
     pcd_chunk.paint_uniform_color([0, 0, 0])
     colors = kDTree_1NN_feature_reprojection(

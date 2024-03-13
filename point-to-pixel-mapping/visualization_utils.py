@@ -15,9 +15,9 @@ def generate_random_colors_map(N, seed=0):
     colors = set()  # Use a set to store unique colors
     while len(colors) < N:  # Keep generating colors until we have N unique ones
         # Generate a random color and add it to the set
-        colors.add(
-            (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        )
+        col = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        if col != (0, 0, 0):
+            colors.add(col)
 
     return list(colors)  # Convert the set to a list before returning
 
@@ -26,9 +26,9 @@ def generate_random_colors(N, seed=0):
     colors = set()  # Use a set to store unique colors
     while len(colors) < N:  # Keep generating colors until we have N unique ones
         # Generate a random color and add it to the set
-        colors.add(
-            (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        )
+        col = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        if col != (0, 0, 0):
+            colors.add(col)
 
     return list(colors)  # Convert the set to a list before returning
 
