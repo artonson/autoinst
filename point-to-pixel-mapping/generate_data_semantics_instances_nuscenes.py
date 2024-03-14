@@ -61,12 +61,12 @@ import shutil
 
 
 config_tarl_spatial_dino = {
-    "name": "spatial_0.1_tarl_0.1_dino_0.1_t_0.01",
+    "name": "spatial_0.1_tarl_0.1_dino_0.1_t_0.001",
     "out_folder": "ncuts_data_tarl_dino_spatial/",
     "gamma": 0.1,
     "alpha": 0.1,
     "theta": 0.1,
-    "T": 0.0075,
+    "T": 0.001,
     "gt": True,
 }
 
@@ -111,12 +111,23 @@ config_dino_spatial = {
     "gt": True,
 }
 
-config = config_dino_spatial
+config_maskpls = {
+    "name": "maskpls",
+    "out_folder": "ncuts_data_maskpls/",
+    "gamma": 0.0,
+    "alpha": 0.0,
+    "theta": 0.0,
+    "T": 0.0,
+    "gt": True,
+}
+
+
+config = config_maskpls
 config["data_gen"] = True  ##for storing training refinement data
 if "maskpls" in config["name"]:
     maskpls = RefinerModel(dataset="nuscenes")
 
-seq_limit = 5
+# seq_limit = 5
 
 print(config)
 alpha = config["alpha"]
@@ -129,7 +140,7 @@ colors = generate_random_colors_map(6000)
 ncuts_threshold = config["T"]
 
 cams = ["CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT"]
-cam_ids = [0, 1, 2]
+cam_ids = [0]
 
 
 dist_threshold = 5  # moving object filter threshold
@@ -716,7 +727,7 @@ out_folder_dbscan = out_folder + "dbscan_data/"
 if os.path.exists(out_folder_dbscan) == False:
     os.makedirs(out_folder_dbscan)
 
-data_store_train = out_folder + "train/"
+data_store_train = out_folder + "train_maskpls/"
 if os.path.exists(data_store_train) == False:
     os.makedirs(data_store_train)
 
@@ -725,7 +736,7 @@ metrics_clustering = Metrics(name="hdbscan", min_points=min_pts)
 metrics_ncuts = Metrics(name="ncuts", min_points=min_pts)
 cnt = 0
 
-for seq in tqdm(seqs[:seq_limit]):
+for seq in tqdm(seqs):
     print("Sequence", seq)
     SEQUENCE_NUM = seq
     dataset = create_nuscenes_odometry_dataset(
@@ -1086,10 +1097,10 @@ for seq in tqdm(seqs[:seq_limit]):
                 inliers = get_statistical_inlier_indices(pcd_ground_chunk)
                 ground_inliers = get_subpcd(pcd_ground_chunk, inliers)
                 mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
-                in_idcs = np.where(
+                inliers_ground = np.where(
                     np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.2)
                 )[0]
-                pcd_chunk_ground = get_subpcd(ground_inliers, in_idcs)
+                pcd_chunk_ground = get_subpcd(ground_inliers, inliers_ground)
                 pcd_chunk_ground.paint_uniform_color([0, 0, 0])
                 merged_chunk = pcd_chunk + pcd_chunk_ground
                 pred_pcd = maskpls.forward_and_project(merged_chunk)
@@ -1098,8 +1109,12 @@ for seq in tqdm(seqs[:seq_limit]):
                 )
                 # o3d.visualization.draw_geometries([pred_pcd])
                 inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
-                    in_idcs
+                    inliers_ground
                 ]
+                seg_ground = kitti_labels["ground"]["semantic"][sequence][inliers][
+                    inliers_ground
+                ]
+
                 kitti_chunk_instance = color_pcd_by_labels(
                     copy.deepcopy(pcd_chunk),
                     kitti_labels["nonground"]["instance"][sequence].reshape(
@@ -1122,6 +1137,46 @@ for seq in tqdm(seqs[:seq_limit]):
                 o3d.io.write_point_cloud(
                     out_folder_instances_cur + name,
                     instance_pcd,
+                    write_ascii=False,
+                    compressed=False,
+                    print_progress=False,
+                )
+
+                kitti_semantics = np.hstack(
+                    (
+                        kitti_labels["nonground"]["semantic"][sequence].reshape(
+                            -1,
+                        ),
+                        seg_ground.reshape(
+                            -1,
+                        ),
+                    )
+                )
+                gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
+
+                unique_colors, labels_kitti = np.unique(
+                    np.asarray(gt_pcd.colors), axis=0, return_inverse=True
+                )
+
+                semantics_non_ground = color_pcd_kitti(
+                    copy.deepcopy(pcd_chunk),
+                    kitti_labels["nonground"]["semantic"][sequence].reshape(
+                        -1,
+                    ),
+                )
+                semantics_ground = color_pcd_kitti(
+                    copy.deepcopy(pcd_chunk_ground),
+                    seg_ground.reshape(
+                        -1,
+                    ),
+                )
+
+                # o3d.visualization.draw_geometries([gt_pcd])
+                semantics_pcd = semantics_non_ground + semantics_ground
+                name = str(center_ids[sequence]).zfill(6) + ".pcd"
+                o3d.io.write_point_cloud(
+                    out_folder_semantics_cur + name,
+                    semantics_pcd,
                     write_ascii=False,
                     compressed=False,
                     print_progress=False,
@@ -1183,8 +1238,8 @@ for seq in tqdm(seqs[:seq_limit]):
             gc.collect()
 
             # except:
-            cnt += 1
-            print("Skip due to convergence issue ", cnt)
+            # cnt += 1
+            # print("Skip due to convergence issue ", cnt)
 
         pcds_clustering = get_merge_pcds(out_folder_dbscan_cur)
         if len(pcds_clustering) == 0:

@@ -503,29 +503,39 @@ def image_based_features_per_patch(
                 # o3d.visualization.draw_geometries([pcd_camframe_hpr])
 
                 start = time.time()
-                visible_indices = hidden_point_removal_o3d(
-                    np.asarray(pcd_camframe_hpr.points),
-                    camera=[0, 0, 0],
-                    radius_factor=hpr_radius,
-                )
+                try:
+                    visible_indices = hidden_point_removal_o3d(
+                        np.asarray(pcd_camframe_hpr.points),
+                        camera=[0, 0, 0],
+                        radius_factor=hpr_radius,
+                    )
+                except:
+                    print("hpr skip")
+                    continue
 
-                visible_indices_visibility = hidden_point_removal_o3d(
-                    np.asarray(pcd_camframe_hpr.points),
-                    camera=[0, 0, 0],
-                    radius_factor=20,
-                )
+                if vis:
+                    visible_indices_visibility = hidden_point_removal_o3d(
+                        np.asarray(pcd_camframe_hpr.points),
+                        camera=[0, 0, 0],
+                        radius_factor=20,
+                    )
+
+                    visible_indices_visibility = bound_indices[
+                        visible_indices_visibility
+                    ]
 
                 end_hpr = time.time() - start
                 # print("HPR takes ", end_hpr ," s")
                 visible_indices = bound_indices[visible_indices]
-                visible_indices_visibility = bound_indices[visible_indices_visibility]
+
             else:
                 visible_indices = np.where(hpr_masks[i])[0]
 
             frame_indices = list(set(visible_indices) & set(chunk_and_inlier_indices))
-            frame_indices_vis = list(
-                set(visible_indices_visibility) & set(chunk_and_inlier_indices)
-            )
+            if vis == True:
+                frame_indices_vis = list(
+                    set(visible_indices_visibility) & set(chunk_and_inlier_indices)
+                )
             if len(frame_indices) == 0:
                 print("out of view skip")
                 continue
@@ -577,7 +587,8 @@ def image_based_features_per_patch(
 
             # Apply visibility to downsampled chunk used for normalized cuts
             visible_chunk = get_subpcd(pcd_camframe, frame_indices)
-            visible_chunk_ablation = get_subpcd(pcd_camframe, frame_indices_vis)
+            if vis == True:
+                visible_chunk_ablation = get_subpcd(pcd_camframe, frame_indices_vis)
             # o3d.visualization.draw_geometries([visible_chunk])
             chunk_nc_camframe = copy.deepcopy(chunk_nc).transform(T_pcd2cam)
 
@@ -592,24 +603,26 @@ def image_based_features_per_patch(
                 ):
                     nc_indices.append(j)
 
-            visible_chunk_tree_ablation = o3d.geometry.KDTreeFlann(
-                visible_chunk_ablation
-            )
-            nc_indices_visbility = []
-            for j, point in enumerate(np.asarray(chunk_nc_camframe.points)):
-                [_, idx, _] = visible_chunk_tree_ablation.search_knn_vector_3d(point, 1)
-
-                if (
-                    np.linalg.norm(
-                        point - np.asarray(visible_chunk_ablation.points)[idx[0]]
+            if vis:
+                visible_chunk_tree_ablation = o3d.geometry.KDTreeFlann(
+                    visible_chunk_ablation
+                )
+                nc_indices_visbility = []
+                for j, point in enumerate(np.asarray(chunk_nc_camframe.points)):
+                    [_, idx, _] = visible_chunk_tree_ablation.search_knn_vector_3d(
+                        point, 1
                     )
-                    < voxel_size / 2
-                ):
-                    nc_indices_visbility.append(j)
+
+                    if (
+                        np.linalg.norm(
+                            point - np.asarray(visible_chunk_ablation.points)[idx[0]]
+                        )
+                        < voxel_size / 2
+                    ):
+                        nc_indices_visbility.append(j)
+                visibility_mask[nc_indices_visbility] = 1
 
             visible_nc_camframe = get_subpcd(chunk_nc_camframe, nc_indices)
-            visibility_mask[nc_indices_visbility] = 1
-
             points_to_pixels = point_to_pixel(
                 np.asarray(visible_nc_camframe.points),
                 K,

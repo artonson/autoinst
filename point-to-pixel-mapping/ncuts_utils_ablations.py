@@ -235,8 +235,9 @@ def ncuts_chunk(
     for i, s in enumerate(grouped_labels):
         for j in s:
             pcd_color[j] = np.array(random_colors[i]) / 255
-            if visibility_mask[j] == 0:
-                pcd_color[j] = np.array([0, 0, 0])
+            if visible:
+                if visibility_mask[j] == 0:
+                    pcd_color[j] = np.array([0, 0, 0])
 
     pcd_chunk.paint_uniform_color([0, 0, 0])
     colors = kDTree_1NN_feature_reprojection(

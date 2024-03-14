@@ -157,8 +157,8 @@ config_maskpls_hdbscan = {
 }
 
 config_maskpls_tarl_spatial_dino = {
-    "name": "maskpls_tarl_spatial_dino_6_",
-    "out_folder": "maskpls_5/",
+    "name": "maskpls_no_filter_5_",
+    "out_folder": "maskpls_no_filter_5/",
     "gamma": 0.0,
     "alpha": 0.0,
     "theta": 0.0,

@@ -43,14 +43,9 @@ class RefinerModel:
 
         self.model = MaskPS(cfg)
         # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=05.ckpt"
-        # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=06.ckpt"
-        # w = "/media/cedric/Datasets21/Weights/clustering/mask_pls_oversegmented_epoch=06.ckpt"
-
-        # w = "/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial_Dino/mask_pls_oversegmented_epoch=05.ckpt"
-        # w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=07.ckpt"
-        w = "/media/cedric/Datasets21/Weights/tarl_spatial_dino/mask_pls_oversegmented_epoch=03.ckpt"
-        if dataset == "nuscenes":
-            w = "/media/cedric/Datasets21/check/checkpoints/mask_pls_oversegmented_epoch=08.ckpt"
+        w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=06.ckpt"
+        # if dataset == "nuscenes":
+        #    w = "/media/cedric/Datasets21/check/checkpoints/mask_pls_oversegmented_epoch=08.ckpt"
         print("using weights", w)
         w = torch.load(w, map_location="cpu")
         self.model.load_state_dict(w["state_dict"])
