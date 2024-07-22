@@ -5,13 +5,15 @@ from dataset.kitti_odometry_dataset import (
 from dataset.filters.filter_list import FilterList
 from dataset.filters.kitti_gt_mo_filter import KittiGTMovingObjectFilter
 from dataset.filters.range_filter import RangeFilter
-from dataset.nuscenes_dataset import nuScenesOdometryDataset, nuScenesDatasetConfig
+
+# from dataset.nuscenes_dataset import nuScenesOdometryDataset, nuScenesDatasetConfig
 import os
 import numpy as np
 import open3d as o3d
+
 from aggregate_pointcloud import aggregate_pointcloud
-from chunk_generation import subsample_positions, chunks_from_pointcloud
-from visualization_utils import *
+# from chunk_generation import subsample_positions, chunks_from_pointcloud
+# from visualization_utils import *
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -204,50 +206,6 @@ def create_kitti_odometry_dataset_no_filter(
     )
     dataset = KittiOdometryDataset(config_filtered, sequence_num)
     return dataset
-
-
-def create_nuscenes_odometry_dataset(
-    dataset_path,
-    sequence_num,
-    cache=True,
-    sam_folder_name="SAM_Underseg",
-    dinov2_folder_name="Dinov2",
-    correct_scan_calibration=True,
-    range_min=3,
-    range_max=25,
-    ncuts_mode=True,
-    dist_threshold=5,
-    dataset_type="v1.0-mini",
-    scene=None,
-):
-
-    if ncuts_mode:
-        filters = FilterList(
-            [
-                RangeFilter(range_min, range_max),
-            ]
-        )
-    else:
-        filters = FilterList([])
-
-    config_filtered = nuScenesDatasetConfig(
-        cache=cache,
-        dataset_path=dataset_path,
-        sam_folder_name=sam_folder_name,
-        dinov2_folder_name=dinov2_folder_name,
-        filters=FilterList(
-            [
-                RangeFilter(2.5, 120),
-            ]
-        ),
-        dist_threshold=dist_threshold,
-    )
-
-    dataset = nuScenesOdometryDataset(
-        config_filtered, sequence_num, dataset_type, scene=scene
-    )
-    return dataset
-
 
 def process_and_save_point_clouds(
     dataset,

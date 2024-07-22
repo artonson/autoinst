@@ -61,12 +61,12 @@ import shutil
 
 
 config_tarl_spatial_dino = {
-    "name": "spatial_0.1_tarl_0.1_dino_0.1_t_0.001",
-    "out_folder": "ncuts_data_tarl_dino_spatial/",
+    "name": "spatial_0.1_tarl_0.1_dino_0.1_t_0.03",
+    "out_folder": "ncuts_data_tarl_dino_spatial_updated/",
     "gamma": 0.1,
     "alpha": 0.1,
     "theta": 0.1,
-    "T": 0.001,
+    "T": 0.03,
     "gt": True,
 }
 
@@ -75,8 +75,8 @@ config_tarl_spatial = {
     "out_folder": "ncuts_data_tarl_spatial/",
     "gamma": 0.0,
     "alpha": 0.1,
-    "theta": 0.2,
-    "T": 0.01,
+    "theta": 0.1,
+    "T": 0.03,
     "gt": True,
 }
 
@@ -112,8 +112,8 @@ config_dino_spatial = {
 }
 
 config_maskpls = {
-    "name": "maskpls",
-    "out_folder": "ncuts_data_maskpls/",
+    "name": "maskpls_nuscenes_",
+    "out_folder": "ncuts_data_maskpls_refined/",
     "gamma": 0.0,
     "alpha": 0.0,
     "theta": 0.0,
@@ -122,7 +122,7 @@ config_maskpls = {
 }
 
 
-config = config_maskpls
+config = config_tarl_spatial
 config["data_gen"] = True  ##for storing training refinement data
 if "maskpls" in config["name"]:
     maskpls = RefinerModel(dataset="nuscenes")
@@ -727,7 +727,7 @@ out_folder_dbscan = out_folder + "dbscan_data/"
 if os.path.exists(out_folder_dbscan) == False:
     os.makedirs(out_folder_dbscan)
 
-data_store_train = out_folder + "train_maskpls/"
+data_store_train = out_folder + "train_" + config["name"] + "/"
 if os.path.exists(data_store_train) == False:
     os.makedirs(data_store_train)
 

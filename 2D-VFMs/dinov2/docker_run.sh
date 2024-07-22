@@ -2,7 +2,9 @@
 
 # Define the arrays for images and sequences
 images=("image_2" "image_3")
-sequences=("01" "02" "03" "04" "06" "07" "08" "09" "10")
+#sequences=("01" "02" "03" "04" "06" "07" "08" "09" "10")
+sequences=("00")
+
 
 # Loop over sequences
 for seq in "${sequences[@]}"; do

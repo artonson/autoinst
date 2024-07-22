@@ -55,15 +55,9 @@ from chunk_generation import (
     get_indices_feature_reprojection,
 )
 import hdbscan
-from predict_maskpls import RefinerModel
+
 from point_cloud_utils import *
 from visualization_utils import *
-from sam3d_util import *
-
-from predict_maskpls import RefinerModel
-from utils.maskpls_domain_transfer.predict_maskpls_transfer import (
-    RefinerModel as RefinerModelSupervised,
-)
 
 
 config_tarl_spatial_dino = {
@@ -170,10 +164,15 @@ start_chunk = 0
 start_seq = 0
 seqs = list(range(0, 11))
 # seqs = [8, 10]
-config = config_maskpls_tarl_spatial_dino
+config = config_tarl_spatial 
 if "3duis" in config["name"]:
     from utils_3duis import UIS3D_clustering
 
+if 'sam3d' in config["name"]:
+    from sam3d_util import *
+
+if 'maskpls' in config["name"]:
+    from predict_maskpls import RefinerModel
 
 print("Starting with config ", config)
 
@@ -351,7 +350,7 @@ def divide_indices_into_chunks(max_index, chunk_size=1000):
     return chunks
 
 
-DATASET_PATH = os.path.join("/media/cedric/Datasets2/semantic_kitti/")
+DATASET_PATH = os.path.join("/media/cedric/Datasets3/semantic_kitti/")
 import shutil
 import gc
 

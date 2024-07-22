@@ -387,7 +387,7 @@ class Metrics:
 
         gt_used = []
 
-        for prediction in tqdm(instance_conf.keys()):
+        for prediction in instance_conf.keys():
             matched = False
             pred_indices = self.pred_indices[prediction]
             for gt in unique_gt_labels:
@@ -413,7 +413,7 @@ class Metrics:
             self.recall.append(self.tp / float(self.tp + self.fn))
 
         ap = np.trapz(self.precision, self.recall)
-        print("Average Precision @ " + str(iou_thresh), ap)
+        # print("Average Precision @ " + str(iou_thresh), ap)
         return ap
 
     def average_precision_final(self, iou_thresh=0.5):

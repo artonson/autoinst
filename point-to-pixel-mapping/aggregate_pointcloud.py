@@ -118,8 +118,8 @@ def aggregate_pointcloud(
                     PatchworkPLUSPLUS.estimateGround(
                         np.hstack((np.asarray(pcd.points), intensity.reshape(-1, 1)))
                     )
-                    ground_idcs = PatchworkPLUSPLUS.get_ground_idcs()
-                    nonground_idcs = PatchworkPLUSPLUS.get_nonground_idcs()
+                    ground_idcs = PatchworkPLUSPLUS.getGroundIndices()
+                    nonground_idcs = PatchworkPLUSPLUS.getNongroundIndices()
                 else:
                     mean_height = 0.3
                     intensity = dataset[i].intensity

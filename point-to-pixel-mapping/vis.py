@@ -31,27 +31,78 @@ class Counter:
         return closest, pose_idx
 
 
-folder_base = "/home/cedric/unsup_3d_instances/point-to-pixel-mapping/pcd_preprocessed/"
+# folder_base = "/home/cedric/unsup_3d_instances/point-to-pixel-mapping/pcd_preprocessed/"
+seq = 8
+div = 3
 
-# fn = "002664.pcd"
-##name_refined = folder_base + fn
-# name_base = folder_base + "similarity_" + fn
-name_refined = folder_base + "merge_refined5.pcd"
-name_base = folder_base + "tarl_dino_spatial55.pcd"
-name_raw = "chunk_cur_all.pcd"
+folder_base = f"/media/cedric/Datasets2/Semantics/KITTI/{seq}/"
+base_maskpls = f"/home/cedric/unsup_3d_instances/point-to-pixel-mapping/pcd_preprocessed/semantics/{seq}/"
+
+name_refined = folder_base + f"maskpls_tarl_spatial_{seq}_{div}.pcd"
+name_base = folder_base + f"sam3d_fix{seq}_{div}.pcd"
+name_raw = folder_base + f"3duis_fix{seq}_{div}.pcd"
+name_dino = folder_base + f"hdbscan{seq}_{div}.pcd"
+tarl_spatial = folder_base + f"spatial_1.0_tarl_0.5_t_0.03{seq}_{div}.pcd"
+name_panoptic = folder_base + f"kitti_panoptic_{seq}_{div}.pcd"
+name_raw_z = "raw.pcd"
 
 
 pcd_refined = o3d.io.read_point_cloud(name_refined)
+
+points = np.asarray(pcd_refined.points)
+# Normalize Z values to 0-1 range for color mapping
+idcs = np.where(points[:, 2] > 9.5)[0]
+points[idcs, 2] = 9.5
+
+
+idcs = np.where(points[:, 2] < 6.5)[0]
+points[idcs, 2] = 6.5
+z_min, z_max = points[:, 2].min(), points[:, 2].max()
+print(z_min)
+
+colors = (points[:, 2] - z_min) / (z_max - z_min)
+print(z_min)
+print(z_max)
+# Apply colormap (can choose any available colormap in matplotlib)
+colors = plt.get_cmap("viridis")(colors)[:, :3]  # Use
+pcd = o3d.geometry.PointCloud()
+pcd.points = o3d.utility.Vector3dVector(points)
+pcd.colors = o3d.utility.Vector3dVector(colors)
+o3d.visualization.draw_geometries([pcd])
+o3d.io.write_point_cloud("raw.pcd", pcd)
+
+
 pcd_base = o3d.io.read_point_cloud(name_base)
 pcd_raw = o3d.io.read_point_cloud(name_raw)
-
+pcd_panoptic = o3d.io.read_point_cloud(name_panoptic)
+pcd_dino = o3d.io.read_point_cloud(name_dino)
+pcd_tarl_spatial = o3d.io.read_point_cloud(tarl_spatial)
+pcd_raw_z = o3d.io.read_point_cloud(name_raw_z)
 
 cols_refined = pcd_refined.colors
 cols_base = pcd_base.colors
 
-pcd_arr = [copy.deepcopy(pcd_refined), copy.deepcopy(pcd_base), copy.deepcopy(pcd_raw)]
+pcd_arr = [
+    copy.deepcopy(pcd_refined),
+    copy.deepcopy(pcd_base),
+    copy.deepcopy(pcd_raw),
+    copy.deepcopy(pcd_dino),
+    copy.deepcopy(pcd_tarl_spatial),
+    copy.deepcopy(pcd_panoptic),
+    copy.deepcopy(pcd_raw_z),
+]
 
-DATASET_PATH = os.path.join("/media/cedric/Datasets2/semantic_kitti/")
+names = [
+    "refined",
+    "sam3d",
+    "3duis",
+    "hdbscan",
+    "tarl_spatial",
+    "kitti_panoptic",
+    "raw",
+]
+
+DATASET_PATH = os.path.join("/media/cedric/Datasets3/semantic_kitti/")
 SEQUENCE_NUM = 5
 dataset = create_kitti_odometry_dataset(DATASET_PATH, SEQUENCE_NUM, ncuts_mode=True)
 all_poses = []
@@ -75,29 +126,30 @@ cur_pcd.points = o3d.utility.Vector3dVector(dataset.get_point_cloud(2660))
 def change_point_cloud_color(pcd, idx):
     # Change the color of all points in the point cloud
     if cnt.idcs == "all":
-        if idx < 3:
+        if idx < len(pcd_arr):
             pcd.colors = pcd_arr[idx].colors
-        elif idx == 3:
+        elif idx == len(pcd_arr):
             points = np.asarray(pcd.points)
             # Normalize Z values to 0-1 range for color mapping
             z_min, z_max = points[:, 2].min(), points[:, 2].max()
-            z_min = -2.40
+            print(z_min)
+            z_min = -2.0
+            z_max = 10
             colors = (points[:, 2] - z_min) / (z_max - z_min)
             print(z_min)
             print(z_max)
             # Apply colormap (can choose any available colormap in matplotlib)
-            colors = plt.get_cmap("viridis")(colors)[
+            colors = plt.get_cmap("plasma")(colors)[
                 :, :3
             ]  # Use the first three columns to ignore alpha channel
 
             # Assign colors back to PCD
             pcd.colors = o3d.utility.Vector3dVector(colors)
-            o3d.io.write_point_cloud("chunk_all5.pcd", pcd)
     else:
-        if idx < 3:
+        if idx < len(pcd_arr):
             subpcd = pcd_arr[idx].select_by_index(cnt.idcs)
             pcd.colors = subpcd.colors
-        elif idx == 3:
+        elif idx == len(pcd_arr):
             points = np.asarray(pcd.points)
             # Normalize Z values to 0-1 range for color mapping
             print(z_min)
@@ -130,8 +182,17 @@ def key_callback(vis, key_code):
     elif key_code == 51:
         idx = 2
         cnt.current_idx = idx
-    else:
+    elif key_code == 52:
         idx = 3
+        cnt.current_idx = idx
+    elif key_code == 53:
+        idx = 4
+        cnt.current_idx = idx
+    elif key_code == 54:
+        idx = 5
+        cnt.current_idx = idx
+    else:
+        idx = 6
         cnt.current_idx = idx
 
     change_point_cloud_color(cnt.pcd, idx)
@@ -213,9 +274,9 @@ def mouse_move_callback(vis):
     cols_arr = np.asarray(cnt.pcd.colors)
     cols_arr[ids] = colors
     cnt.pcd.colors = o3d.utility.Vector3dVector(cols_arr)
-    o3d.visualization.draw_geometries([cnt.pcd])
+    # o3d.visualization.draw_geometries([cnt.pcd])
 
-    o3d.io.write_point_cloud("chunk_cur5.pcd", cnt.pcd)
+    # o3d.io.write_point_cloud("chunk_cur5.pcd", cnt.pcd)
     # o3d.io.write_point_cloud("chunk_cur.pcd", current_pcd)
     # cnt.pcd = cnt.pcd_orig.select_by_index(ids)
     vis.clear_geometries()
@@ -241,15 +302,7 @@ def button_forward(vis, extent=25):
 
 
 def take_screenshot(vis):
-    img_name = (
-        "image_center_idx"
-        + str(cnt.pose_idx)
-        + "_current_idx_"
-        + str(cnt.current_idx)
-        + "_"
-        + str(cnt.img_cnt[cnt.current_idx])
-        + ".png"
-    )
+    img_name = str(names[cnt.current_idx]) + ".png"
     vis.capture_screen_image("screenshots/" + img_name)
 
 
@@ -265,6 +318,9 @@ vis.register_key_callback(ord("S"), partial(take_screenshot))
 vis.register_key_callback(ord("M"), partial(mouse_move_callback))
 vis.register_key_callback(50, partial(key_callback, key_code=50))  # Right arrow key
 vis.register_key_callback(52, partial(key_callback, key_code=52))  # Right arrow key
+vis.register_key_callback(53, partial(key_callback, key_code=53))  # Right arrow key
+vis.register_key_callback(54, partial(key_callback, key_code=54))  # Right arrow key
+vis.register_key_callback(55, partial(key_callback, key_code=55))  # Right arrow key
 vis.register_key_callback(51, partial(key_callback, key_code=51))  # Right arrow key
 vis.register_key_callback(49, partial(key_callback, key_code=49))  # Left arrow key
 
