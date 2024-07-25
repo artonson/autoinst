@@ -1,4 +1,4 @@
-# Mask-Based Panoptic LiDAR Segmentation for Autonomous Driving
+# Mask-Based Panoptic LiDAR Instance Segmentation Self-Training
 
 This folder contains the self-training implementation based on the [paper](https://www.ipb.uni-bonn.de/wp-content/papercite-data/pdf/marcuzzi2023ral.pdf).
 
