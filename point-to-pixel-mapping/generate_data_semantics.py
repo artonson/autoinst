@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import open3d as o3d
 
 src_path = os.path.abspath("../..")
+import copy
+import json
 if src_path not in sys.path:
     sys.path.append(src_path)
 from dataset.kitti_odometry_dataset import (
@@ -18,6 +20,7 @@ from dataset.filters.range_filter import RangeFilter
 from dataset.filters.apply_pose import ApplyPose
 import scipy
 from scipy.spatial.distance import cdist
+from tqdm import tqdm
 from normalized_cut import normalized_cut
 from ncuts_utils import (
     ncuts_chunk,
@@ -58,7 +61,7 @@ import hdbscan
 
 from point_cloud_utils import *
 from visualization_utils import *
-
+from visualization_utils import generate_random_colors_map
 
 config_tarl_spatial_dino = {
     "name": "spatial_1.0_tarl_0.5_dino_0.1_t_0.005",
@@ -847,30 +850,6 @@ for seq in seqs:
                         print_progress=False,
                     )
 
-            elif "sam3d" in config["name"]:
-                inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
-                ground_inliers = get_subpcd(pcd_ground_chunks[sequence], inliers)
-                mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
-                in_idcs = np.where(
-                    np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.6)
-                )[0]
-                pcd_chunk_ground = get_subpcd(ground_inliers, in_idcs)
-                pcd_chunk_ground.paint_uniform_color([0, 0, 0])
-                # try :
-                pcd_chunk = sam3d(
-                    dataset,
-                    indices,
-                    pcd_nonground_minor,
-                    T_pcd,
-                    sampled_indices_global,
-                    patchwise_indices=patchwise_indices,
-                    sequence=sequence,
-                    pcd_chunk=pcd_nonground_chunks[sequence],
-                )
-                # except:
-
-                # pcd_nonground_chunks[sequence].paint_uniform_color([0,0,0])
-                pred_pcd = pcd_chunk + pcd_chunk_ground
 
             elif "maskpls" in config["name"]:
                 inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
@@ -979,7 +958,6 @@ for seq in seqs:
                 + ".json",
                 "w",
             ) as fp:
-
                 json.dump(maskpls.confs_dict, fp)
 
         """

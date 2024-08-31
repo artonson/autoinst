@@ -9,11 +9,12 @@ from dataset.filters.range_filter import RangeFilter
 # from dataset.nuscenes_dataset import nuScenesOdometryDataset, nuScenesDatasetConfig
 import os
 import numpy as np
+import copy
 import open3d as o3d
 
 from aggregate_pointcloud import aggregate_pointcloud
-# from chunk_generation import subsample_positions, chunks_from_pointcloud
-# from visualization_utils import *
+from chunk_generation import subsample_positions, chunks_from_pointcloud
+from visualization_utils import generate_random_colors_map
 import numpy as np
 import matplotlib.pyplot as plt
 import random
