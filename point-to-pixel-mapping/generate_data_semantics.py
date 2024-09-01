@@ -57,11 +57,11 @@ from chunk_generation import (
     dinov2_mean,
     get_indices_feature_reprojection,
 )
-import hdbscan
 
 from point_cloud_utils import *
 from visualization_utils import *
 from visualization_utils import generate_random_colors_map
+from metrics.metrics_class import Metrics
 
 config_tarl_spatial_dino = {
     "name": "spatial_1.0_tarl_0.5_dino_0.1_t_0.005",
@@ -70,7 +70,7 @@ config_tarl_spatial_dino = {
     "alpha": 1.0,
     "theta": 0.5,
     "T": 0.005,
-    "gt": False,
+    "gt": True,
 }
 
 config_tarl_spatial = {
@@ -80,7 +80,7 @@ config_tarl_spatial = {
     "alpha": 1.0,
     "theta": 0.5,
     "T": 0.03,
-    "gt": False,
+    "gt": True,
 }
 
 config_spatial = {
@@ -93,36 +93,6 @@ config_spatial = {
     "gt": True,
 }
 
-config_sam3d = {
-    "name": "sam3d_fix",
-    "out_folder": "ncuts_data_sam3d/",
-    "gamma": 0.0,
-    "alpha": 0.0,
-    "theta": 0.0,
-    "T": 0.0,
-    "gt": False,
-}
-
-config_3duis = {
-    "name": "3duis_fix",
-    "out_folder": "ncuts_data_3duis_fixed/",
-    "gamma": 0.0,
-    "alpha": 0.0,
-    "theta": 0.0,
-    "T": 0.0,
-    "gt": False,
-}
-
-config_maskpls_unsup_compare = {
-    "name": "maskpls_unsup_compare",
-    "out_folder": "maskpls_unsup_compare/",
-    "gamma": 0.0,
-    "alpha": 0.0,
-    "theta": 0.0,
-    "T": 0.0,
-    "gt": False,
-}
-
 config_maskpls_tarl_spatial = {
     "name": "maskpls_comp_",
     "out_folder": "maskpls_7/",
@@ -130,28 +100,9 @@ config_maskpls_tarl_spatial = {
     "alpha": 0.0,
     "theta": 0.0,
     "T": 0.0,
-    "gt": False,
+    "gt": True,
 }
 
-config_maskpls_supervised = {
-    "name": "maskpls_supervised",
-    "out_folder": "maskpls_sup_compare/",
-    "gamma": 0.0,
-    "alpha": 0.0,
-    "theta": 0.0,
-    "T": 0.0,
-    "gt": False,
-}
-
-config_maskpls_hdbscan = {
-    "name": "maskpls_hdbscan_7_",
-    "out_folder": "maskpls_hdbscan/",
-    "gamma": 0.0,
-    "alpha": 0.0,
-    "theta": 0.0,
-    "T": 0.0,
-    "gt": False,
-}
 
 config_maskpls_tarl_spatial_dino = {
     "name": "maskpls_no_filter_5_",
@@ -160,20 +111,14 @@ config_maskpls_tarl_spatial_dino = {
     "alpha": 0.0,
     "theta": 0.0,
     "T": 0.0,
-    "gt": False,
+    "gt": True,
 }
 
 start_chunk = 0
 start_seq = 0
 seqs = list(range(0, 11))
 # seqs = [8, 10]
-config = config_tarl_spatial 
-if "3duis" in config["name"]:
-    from utils_3duis import UIS3D_clustering
-
-if 'sam3d' in config["name"]:
-    from sam3d_util import *
-
+config = config_spatial
 if 'maskpls' in config["name"]:
     from predict_maskpls import RefinerModel
 
@@ -201,61 +146,6 @@ def downsample_chunk_data(points, ncuts_labels, kitti_labels, semantics):
     points = points[indeces]
     return points, ncuts_labels[indeces], kitti_labels[indeces], semantics[indeces]
 
-
-def clustering_logic(pcd_nonground_corrected, method="hdbscan"):
-    """
-    Perform DBSCAN clustering on the point cloud data.
-
-    :param cur_pcd: Current point cloud for clustering.
-    :param pcd_all: All point cloud data.
-    :param eps: The maximum distance between two samples for one to be considered as in the neighborhood of the other.
-    :param min_samples: The number of samples in a neighborhood for a point to be considered as a core point.
-    :return: Cluster labels for each point in the point cloud.
-    """
-
-    pcd_nonground_downsampled = o3d.geometry.PointCloud()
-    pts_downsampled = downsample_chunk(np.asarray(pcd_nonground_corrected.points))
-    pcd_nonground_downsampled.points = o3d.utility.Vector3dVector(pts_downsampled)
-
-    clustering = hdbscan.HDBSCAN(
-        algorithm="best",
-        alpha=1.0,
-        approx_min_span_tree=True,
-        gen_min_span_tree=True,
-        leaf_size=100,
-        metric="euclidean",
-        min_cluster_size=10,
-        min_samples=None,
-    )
-    clustering.fit(pts_downsampled)
-
-    labels_not_road = clustering.labels_
-    colors_gen = generate_random_colors(5000)
-
-    labels_not_road = labels_not_road + 1
-    # Reproject cluster labels to the original point cloud size
-    cluster_labels = np.ones((len(pcd_nonground_corrected.points), 1)) * -1
-    labels_non_ground = kDTree_1NN_feature_reprojection(
-        cluster_labels,
-        pcd_nonground_corrected,
-        labels_not_road.reshape(-1, 1),
-        pcd_nonground_downsampled,
-    )
-    colors = np.zeros((labels_non_ground.shape[0], 3))
-    unique_labels = list(np.unique(labels_non_ground))
-
-    for j in unique_labels:
-        cur_idcs = np.where(labels_non_ground == j)[0]
-        if j == 0:
-            colors[cur_idcs] = np.array([0, 0, 0])
-        else:
-            colors[cur_idcs] = np.array(colors_gen[unique_labels.index(j)])
-
-    pcd_nonground_corrected.colors = o3d.utility.Vector3dVector(colors / 255.0)
-
-    # o3d.visualization.draw_geometries([pcd_nonground_corrected])
-
-    return pcd_nonground_corrected
 
 
 def intersect(pred_indices, gt_indices):
@@ -298,22 +188,79 @@ def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None):
     return pcd_colored
 
 
-def get_merge_pcds(out_folder_ncuts):
-    point_clouds = []
+def generate_random_colors(N, seed=0):
+    colors = set()  # Use a set to store unique colors
+    while len(colors) < N:  # Keep generating colors until we have N unique ones
+        # Generate a random color and add it to the set
+        colors.add(
+            (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        )
 
-    # List all files in the folder
-    files = os.listdir(out_folder_ncuts)
-    files.sort()
+    return list(colors)  # Convert the set to a list before returning
 
-    # Filter files with a .pcd extension
-    pcd_files = [file for file in files if file.endswith(".pcd")]
-    print(pcd_files)
-    # Load each point cloud and append to the list
-    for pcd_file in pcd_files:
-        file_path = os.path.join(out_folder_ncuts, pcd_file)
-        point_cloud = o3d.io.read_point_cloud(file_path)
-        point_clouds.append(point_cloud)
-    return point_clouds
+
+def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None, semantics=False):
+
+    if colors == None:
+        colors = generate_random_colors(2000)
+    pcd_colored = copy.deepcopy(pcd)
+    pcd_colors = np.zeros(np.asarray(pcd.points).shape)
+    if gt_labels is None:
+        unique_labels = list(np.unique(labels))
+    else:
+        unique_labels = list(np.unique(gt_labels))
+
+    background_color = np.array([0, 0, 0])
+    # for i in range(len(pcd_colored.points)):
+    for i in unique_labels:
+        if i == -1:
+            continue
+        idcs = np.where(labels == i)
+        idcs = idcs[0]
+        if i == 0 and semantics == False:
+            pcd_colors[idcs] = background_color
+        else:
+            pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
+
+    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors / 255.0)
+    return pcd_colored
+
+
+def process_batch(unique_pred, preds, labels, gt_idcs, threshold, new_ncuts_labels):
+    pred_idcs = np.where(preds == unique_pred)[0]
+    cur_intersect = np.sum(np.isin(pred_idcs, gt_idcs))
+    if cur_intersect > threshold * len(pred_idcs):
+        new_ncuts_labels[pred_idcs] = 0
+
+
+def remove_semantics(labels, preds, threshold=0.8, num_threads=4):
+    gt_idcs = np.where(labels == 0)[0]
+    new_ncuts_labels = preds.copy()
+    unique_preds = np.unique(preds)
+
+    if num_threads is None:
+        num_threads = min(len(unique_preds), 4)  # Default to 8 threads if not specified
+
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = []
+        for i in tqdm(unique_preds):
+            futures.append(
+                executor.submit(
+                    process_batch,
+                    i,
+                    preds,
+                    labels,
+                    gt_idcs,
+                    threshold,
+                    new_ncuts_labels,
+                )
+            )
+
+        # Wait for all tasks to complete
+        for future in tqdm(futures, total=len(futures), desc="Processing"):
+            future.result()  # Get the result to catch any exceptions
+
+    return new_ncuts_labels
 
 
 def uniform_down_sample_with_indices(points, every_k_points):
@@ -377,10 +324,6 @@ if os.path.exists(out_folder_instances) == False:
 out_folder_ncuts = out_folder + config["out_folder"]
 if os.path.exists(out_folder_ncuts) == False:
     os.makedirs(out_folder_ncuts)
-
-out_folder_dbscan = out_folder + "dbscan_data/"
-if os.path.exists(out_folder_dbscan) == False:
-    os.makedirs(out_folder_dbscan)
 
 data_store_train = out_folder + "train/"
 if os.path.exists(data_store_train) == False:
@@ -494,7 +437,7 @@ ncuts_threshold = config["T"]
 
 
 exclude = [1, 4]
-
+seqs = [7]
 for seq in seqs:
     # maskpls = RefinerModel()
     if seq in exclude:
@@ -684,16 +627,13 @@ for seq in seqs:
         out_folder_semantics_cur = (
             out_folder_semantics + str(SEQUENCE_NUM) + "_" + str(cur_idx) + "/"
         )
-        out_folder_dbscan_cur = (
-            out_folder_dbscan + str(SEQUENCE_NUM) + "_" + str(cur_idx) + "/"
-        )
+        
         out_folder_instances_cur = (
             out_folder_instances + str(SEQUENCE_NUM) + "_" + str(cur_idx) + "/"
         )
 
         create_folder(out_folder_ncuts_cur)
         if config["gt"]:
-            create_folder(out_folder_dbscan_cur)
             create_folder(out_folder_semantics_cur)
             create_folder(out_folder_instances_cur)
 
@@ -766,7 +706,6 @@ for seq in seqs:
                 pred_pcd = pcd_chunk + pcd_chunk_ground
 
                 if config["gt"]:
-                    pcd_nonground_hdbscan = clustering_logic(copy.deepcopy(pcd_chunk))
                     inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
                         inliers_ground
                     ]
@@ -821,20 +760,12 @@ for seq in seqs:
 
                     instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
                     semantics_pcd = semantics_non_ground + semantics_ground
-                    cluster_pcd = pcd_nonground_hdbscan + pcd_chunk_ground
                     # points,labels_ncuts,labels_kitti, downsampled_semantics = downsample_chunk_data(pts,labels_ncuts,labels_kitti,kitti_semantics)
                     print("output", data_store_folder + name.split(".")[0])
 
                     # if labels_ncuts.shape[0] != points.shape[0] != downsampled_semantics.shape[0] != labels_kitti.shape[0]:
                     #        AssertionError
-
-                    o3d.io.write_point_cloud(
-                        out_folder_dbscan_cur + name,
-                        cluster_pcd,
-                        write_ascii=False,
-                        compressed=False,
-                        print_progress=False,
-                    )
+\
                     o3d.io.write_point_cloud(
                         out_folder_semantics_cur + name,
                         semantics_pcd,
@@ -870,17 +801,6 @@ for seq in seqs:
                     pred_pcd = maskpls.forward_and_project(input_pcd)
                 # o3d.visualization.draw_geometries([pred_pcd])
 
-            else:  # '3duis'
-                pcd_3duis = UIS3D_clustering(
-                    pcd_nonground_chunks[sequence],
-                    pcd_ground_chunks[sequence],
-                    center_ids[sequence],
-                    center_positions[sequence],
-                    eps=0.4,
-                    min_samples=10,
-                )
-                pred_pcd = pcd_3duis
-
             name = str(center_ids[sequence]).zfill(6) + ".pcd"
 
             unique_colors, labels_ncuts = np.unique(
@@ -897,45 +817,31 @@ for seq in seqs:
 
             gc.collect()
 
-        if "supervised" not in config["name"]:
-            merge_ncuts = merge_chunks_unite_instances2(
+        merge_ncuts = merge_chunks_unite_instances2(
                 get_merge_pcds(out_folder_ncuts_cur[:-1])
             )
-        else:
-            print("merge unite supervised")
-            merge_ncuts = merge_unite_gt(get_merge_pcds(out_folder_ncuts_cur[:-1]))
-        # o3d.visualization.draw_geometries([merge_ncuts])
+
 
         if config["gt"]:
-            merge_dbscan = merge_chunks_unite_instances2(
-                get_merge_pcds(out_folder_dbscan_cur[:-1])
-            )
+
             kitti_pcd = merge_unite_gt(get_merge_pcds(out_folder_semantics_cur[:-1]))
             map_instances = merge_unite_gt(
                 get_merge_pcds(out_folder_instances_cur[:-1])
             )
-            _, labels_kitti_cur = np.unique(
+            _, labels_semantics = np.unique(
                 np.asarray(kitti_pcd.colors), axis=0, return_inverse=True
             )
-            updated_labels = np.zeros(np.asarray(kitti_pcd.colors).shape[0])
-            for label in np.unique(labels_kitti_cur):
-                idcs = np.where(labels_kitti_cur == label)[0]
-                col_cur = np.asarray(kitti_pcd.colors)[idcs][0]
-                updated_labels[idcs] = reverse_color_dict[tuple(col_cur)]
-
-            # o3d.visualization.draw_geometries([merge_ncuts])
-            o3d.io.write_point_cloud(
-                data_store_folder
-                + "hdbscan"
-                + str(SEQUENCE_NUM)
-                + "_"
-                + str(cur_idx)
-                + ".pcd",
-                merge_dbscan,
-                write_ascii=False,
-                compressed=False,
-                print_progress=False,
+            
+            _, labels_instances = np.unique(
+                np.asarray(map_instances.colors), axis=0, return_inverse=True
             )
+            
+            updated_labels_semantics = np.zeros(np.asarray(kitti_pcd.colors).shape[0])
+            for label in np.unique(labels_semantics):
+                idcs = np.where(labels_semantics == label)[0]
+                col_cur = np.asarray(kitti_pcd.colors)[idcs][0]
+                updated_labels_semantics[idcs] = reverse_color_dict[tuple(col_cur)]
+
             np.savez(
                 data_store_folder
                 + "kitti_semantic"
@@ -943,7 +849,7 @@ for seq in seqs:
                 + "_"
                 + str(cur_idx)
                 + ".npz",
-                labels=updated_labels,
+                labels=updated_labels_semantics,
             )
 
         if "maskpls" in config["name"]:
@@ -959,19 +865,27 @@ for seq in seqs:
                 "w",
             ) as fp:
                 json.dump(maskpls.confs_dict, fp)
-
-        """
-        np.savez(
-            data_store_folder
-            + "kitti_semantic"
-            + str(SEQUENCE_NUM)
-            + "_"
-            + str(cur_idx)
-            + ".npz",
-            labels=updated_labels,
+        
+        
+        
+        new_labels_inst = labels_instances + (
+                        updated_labels_semantics * np.unique(labels_instances).shape[0]
+                    )
+        
+        
+        metrics = Metrics(config['name'] + ' ' + str(seq))
+        colors, labels_ncuts_all = np.unique(
+            np.asarray(merge_ncuts.colors), axis=0, return_inverse=True
         )
-        """
-
+        
+        instance_preds = remove_semantics(labels_instances, labels_ncuts_all)
+        
+        out, aps_lstq_dict = metrics.update_stats(
+                labels_ncuts_all,
+                instance_preds,
+                new_labels_inst,
+        )
+        
         o3d.io.write_point_cloud(
             data_store_folder
             + config["name"]
