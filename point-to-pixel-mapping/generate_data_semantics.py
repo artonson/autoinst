@@ -773,6 +773,7 @@ for seq in seqs:
                         compressed=False,
                         print_progress=False,
                     )
+                    
                     o3d.io.write_point_cloud(
                         out_folder_instances_cur + name,
                         instance_pcd,
@@ -814,6 +815,8 @@ for seq in seqs:
                 compressed=False,
                 print_progress=False,
             )
+            
+            
 
             gc.collect()
 
@@ -898,3 +901,18 @@ for seq in seqs:
             compressed=False,
             print_progress=False,
         )
+        
+        o3d.io.write_point_cloud(
+            data_store_folder
+            + "_instances_"
+            + str(SEQUENCE_NUM)
+            + "_"
+            + str(cur_idx)
+            + ".pcd",
+            map_instances,
+            write_ascii=False,
+            compressed=False,
+            print_progress=False,
+        )
+        
+        
