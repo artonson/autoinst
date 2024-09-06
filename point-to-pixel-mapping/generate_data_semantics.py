@@ -881,13 +881,13 @@ for seq in seqs:
             np.asarray(merge_ncuts.colors), axis=0, return_inverse=True
         )
         
-        instance_preds = remove_semantics(labels_instances, labels_ncuts_all)
+        #instance_preds = remove_semantics(labels_instances, labels_ncuts_all)
         
-        out, aps_lstq_dict = metrics.update_stats(
-                labels_ncuts_all,
-                instance_preds,
-                new_labels_inst,
-        )
+        #out, aps_lstq_dict = metrics.update_stats(
+        #        labels_ncuts_all,
+        #        instance_preds,
+        #        new_labels_inst,
+        #)
         
         o3d.io.write_point_cloud(
             data_store_folder
@@ -904,7 +904,7 @@ for seq in seqs:
         
         o3d.io.write_point_cloud(
             data_store_folder
-            + "_instances_"
+            + "kitti_instances_"
             + str(SEQUENCE_NUM)
             + "_"
             + str(cur_idx)
