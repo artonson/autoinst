@@ -870,24 +870,25 @@ for seq in seqs:
                 json.dump(maskpls.confs_dict, fp)
         
         
-        
+        zero_idcs = np.where(labels_instances == 0)[0]
         new_labels_inst = labels_instances + (
                         updated_labels_semantics * np.unique(labels_instances).shape[0]
                     )
         
+        new_labels_inst[zero_idcs] = 0
         
         metrics = Metrics(config['name'] + ' ' + str(seq))
         colors, labels_ncuts_all = np.unique(
             np.asarray(merge_ncuts.colors), axis=0, return_inverse=True
         )
         
-        #instance_preds = remove_semantics(labels_instances, labels_ncuts_all)
+        instance_preds = remove_semantics(labels_instances, copy.deepcopy(labels_ncuts_all))
         
-        #out, aps_lstq_dict = metrics.update_stats(
-        #        labels_ncuts_all,
-        #        instance_preds,
-        #        new_labels_inst,
-        #)
+        out, aps_lstq_dict = metrics.update_stats(
+                labels_ncuts_all,
+                instance_preds,
+                new_labels_inst,
+        )
         
         o3d.io.write_point_cloud(
             data_store_folder
