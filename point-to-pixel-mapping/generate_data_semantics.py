@@ -117,8 +117,9 @@ config_maskpls_tarl_spatial_dino = {
 start_chunk = 0
 start_seq = 0
 seqs = list(range(0, 11))
+
 # seqs = [8, 10]
-config = config_spatial
+config = config_spatial 
 if 'maskpls' in config["name"]:
     from predict_maskpls import RefinerModel
 
@@ -658,7 +659,8 @@ for seq in seqs:
         out_data = []
         semantics_kitti = []
         for sequence in tqdm(range(start_seq, len(center_ids))):
-
+            
+            name = str(center_ids[sequence]).zfill(6) + ".pcd" 
             # try :
             print("sequence", sequence)
             if (
@@ -700,12 +702,32 @@ for seq in seqs:
                     ncuts_threshold=ncuts_threshold,
                     mean_height=0.6,
                 )
-                name = file_name.split("/")[-1]
 
-                cur_name = name.split(".")[0]
                 pred_pcd = pcd_chunk + pcd_chunk_ground
 
-                if config["gt"]:
+            elif "maskpls" in config["name"]:
+                inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
+                ground_inliers = get_subpcd(pcd_ground_chunks[sequence], inliers)
+                mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
+                inliers_ground = np.where(
+                    np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.6)
+                )[0]
+                pcd_chunk_ground = get_subpcd(ground_inliers, inliers_ground)
+                pcd_chunk_ground.paint_uniform_color([0, 0, 0])
+
+                input_pcd = pcd_nonground_chunks[sequence] + pcd_chunk_ground
+
+                if "supervised" not in config["name"]:
+                    print("unsupervised")
+                    pred_pcd = maskpls.forward_and_project(input_pcd)
+                else:
+                    pred_pcd = maskpls.forward_and_project(input_pcd)
+                
+                
+                # o3d.visualization.draw_geometries([pred_pcd])
+            
+            
+            if config["gt"]:
                     inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
                         inliers_ground
                     ]
@@ -714,7 +736,7 @@ for seq in seqs:
                     ]
 
                     kitti_chunk_instance = color_pcd_by_labels(
-                        copy.deepcopy(pcd_chunk),
+                        copy.deepcopy(pcd_nonground_chunks[sequence]),
                         kitti_labels["nonground"]["instance"][sequence].reshape(
                             -1,
                         ),
@@ -731,7 +753,7 @@ for seq in seqs:
                     )
                     gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
                     semantics_non_ground = color_pcd_kitti(
-                        copy.deepcopy(pcd_chunk),
+                        copy.deepcopy(pcd_nonground_chunks[sequence]),
                         kitti_labels["nonground"]["semantic"][sequence].reshape(
                             -1,
                         ),
@@ -781,26 +803,7 @@ for seq in seqs:
                         compressed=False,
                         print_progress=False,
                     )
-
-
-            elif "maskpls" in config["name"]:
-                inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
-                ground_inliers = get_subpcd(pcd_ground_chunks[sequence], inliers)
-                mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
-                in_idcs = np.where(
-                    np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.6)
-                )[0]
-                pcd_chunk_ground = get_subpcd(ground_inliers, in_idcs)
-                pcd_chunk_ground.paint_uniform_color([0, 0, 0])
-
-                input_pcd = pcd_nonground_chunks[sequence] + pcd_chunk_ground
-
-                if "supervised" not in config["name"]:
-                    print("unsupervised")
-                    pred_pcd = maskpls.forward_and_project(input_pcd)
-                else:
-                    pred_pcd = maskpls.forward_and_project(input_pcd)
-                # o3d.visualization.draw_geometries([pred_pcd])
+            
 
             name = str(center_ids[sequence]).zfill(6) + ".pcd"
 
@@ -854,7 +857,8 @@ for seq in seqs:
                 + ".npz",
                 labels=updated_labels_semantics,
             )
-
+        
+        
         if "maskpls" in config["name"]:
 
             with open(
@@ -869,7 +873,6 @@ for seq in seqs:
             ) as fp:
                 json.dump(maskpls.confs_dict, fp)
         
-        
         zero_idcs = np.where(labels_instances == 0)[0]
         new_labels_inst = labels_instances + (
                         updated_labels_semantics * np.unique(labels_instances).shape[0]
@@ -880,14 +883,6 @@ for seq in seqs:
         metrics = Metrics(config['name'] + ' ' + str(seq))
         colors, labels_ncuts_all = np.unique(
             np.asarray(merge_ncuts.colors), axis=0, return_inverse=True
-        )
-        
-        instance_preds = remove_semantics(labels_instances, copy.deepcopy(labels_ncuts_all))
-        
-        out, aps_lstq_dict = metrics.update_stats(
-                labels_ncuts_all,
-                instance_preds,
-                new_labels_inst,
         )
         
         o3d.io.write_point_cloud(
@@ -916,4 +911,32 @@ for seq in seqs:
             print_progress=False,
         )
         
+        instance_preds = remove_semantics(labels_instances, copy.deepcopy(labels_ncuts_all))
+        if 'maskpls' in config['name']:
+            label_to_confidence = {}
+            
+            pcd_cols = np.asarray(merge_ncuts.colors)
+            for label in list(np.unique(instance_preds)):
+                    idcs = np.where(instance_preds == label)[0]
+                    cur_color = pcd_cols[idcs[0]]
+                    key = (
+                        str(int(cur_color[0] * 255))
+                        + "|"
+                        + str(int(cur_color[1] * 255))
+                        + "|"
+                        + str(int(cur_color[2] * 255))
+                    )
+                    label_to_confidence[label] = maskpls.confs_dict[key]
+
+            out, aps_lstq_dict = metrics.update_stats(
+                labels_ncuts_all,
+                instance_preds,
+                new_labels_inst,
+                confs=label_to_confidence,
+            )
         
+        out, aps_lstq_dict = metrics.update_stats(
+                labels_ncuts_all,
+                instance_preds,
+                new_labels_inst,
+        )

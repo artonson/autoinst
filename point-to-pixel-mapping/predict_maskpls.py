@@ -43,7 +43,7 @@ class RefinerModel:
 
         self.model = MaskPS(cfg)
         # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=05.ckpt"
-        # w = "/home/cedric/unsup_segmentation/MaskPLS/mask_pls/experiments/mask_pls_oversegmented/lightning_logs/version_114/checkpoints/mask_pls_oversegmented_epoch=06.ckpt"
+        w = "/media/cedric/Datasets2/Weights/KITTI/TARL_Spatial/mask_pls_oversegmented_epoch=07.ckpt"
         if dataset == "nuscenes":
             w = "/media/cedric/Datasets21/Weights/Nuscenes/checkpoints/mask_pls_oversegmented_epoch=05.ckpt"
         print("using weights", w)
