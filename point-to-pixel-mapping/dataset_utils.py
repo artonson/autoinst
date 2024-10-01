@@ -309,6 +309,7 @@ def load_and_downsample_point_clouds(
             ),
         )
     )
+
     semantics = np.hstack(
         (
             kitti_data1["seg_nonground"].reshape(
@@ -326,9 +327,33 @@ def load_and_downsample_point_clouds(
         colors=colors,
         gt_labels=instances,
     )
+    
     instance_ground_orig = color_pcd_by_labels(
         pcd_ground, kitti_data1["instance_ground"], colors=colors, gt_labels=instances
     )
+    '''
+    full_pcd = instance_ground_orig + instance_non_ground_orig
+    _, new_labels_inst = np.unique(
+            np.asarray(full_pcd.colors), axis=0, return_inverse=True
+        )
+    unique_labels = np.unique(new_labels_inst)
+    all_points = np.asarray(full_pcd.points)
+
+    print(np.unique(new_labels_inst).shape)
+    for lab in unique_labels :
+            idcs = np.where(new_labels_inst == lab)
+            print(idcs)
+            points = all_points[idcs[0]]
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.paint_uniform_color([0,0,0])
+            o3d.visualization.draw_geometries([pcd])
+    '''
+    
+    
+    
+    
+    
     semantic_non_ground_orig = color_pcd_by_labels(
         pcd_nonground,
         kitti_data1["seg_nonground"],
@@ -374,8 +399,8 @@ def load_and_downsample_point_clouds(
             point_color = np.asarray(instance_non_ground_orig.colors)[idx[0]]
         except:
             import pdb
-
             pdb.set_trace()
+        
         new_colors.append(point_color)
         new_labels.append(kitti_data1["instance_nonground"][idx[0]])
     # import pdb; pdb.set_trace()
@@ -447,9 +472,26 @@ def load_and_downsample_point_clouds(
         new_colors.append(point_color)
         new_labels.append(cur_label)
     # import pdb; pdb.set_trace()
-
+    
     seg_nonground.colors = o3d.utility.Vector3dVector(new_colors)
     kitti_data["seg_nonground"] = np.asarray(new_labels)
+    '''
+    full_pcd = pcd_nonground_minor + pcd_ground_minor
+    new_labels_inst = np.hstack((np.array(kitti_data['instance_nonground']).reshape(-1,),np.array(kitti_data['instance_ground']).reshape(-1,)))
+    
+    unique_labels = np.unique(new_labels_inst)
+    all_points = np.asarray(full_pcd.points)
+
+    print(np.unique(new_labels_inst).shape)
+    for lab in unique_labels :
+            idcs = np.where(new_labels_inst == lab)
+            print(idcs)
+            points = all_points[idcs[0]]
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.paint_uniform_color([0,0,0])
+            o3d.visualization.draw_geometries([pcd])
+    '''
 
     print("done downsample")
     return (
