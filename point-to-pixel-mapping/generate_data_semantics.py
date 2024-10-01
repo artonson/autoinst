@@ -154,41 +154,6 @@ def intersect(pred_indices, gt_indices):
     return intersection.size / pred_indices.shape[0]
 
 
-def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None):
-
-    if colors == None:
-        colors = generate_random_colors(2000)
-    pcd_colored = copy.deepcopy(pcd)
-    pcd_colors = np.zeros(np.asarray(pcd.points).shape)
-    if gt_labels is None:
-        unique_labels = list(np.unique(labels))
-    else:
-        unique_labels = list(np.unique(gt_labels))
-
-    background_color = np.array([0, 0, 0])
-
-    # for i in range(len(pcd_colored.points)):
-    for i in unique_labels:
-        if i == -1:
-            continue
-        idcs = np.where(labels == i)
-        idcs = idcs[0]
-        if i == 0:
-            pcd_colors[idcs] = background_color
-        else:
-            try:
-                pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
-            except:
-                import pdb
-
-                pdb.set_trace()
-
-        # if labels[i] != (-1):
-        #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
-    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors / 255)
-    return pcd_colored
-
-
 def generate_random_colors(N, seed=0):
     colors = set()  # Use a set to store unique colors
     while len(colors) < N:  # Keep generating colors until we have N unique ones
@@ -201,9 +166,7 @@ def generate_random_colors(N, seed=0):
 
 
 def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None, semantics=False):
-
-    if colors == None:
-        colors = generate_random_colors(2000)
+ 
     pcd_colored = copy.deepcopy(pcd)
     pcd_colors = np.zeros(np.asarray(pcd.points).shape)
     if gt_labels is None:
@@ -429,7 +392,6 @@ def merge_unite_gt_labels(chunks, semantic_maps):
 
 alpha = config["alpha"]
 theta = config["theta"]
-colors = generate_random_colors_map(6000)
 beta = 0.0
 tarl_norm = False
 gamma = config["gamma"]
@@ -438,7 +400,7 @@ ncuts_threshold = config["T"]
 
 
 exclude = [1, 4]
-seqs = [7]
+seqs = [0]
 for seq in seqs:
     # maskpls = RefinerModel()
     if seq in exclude:
@@ -461,6 +423,7 @@ for seq in seqs:
     print("STORE FOLDER", data_store_folder)
 
     for cur_idx, cidcs in enumerate(chunks_idcs[start_chunk:]):
+        colors = generate_random_colors_map(6000)
         # if cur_idx == 0 :
         #         continue
 
@@ -592,6 +555,35 @@ for seq in seqs:
             positions = data["positions"]
             sampled_indices_local = list(data["sampled_indices_local"])
             sampled_indices_global = list(data["sampled_indices_global"])
+        
+        pcd_col = color_pcd_by_labels(pcd_nonground_minor,kitti_labels_orig['instance_nonground'],colors=colors)
+        o3d.visualization.draw_geometries([pcd_col])
+        
+        instances = np.hstack(
+        (
+            kitti_labels_orig["instance_nonground"].reshape(
+                -1,
+            ),
+            kitti_labels_orig["instance_ground"].reshape(
+                -1,
+            ),
+        )
+        )
+
+        '''
+        unique_labels = np.unique(new_labels_inst)
+        all_points = np.asarray(full_pcd.points)
+
+        print(np.unique(unique_labels).shape)
+
+        for lab in unique_labels :
+            idcs = np.where(new_labels_inst == lab)
+            points = all_points[idcs[0]]
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.paint_uniform_color([0,0,0])
+            o3d.visualization.draw_geometries([pcd])
+        '''
 
         print("chunk downsample")
         (
@@ -619,7 +611,6 @@ for seq in seqs:
             major_voxel_size=major_voxel_size,
             kitti_labels=kitti_labels_orig,
         )
-
         print("finished downsample")
 
         out_folder_ncuts_cur = (
@@ -638,16 +629,6 @@ for seq in seqs:
             create_folder(out_folder_semantics_cur)
             create_folder(out_folder_instances_cur)
 
-        instances = np.hstack(
-            (
-                kitti_labels_orig["instance_nonground"].reshape(
-                    -1,
-                ),
-                kitti_labels_orig["instance_ground"].reshape(
-                    -1,
-                ),
-            )
-        )
         patchwise_indices = indices_per_patch(
             T_pcd,
             center_positions,
@@ -741,8 +722,9 @@ for seq in seqs:
                             -1,
                         ),
                         colors=colors,
-                        gt_labels=kitti_labels_orig["instance_nonground"],
+                        gt_labels=instances,
                     )
+
                     kitti_chunk_instance_ground = color_pcd_by_labels(
                         copy.deepcopy(pcd_chunk_ground),
                         inst_ground.reshape(
@@ -874,11 +856,7 @@ for seq in seqs:
                 json.dump(maskpls.confs_dict, fp)
         
         zero_idcs = np.where(labels_instances == 0)[0]
-        new_labels_inst = labels_instances + (
-                        updated_labels_semantics * np.unique(labels_instances).shape[0]
-                    )
         
-        new_labels_inst[zero_idcs] = 0
         
         metrics = Metrics(config['name'] + ' ' + str(seq))
         colors, labels_ncuts_all = np.unique(
@@ -931,12 +909,12 @@ for seq in seqs:
             out, aps_lstq_dict = metrics.update_stats(
                 labels_ncuts_all,
                 instance_preds,
-                new_labels_inst,
+                labels_instances,
                 confs=label_to_confidence,
             )
         
         out, aps_lstq_dict = metrics.update_stats(
                 labels_ncuts_all,
                 instance_preds,
-                new_labels_inst,
+                labels_instances,
         )
