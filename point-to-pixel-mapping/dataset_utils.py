@@ -6,7 +6,6 @@ from dataset.filters.filter_list import FilterList
 from dataset.filters.kitti_gt_mo_filter import KittiGTMovingObjectFilter
 from dataset.filters.range_filter import RangeFilter
 
-# from dataset.nuscenes_dataset import nuScenesOdometryDataset, nuScenesDatasetConfig
 import os
 import numpy as np
 import copy
@@ -55,57 +54,7 @@ def masks_to_colored_image(masks):
         for c in range(3):  # Iterate over color channels
             image_labels[:, :, c][mask["segmentation"]] = colors[i][c]
 
-    # cv2.imshow('Colored Masks', image_labels)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()  # Close the window after key press
-
     return image_labels
-
-
-def get_data_from_dataset(dataset, points_index, left_cam, right_cam, pcd_chunk):
-    """
-    Returns the point cloud, left and right images, left and right labels, and the calibration matrices for a given index in the dataset.
-    Args:
-        dataset:        The kitty dataset object
-        points_index:   The index of the point cloud in the dataset
-        left_cam:       The left camera name
-        right_cam:      The right camera name
-    """
-
-    pcd_o3d = get_pcd(dataset.get_point_cloud(points_index))
-
-    # worlpcd_o3d.transform(dataset.get_pose(points_index))
-    # pcd_chunk.paint_uniform_color([0,0,1])
-    # o3d.visualization.draw_geometries([pcd_o3d,pcd_chunk])
-    pcd = np.asarray(pcd_o3d.points)
-
-    left_image_PIL = dataset.get_image(left_cam, points_index)
-    left_image = cv2.cvtColor(np.array(left_image_PIL), cv2.COLOR_RGB2BGR)
-
-    right_image_PIL = dataset.get_image(right_cam, points_index)
-    right_image = cv2.cvtColor(np.array(right_image_PIL), cv2.COLOR_RGB2BGR)
-
-    left_label = dataset.get_sam_mask(left_cam, points_index)
-    left_label = masks_to_colored_image(left_label)
-    # left_label = cv2.cvtColor(np.array(left_label_PIL), cv2.COLOR_RGB2BGR)
-
-    right_label = dataset.get_sam_mask(right_cam, points_index)
-    right_label = masks_to_colored_image(right_label)
-    # right_label = cv2.cvtColor(np.array(right_label_PIL), cv2.COLOR_RGB2BGR)
-
-    T_lidar2leftcam, K_leftcam = dataset.get_calibration_matrices(left_cam)
-    T_lidar2rightcam, K_rightcam = dataset.get_calibration_matrices(right_cam)
-    T_lidar2world = dataset.get_pose(points_index)
-
-    return (
-        pcd,
-        (left_image, right_image),
-        (left_label, right_label),
-        (T_lidar2leftcam, T_lidar2rightcam),
-        (K_leftcam, K_rightcam),
-        T_lidar2world,
-    )
-
 
 def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None, semantics=False):
 
@@ -120,7 +69,6 @@ def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None, semantics=Fals
 
     background_color = np.array([0, 0, 0])
 
-    # for i in range(len(pcd_colored.points)):
     for i in unique_labels:
         if i == -1:
             continue
@@ -295,9 +243,6 @@ def load_and_downsample_point_clouds(
         kitti_data1["instance_ground"] = data["instance_ground"]
         kitti_data1["instance_nonground"] = data["instance_nonground"]
 
-    # pcd_ground_minor = pcd_ground.voxel_down_sample(voxel_size=minor_voxel_size)
-    # pcd_ground_minor, trace_ground, _ = pcd_ground.voxel_down_sample_and_trace(minor_voxel_size, pcd_ground.get_min_bound(),
-    #                                                                    pcd_ground.get_max_bound(), False)
 
     instances = np.hstack(
         (
@@ -331,28 +276,7 @@ def load_and_downsample_point_clouds(
     instance_ground_orig = color_pcd_by_labels(
         pcd_ground, kitti_data1["instance_ground"], colors=colors, gt_labels=instances
     )
-    '''
-    full_pcd = instance_ground_orig + instance_non_ground_orig
-    _, new_labels_inst = np.unique(
-            np.asarray(full_pcd.colors), axis=0, return_inverse=True
-        )
-    unique_labels = np.unique(new_labels_inst)
-    all_points = np.asarray(full_pcd.points)
 
-    print(np.unique(new_labels_inst).shape)
-    for lab in unique_labels :
-            idcs = np.where(new_labels_inst == lab)
-            print(idcs)
-            points = all_points[idcs[0]]
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            pcd.paint_uniform_color([0,0,0])
-            o3d.visualization.draw_geometries([pcd])
-    '''
-    
-    
-    
-    
     
     semantic_non_ground_orig = color_pcd_by_labels(
         pcd_nonground,
@@ -368,10 +292,7 @@ def load_and_downsample_point_clouds(
         gt_labels=semantics,
         semantics=True,
     )
-    # o3d.visualization.draw_geometries([panoptic_non_ground_orig])
-    # o3d.visualization.draw_geometries([color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])])
     kitti_data = {}
-    # panoptic_non_ground = color_pcd_by_labels(pcd_nonground_minor,kitti_data['panoptic_nonground'])
     pcd_ground_minor, _, _ = pcd_ground.voxel_down_sample_and_trace(
         minor_voxel_size, pcd_ground.get_min_bound(), pcd_ground.get_max_bound(), False
     )
@@ -395,11 +316,7 @@ def load_and_downsample_point_clouds(
     new_labels = []
     for point in instance_non_ground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
-        try:
-            point_color = np.asarray(instance_non_ground_orig.colors)[idx[0]]
-        except:
-            import pdb
-            pdb.set_trace()
+        point_color = np.asarray(instance_non_ground_orig.colors)[idx[0]]
         
         new_colors.append(point_color)
         new_labels.append(kitti_data1["instance_nonground"][idx[0]])
@@ -417,15 +334,9 @@ def load_and_downsample_point_clouds(
     new_labels = []
     for point in instance_ground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
-        try:
-            point_color = np.asarray(instance_ground_orig.colors)[idx[0]]
-        except:
-            import pdb
-
-            pdb.set_trace()
+        point_color = np.asarray(instance_ground_orig.colors)[idx[0]]
         new_colors.append(point_color)
         new_labels.append(kitti_data1["instance_ground"][idx[0]])
-    # import pdb; pdb.set_trace()
 
     instance_ground.colors = o3d.utility.Vector3dVector(new_colors)
     kitti_data["instance_ground"] = new_labels
@@ -448,7 +359,6 @@ def load_and_downsample_point_clouds(
             pdb.set_trace()
         new_colors.append(point_color)
         new_labels.append(cur_label)
-    # import pdb; pdb.set_trace()
 
     seg_ground.colors = o3d.utility.Vector3dVector(new_colors)
     kitti_data["seg_ground"] = np.asarray(new_labels)
@@ -462,36 +372,13 @@ def load_and_downsample_point_clouds(
     new_labels = []
     for point in seg_nonground.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(point, 1)
-        try:
-            point_color = np.asarray(semantic_non_ground_orig.colors)[idx[0]]
-            cur_label = kitti_data1["seg_nonground"][idx[0]]
-        except:
-            import pdb
-
-            pdb.set_trace()
+        point_color = np.asarray(semantic_non_ground_orig.colors)[idx[0]]
+        cur_label = kitti_data1["seg_nonground"][idx[0]]
         new_colors.append(point_color)
         new_labels.append(cur_label)
-    # import pdb; pdb.set_trace()
     
     seg_nonground.colors = o3d.utility.Vector3dVector(new_colors)
     kitti_data["seg_nonground"] = np.asarray(new_labels)
-    '''
-    full_pcd = pcd_nonground_minor + pcd_ground_minor
-    new_labels_inst = np.hstack((np.array(kitti_data['instance_nonground']).reshape(-1,),np.array(kitti_data['instance_ground']).reshape(-1,)))
-    
-    unique_labels = np.unique(new_labels_inst)
-    all_points = np.asarray(full_pcd.points)
-
-    print(np.unique(new_labels_inst).shape)
-    for lab in unique_labels :
-            idcs = np.where(new_labels_inst == lab)
-            print(idcs)
-            points = all_points[idcs[0]]
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            pcd.paint_uniform_color([0,0,0])
-            o3d.visualization.draw_geometries([pcd])
-    '''
 
     print("done downsample")
     return (

@@ -2,24 +2,15 @@ import open3d as o3d
 import numpy as np
 import os
 from scipy.spatial.distance import cdist
-from sam_label_distace import sam_label_distance
 from chunk_generation import get_indices_feature_reprojection
 from point_cloud_utils import (
-    get_pcd,
-    transform_pcd,
     remove_isolated_points,
     get_subpcd,
     get_statistical_inlier_indices,
-    merge_chunks_unite_instances,
     kDTree_1NN_feature_reprojection,
 )
-from aggregate_pointcloud import aggregate_pointcloud
-from visualization_utils import generate_random_colors, color_pcd_by_labels
-from sam_label_distace import sam_label_distance
+from visualization_utils import generate_random_colors 
 from chunk_generation import (
-    subsample_positions,
-    chunks_from_pointcloud,
-    indices_per_patch,
     tarl_features_per_patch,
     image_based_features_per_patch,
     dinov2_mean,
@@ -28,9 +19,7 @@ from chunk_generation import (
 from normalized_cut import normalized_cut
 import scipy
 import copy
-import time
 
-# import rama_py
 
 
 def ncuts_chunk(
@@ -69,9 +58,7 @@ def ncuts_chunk(
     mean_height=0.2,
 ):
 
-    print_flag = False
     print("Start of sequence", sequence)
-    start_all = time.time()
     first_id = patchwise_indices[sequence][0]
     center_id = center_ids[sequence]
     center_position = center_positions[sequence]
@@ -104,8 +91,6 @@ def ncuts_chunk(
     num_points_major = points_major.shape[0]
 
     print(num_points_major, "points in downsampled chunk (major)")
-    end_down = time.time() - start_all
-    start = time.time()
     spatial_distance = cdist(points_major, points_major)
     if use_z == True:
         spatial_distance = cdist(
@@ -113,14 +98,11 @@ def ncuts_chunk(
         )
     mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
 
-    cur_start = time.time()
     if alpha:
         spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
     else:
         spatial_edge_weights = mask
 
-    end = time.time() - cur_start
-    # print("Spatial construction took ", end  , " s")
 
     if beta and not gamma:
         sam_features_major_list = image_based_features_per_patch(
@@ -140,7 +122,6 @@ def ncuts_chunk(
         )
 
     elif gamma and not beta:
-        cur_start = time.time()
         point2dino_list, vis_mask = image_based_features_per_patch(
             dataset,
             pcd_nonground_minor,
@@ -162,8 +143,6 @@ def ncuts_chunk(
         dinov2_features_major_list = []
         for point2dino in point2dino_list:
             dinov2_features_major_list.append(dinov2_mean(point2dino))
-        end_hpr = time.time() - cur_start
-        # print("dino construction took  ", end_hpr  , " s")
 
     elif beta and gamma:
         sam_features_major_list, point2dino_list = image_based_features_per_patch(
@@ -240,9 +219,6 @@ def ncuts_chunk(
         * dinov2_edge_weights
     )
     print("Adjacency Matrix built")
-
-    # opts = rama_py.multicut_solver_options("PD")
-
     # Remove isolated points
     chunk_major, A = remove_isolated_points(chunk_major, A)
     print(
@@ -250,14 +226,9 @@ def ncuts_chunk(
         "isolated points removed",
     )
     num_points_major = np.asarray(chunk_major.points).shape[0]
-    # import pdb; pdb.set_trace()
 
     print("Start of normalized Cuts")
     A = scipy.sparse.csr_matrix(A)
-    end_const = time.time() - start
-    print("--------------")
-    print("graph construction ", end_const, " s")
-    start = time.time()
     grouped_labels = normalized_cut(
         A,
         num_points_major,
@@ -266,16 +237,9 @@ def ncuts_chunk(
         split_lim=split_lim,
     )
 
-    num_groups = len(grouped_labels)
-
-    print("There are", num_groups, "cut regions")
-    end_ncuts = time.time() - start
-    print("NCuts took ", end_ncuts, " s")
-
     sorted_groups = sorted(grouped_labels, key=lambda x: len(x))
     num_points_top3 = np.sum([len(g) for g in sorted_groups[-3:]])
     top3_ratio = num_points_top3 / num_points_major
-    print("Ratio of points in top 3 groups:", top3_ratio)
 
     random_colors = generate_random_colors(600)
 
@@ -303,11 +267,6 @@ def ncuts_chunk(
         merged_chunk = pcd_chunk + cut_hight
     else:
         merged_chunk = pcd_chunk
-
-    end = time.time() - start_all
-    print("Dino load ", end, " s")
-    print("Ncuts percentage ", round(end_ncuts / end, 2) * 100)
-    print("Construction ", round(end_const / end, 2) * 100)
 
     index_file = str(center_id).zfill(6) + ".pcd"
     file = os.path.join(out_folder, index_file)

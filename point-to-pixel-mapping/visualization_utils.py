@@ -158,9 +158,7 @@ def color_pcd_by_labels(pcd, labels, colors=None, largest=True, gt_labels=None):
     else:
         unique_labels = list(np.unique(gt_labels))
 
-    # background_color = np.array([0,0,0])
 
-    # for i in range(len(pcd_colored.points)):
     largest_cluster_idx = -10
     largest = 0
     if largest:
@@ -182,7 +180,5 @@ def color_pcd_by_labels(pcd, labels, colors=None, largest=True, gt_labels=None):
         else:
             pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
 
-        # if labels[i] != (-1):
-        #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
     pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors / 255)
     return pcd_colored

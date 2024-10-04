@@ -10,58 +10,35 @@ import copy
 import json
 if src_path not in sys.path:
     sys.path.append(src_path)
-from dataset.kitti_odometry_dataset import (
-    KittiOdometryDataset,
-    KittiOdometryDatasetConfig,
-)
-from dataset.filters.filter_list import FilterList
-from dataset.filters.kitti_gt_mo_filter import KittiGTMovingObjectFilter
-from dataset.filters.range_filter import RangeFilter
-from dataset.filters.apply_pose import ApplyPose
-import scipy
-from scipy.spatial.distance import cdist
+
 from tqdm import tqdm
-from normalized_cut import normalized_cut
+import gc
 from ncuts_utils import (
     ncuts_chunk,
-    kDTree_1NN_feature_reprojection_colors,
     get_merge_pcds,
 )
 from dataset_utils import *
 
 from point_cloud_utils import (
-    get_pcd,
-    transform_pcd,
-    kDTree_1NN_feature_reprojection,
-    remove_isolated_points,
     get_subpcd,
     get_statistical_inlier_indices,
-    merge_chunks_unite_instances,
 )
-from aggregate_pointcloud import aggregate_pointcloud
 
 from visualization_utils import (
-    generate_random_colors,
     color_pcd_by_labels,
     generate_random_colors_map,
 )
 
-from sam_label_distace import sam_label_distance
-
 from chunk_generation import (
-    subsample_positions,
-    chunks_from_pointcloud,
     indices_per_patch,
-    tarl_features_per_patch,
-    image_based_features_per_patch,
-    dinov2_mean,
-    get_indices_feature_reprojection,
 )
 
 from point_cloud_utils import *
 from visualization_utils import *
 from visualization_utils import generate_random_colors_map
 from metrics.metrics_class import Metrics
+
+DATASET_PATH = '/Users/cedric/Datasets/semantic_kitti/'
 
 config_tarl_spatial_dino = {
     "name": "spatial_1.0_tarl_0.5_dino_0.1_t_0.005",
@@ -264,10 +241,6 @@ def divide_indices_into_chunks(max_index, chunk_size=1000):
     return chunks
 
 
-DATASET_PATH = os.path.join("/media/cedric/Datasets3/semantic_kitti/")
-import shutil
-import gc
-
 minor_voxel_size = 0.05
 major_voxel_size = 0.35
 chunk_size = np.array([25, 25, 25])  # meters
@@ -277,9 +250,6 @@ NCUT_ground = False
 
 out_folder = "pcd_preprocessed/semantics/"
 
-out_folder_semantics = out_folder + "semantics/"
-if os.path.exists(out_folder_semantics) == False:
-    os.makedirs(out_folder_semantics)
 
 out_folder_instances = out_folder + "instances/"
 if os.path.exists(out_folder_instances) == False:
@@ -293,57 +263,6 @@ data_store_train = out_folder + "train/"
 if os.path.exists(data_store_train) == False:
     os.makedirs(data_store_train)
 
-
-color_dict_normalized = {
-    0: [0.0, 0.0, 0.0],
-    1: [0.0, 0.0, 1.0],
-    10: [0.9607843137254902, 0.5882352941176471, 0.39215686274509803],
-    11: [0.9607843137254902, 0.9019607843137255, 0.39215686274509803],
-    13: [0.9803921568627451, 0.3137254901960784, 0.39215686274509803],
-    15: [0.5882352941176471, 0.23529411764705882, 0.11764705882352941],
-    16: [1.0, 0.0, 0.0],
-    18: [0.7058823529411765, 0.11764705882352941, 0.3137254901960784],
-    20: [1.0, 0.0, 0.0],
-    30: [0.11764705882352941, 0.11764705882352941, 1.0],
-    31: [0.7843137254901961, 0.1568627450980392, 1.0],
-    32: [0.35294117647058826, 0.11764705882352941, 0.5882352941176471],
-    40: [1.0, 0.0, 1.0],
-    44: [1.0, 0.5882352941176471, 1.0],
-    48: [0.29411764705882354, 0.0, 0.29411764705882354],
-    49: [0.29411764705882354, 0.0, 0.6862745098039216],
-    50: [0.0, 0.7843137254901961, 1.0],
-    51: [0.19607843137254902, 0.47058823529411764, 1.0],
-    52: [0.0, 0.5882352941176471, 1.0],
-    60: [0.6666666666666666, 1.0, 0.5882352941176471],
-    70: [0.0, 0.6862745098039216, 0.0],
-    71: [0.0, 0.23529411764705882, 0.5294117647058824],
-    72: [0.3137254901960784, 0.9411764705882353, 0.5882352941176471],
-    80: [0.5882352941176471, 0.9411764705882353, 1.0],
-    81: [0.0, 0.0, 1.0],
-    99: [1.0, 1.0, 0.19607843137254902],
-    252: [0.9607843137254902, 0.5882352941176471, 0.39215686274509803],
-    256: [1.0, 0.0, 0.0],
-    253: [0.7843137254901961, 0.1568627450980392, 1.0],
-    254: [0.11764705882352941, 0.11764705882352941, 1.0],
-    255: [0.35294117647058826, 0.11764705882352941, 0.5882352941176471],
-    257: [0.9803921568627451, 0.3137254901960784, 0.39215686274509803],
-    258: [0.7058823529411765, 0.11764705882352941, 0.3137254901960784],
-    259: [1.0, 0.0, 0.0],
-}
-
-reverse_color_dict = {tuple(v): k for k, v in color_dict_normalized.items()}
-
-
-def color_pcd_kitti(pcd, labels):
-    unique_labels = np.unique(labels)
-    pcd_colors = np.zeros_like(np.asarray(pcd.points))
-    for i in unique_labels:
-        idcs = np.where(labels == i)
-        idcs = idcs[0]
-        pcd_colors[idcs] = np.array(color_dict_normalized[int(i)])
-
-    pcd.colors = o3d.utility.Vector3dVector(pcd_colors)
-    return pcd
 
 
 def merge_unite_gt_labels(chunks, semantic_maps):
@@ -386,7 +305,6 @@ def merge_unite_gt_labels(chunks, semantic_maps):
 
         merge += new_chunk
 
-    # merge.remove_duplicated_points()
     return output_semantics
 
 
@@ -402,7 +320,6 @@ ncuts_threshold = config["T"]
 exclude = [1, 4]
 seqs = [0]
 for seq in seqs:
-    # maskpls = RefinerModel()
     if seq in exclude:
         continue
     print("Sequence", seq)
@@ -423,14 +340,13 @@ for seq in seqs:
     print("STORE FOLDER", data_store_folder)
 
     for cur_idx, cidcs in enumerate(chunks_idcs[start_chunk:]):
+        print(cur_idx)
         colors = generate_random_colors_map(6000)
-        # if cur_idx == 0 :
-        #         continue
 
         ind_start = cidcs[0]
         ind_end = cidcs[1]
         cur_idx = int(ind_start / 1000)
-        if ind_end - ind_start < 200:  ##avoid use of small maps
+        if ind_end - ind_start < 200: #do not create small maps 
             continue
 
         print("ind start", ind_start)
@@ -438,10 +354,6 @@ for seq in seqs:
 
         if "maskpls" in config["name"] and config["name"] != "maskpls_supervised":
             maskpls = RefinerModel(dataset="kitti")
-
-        if config["name"] == "maskpls_supervised":
-            print("Supervised model")
-            maskpls = RefinerModelSupervised()
 
         if (
             os.path.exists(f"{out_folder}non_ground{SEQUENCE_NUM}_{cur_idx}.pcd")
@@ -467,7 +379,6 @@ for seq in seqs:
             )
             == False
         ):
-            #    if True == True :
             print("load and downsample points")
             (
                 pcd_ground_minor,
@@ -557,7 +468,6 @@ for seq in seqs:
             sampled_indices_global = list(data["sampled_indices_global"])
         
         pcd_col = color_pcd_by_labels(pcd_nonground_minor,kitti_labels_orig['instance_nonground'],colors=colors)
-        o3d.visualization.draw_geometries([pcd_col])
         
         instances = np.hstack(
         (
@@ -570,20 +480,6 @@ for seq in seqs:
         )
         )
 
-        '''
-        unique_labels = np.unique(new_labels_inst)
-        all_points = np.asarray(full_pcd.points)
-
-        print(np.unique(unique_labels).shape)
-
-        for lab in unique_labels :
-            idcs = np.where(new_labels_inst == lab)
-            points = all_points[idcs[0]]
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            pcd.paint_uniform_color([0,0,0])
-            o3d.visualization.draw_geometries([pcd])
-        '''
 
         print("chunk downsample")
         (
@@ -616,9 +512,6 @@ for seq in seqs:
         out_folder_ncuts_cur = (
             out_folder_ncuts + str(SEQUENCE_NUM) + "_" + str(cur_idx) + "/"
         )
-        out_folder_semantics_cur = (
-            out_folder_semantics + str(SEQUENCE_NUM) + "_" + str(cur_idx) + "/"
-        )
         
         out_folder_instances_cur = (
             out_folder_instances + str(SEQUENCE_NUM) + "_" + str(cur_idx) + "/"
@@ -626,7 +519,6 @@ for seq in seqs:
 
         create_folder(out_folder_ncuts_cur)
         if config["gt"]:
-            create_folder(out_folder_semantics_cur)
             create_folder(out_folder_instances_cur)
 
         patchwise_indices = indices_per_patch(
@@ -642,7 +534,6 @@ for seq in seqs:
         for sequence in tqdm(range(start_seq, len(center_ids))):
             
             name = str(center_ids[sequence]).zfill(6) + ".pcd" 
-            # try :
             print("sequence", sequence)
             if (
                 config["name"] not in ["sam3d", "sam3d_fix", "3duis", "3duis_fix"]
@@ -703,10 +594,6 @@ for seq in seqs:
                     pred_pcd = maskpls.forward_and_project(input_pcd)
                 else:
                     pred_pcd = maskpls.forward_and_project(input_pcd)
-                
-                
-                # o3d.visualization.draw_geometries([pred_pcd])
-            
             
             if config["gt"]:
                     inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
@@ -734,28 +621,7 @@ for seq in seqs:
                         gt_labels=instances,
                     )
                     gt_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
-                    semantics_non_ground = color_pcd_kitti(
-                        copy.deepcopy(pcd_nonground_chunks[sequence]),
-                        kitti_labels["nonground"]["semantic"][sequence].reshape(
-                            -1,
-                        ),
-                    )
-                    semantics_ground = color_pcd_kitti(
-                        copy.deepcopy(pcd_chunk_ground),
-                        seg_ground.reshape(
-                            -1,
-                        ),
-                    )
-                    kitti_semantics = np.hstack(
-                        (
-                            kitti_labels["nonground"]["semantic"][sequence].reshape(
-                                -1,
-                            ),
-                            seg_ground.reshape(
-                                -1,
-                            ),
-                        )
-                    )
+                    
                     unique_colors, labels_kitti = np.unique(
                         np.asarray(gt_pcd.colors), axis=0, return_inverse=True
                     )
@@ -763,21 +629,8 @@ for seq in seqs:
                     pts = np.asarray(gt_pcd.points)
 
                     instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
-                    semantics_pcd = semantics_non_ground + semantics_ground
-                    # points,labels_ncuts,labels_kitti, downsampled_semantics = downsample_chunk_data(pts,labels_ncuts,labels_kitti,kitti_semantics)
                     print("output", data_store_folder + name.split(".")[0])
 
-                    # if labels_ncuts.shape[0] != points.shape[0] != downsampled_semantics.shape[0] != labels_kitti.shape[0]:
-                    #        AssertionError
-\
-                    o3d.io.write_point_cloud(
-                        out_folder_semantics_cur + name,
-                        semantics_pcd,
-                        write_ascii=False,
-                        compressed=False,
-                        print_progress=False,
-                    )
-                    
                     o3d.io.write_point_cloud(
                         out_folder_instances_cur + name,
                         instance_pcd,
@@ -812,34 +665,16 @@ for seq in seqs:
 
         if config["gt"]:
 
-            kitti_pcd = merge_unite_gt(get_merge_pcds(out_folder_semantics_cur[:-1]))
             map_instances = merge_unite_gt(
                 get_merge_pcds(out_folder_instances_cur[:-1])
             )
-            _, labels_semantics = np.unique(
-                np.asarray(kitti_pcd.colors), axis=0, return_inverse=True
-            )
+         
             
             _, labels_instances = np.unique(
                 np.asarray(map_instances.colors), axis=0, return_inverse=True
             )
             
-            updated_labels_semantics = np.zeros(np.asarray(kitti_pcd.colors).shape[0])
-            for label in np.unique(labels_semantics):
-                idcs = np.where(labels_semantics == label)[0]
-                col_cur = np.asarray(kitti_pcd.colors)[idcs][0]
-                updated_labels_semantics[idcs] = reverse_color_dict[tuple(col_cur)]
 
-            np.savez(
-                data_store_folder
-                + "kitti_semantic"
-                + str(SEQUENCE_NUM)
-                + "_"
-                + str(cur_idx)
-                + ".npz",
-                labels=updated_labels_semantics,
-            )
-        
         
         if "maskpls" in config["name"]:
 

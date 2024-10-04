@@ -1,11 +1,9 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 import open3d as o3d
-import os
 from point_cloud_utils import (
     transform_pcd,
     get_pcd,
-    change_point_indices,
     get_statistical_inlier_indices,
     angle_between,
     get_subpcd,
@@ -16,13 +14,6 @@ from hidden_points_removal import hidden_point_removal_o3d
 from point_to_pixels import point_to_pixel
 import umap
 import copy
-import cv2
-import scipy
-from visualization_utils import color_pcd_by_labels
-from scipy.spatial import cKDTree
-from tqdm import tqdm
-import time
-
 
 import numpy as np
 from scipy.spatial.distance import cdist
@@ -150,65 +141,13 @@ def chunks_from_pointcloud(
                 max_position = pos_pcd + (0.5 * R)
                 min_position = pos_pcd - (0.5 * R)
 
-                if dataset.nuscenes == True:
-                    pos_last = last_position - first_position
-                    # sphere2.translate([pos_last[0],pos_last[1],pos_last[2]])
-
-                    direction_vector = pos_pcd - pos_last
-                    direction_vector_normalized = direction_vector / np.linalg.norm(
-                        direction_vector
-                    )
-
-                    y_axis = direction_vector_normalized
-                    # Choose an arbitrary vector different from y_axis for cross product
-                    z_axis = (
-                        np.array([0, 0, 1])
-                        if np.abs(y_axis[1]) != 1
-                        else np.array([1, 0, 0])
-                    )
-                    # Ensure z_axis is orthogonal to y_axis
-                    x_axis = np.cross(y_axis, z_axis)
-                    x_axis_normalized = x_axis / np.linalg.norm(x_axis)
-                    # Recompute z_axis to ensure orthogonality
-                    z_axis = np.cross(x_axis_normalized, y_axis)
-                    z_axis_normalized = z_axis / np.linalg.norm(z_axis)
-
-                    # Construct the rotation matrix
-                    rotation_matrix = np.vstack(
-                        [x_axis_normalized, y_axis, z_axis_normalized]
-                    ).T
-
-                    # Calculate the center of the OBB (midpoint between start and end poses)
-                    center = pos_pcd
-
-                    # Define the extents of the OBB (length, width, height)
-                    extents = chunk_size  # Adjust these values as needed
-
-                    # Create an Oriented Bounding Box (OBB)
-                    obb2 = o3d.geometry.OrientedBoundingBox(
-                        center, rotation_matrix, extents
-                    )
-
-                    # o3d.visualization.draw_geometries([pcd, obb2])
-
-                    obbs.append(obb2)
-
-                    points = np.asarray(pcd.points)
-
-                    boolean_arr = are_points_inside_obb(points, obb2)
-                    ids = np.where(boolean_arr == 1)[0]
-
-                else:  ##use abb for KITTI
-                    ids = np.where(
+                ids = np.where(
                         np.all(points > min_position, axis=1)
                         & np.all(points < max_position, axis=1)
                     )[0]
-                    obbs.append(0)
+                obbs.append(0)
                 pcd_cut = pcd.select_by_index(ids)
-                # if cnt == 0 :
-                #    pcd_cut.paint_uniform_color([0,0,1])
-                #    o3d.visualization.draw_geometries([pcd,sphere,sphere2,obb2])
-                #    o3d.visualization.draw_geometries([pcd_cut])
+
                 cnt += 1
 
                 inlier_indices = get_statistical_inlier_indices(pcd_cut)
@@ -230,8 +169,6 @@ def chunks_from_pointcloud(
                             labels["instance_ground"][ids][inlier_indices]
                         )
 
-                # pcd = color_pcd_by_labels(pcd_cut_final,labels['panoptic_nonground'][ids][inlier_indices])
-                # o3d.visualization.draw_geometries([pcd])
 
                 pcd_chunks.append(pcd_cut_final)
                 chunk_indices.append(ids)
@@ -306,13 +243,7 @@ def tarl_features_per_patch(
         T_local2global = np.linalg.inv(T_pcd) @ T_lidar2world
         coords = transform_pcd(coords, T_local2global)
 
-        if dataset.nuscenes == True:
-            inside_mask = are_points_inside_obb(coords, obb)
-
-            # Find the indices of points inside the OBB
-            mask = np.where(inside_mask == 1)[0]
-        else:  ##use abb for KITTI
-            mask = np.where(
+        mask = np.where(
                 np.all(coords > min_position, axis=1)
                 & np.all(coords < max_position, axis=1)
             )[0]
@@ -420,7 +351,7 @@ def image_based_features_per_patch(
         if sam:
             point2sam_nc = (-1) * np.ones(
                 (num_points_nc, len(cam_indices)), dtype=int
-            )  # -1 indicates no association
+            ) 
 
         if dino:
             point2dino_nc = np.zeros(
@@ -436,9 +367,6 @@ def image_based_features_per_patch(
             assert len(cam_indices) == hpr_masks.shape[0]
 
         for i, points_index in enumerate(cam_indices):
-            start_loop = time.time()
-            # Load the calibration matrices
-            start = time.time()
             T_lidar2world = dataset.get_pose(points_index)
             T_world2lidar = np.linalg.inv(T_lidar2world)
             T_lidar2cam, K = dataset.get_calibration_matrices(cams[cam_id])
@@ -451,19 +379,16 @@ def image_based_features_per_patch(
             pcd_camframe_world = copy.deepcopy(new_pcd).transform(dataset.get_pose(0))
             pcd_camframe = copy.deepcopy(pcd).transform(T_pcd2cam)
 
-            if dataset.nuscenes == False:  ##speedup currently only supported by KITTI
-                pts = np.asarray(pcd_chunk.points)
-                min_x, min_y, min_z = pts[:, 0].min(), pts[:, 1].min(), pts[:, 2].min()
-                max_x, max_y, max_z = pts[:, 0].max(), pts[:, 1].max(), pts[:, 2].max()
-                min_bound = np.array([min_x, min_y, min_z])
-                max_bound = np.array([max_x, max_y, max_z])
-                # pcd_camframe_world.paint_uniform_color([0,0,1])
+            pts = np.asarray(pcd_chunk.points)
+            min_x, min_y, min_z = pts[:, 0].min(), pts[:, 1].min(), pts[:, 2].min()
+            max_x, max_y, max_z = pts[:, 0].max(), pts[:, 1].max(), pts[:, 2].max()
+            min_bound = np.array([min_x, min_y, min_z])
+            max_bound = np.array([max_x, max_y, max_z])
 
             if hpr_masks is None:
 
                 hpr_bounds = np.array([25, 25, 25])
-                if dataset.nuscenes == False:
-                    bound_indices = np.where(
+                bound_indices = np.where(
                         np.all(
                             np.asarray(pcd_camframe_world.points) > min_bound, axis=1
                         )
@@ -473,36 +398,9 @@ def image_based_features_per_patch(
                     )[
                         0
                     ]  ##speedup currently only works for KITTI
-                else:
-                    pcd_transformed = copy.deepcopy(pcd_camframe).transform(
-                        np.linalg.inv(T_world2cam)
-                    )
-                    pts = np.asarray(pcd_chunk.points)
-                    min_x, min_y, min_z = (
-                        pts[:, 0].min(),
-                        pts[:, 1].min(),
-                        pts[:, 2].min(),
-                    )
-                    max_x, max_y, max_z = (
-                        pts[:, 0].max(),
-                        pts[:, 1].max(),
-                        pts[:, 2].max(),
-                    )
-                    min_bound = np.array([min_x, min_y, min_z])
-                    max_bound = np.array([max_x, max_y, max_z])
-                    bound_indices = np.where(
-                        np.all(np.asarray(pcd_transformed.points) > min_bound, axis=1)
-                        & np.all(np.asarray(pcd_transformed.points) < max_bound, axis=1)
-                    )[
-                        0
-                    ]  ##speedup currently only works for KITTI
-
-                    # o3d.visualization.draw_geometries([pcd_transformed + pcd_chunk,obb])
-                    # bound_indices = np.where(np.all(np.asarray(pcd_camframe.points) > -hpr_bounds, axis=1) & np.all(np.asarray(pcd_camframe.points) < hpr_bounds, axis=1))[0]
+               
                 pcd_camframe_hpr = get_subpcd(pcd_camframe, bound_indices)
-                # o3d.visualization.draw_geometries([pcd_camframe_hpr])
 
-                start = time.time()
                 try:
                     visible_indices = hidden_point_removal_o3d(
                         np.asarray(pcd_camframe_hpr.points),
@@ -524,8 +422,6 @@ def image_based_features_per_patch(
                         visible_indices_visibility
                     ]
 
-                end_hpr = time.time() - start
-                # print("HPR takes ", end_hpr ," s")
                 visible_indices = bound_indices[visible_indices]
 
             else:
@@ -546,7 +442,6 @@ def image_based_features_per_patch(
                 sam_labels = masks_to_image(sam_masks)
 
             # Load the DINOV2 feature map
-            start = time.time()
             if dino:
                 if num_dino_features < 384:
                     dinov2_original = dataset.get_dinov2_features(
@@ -589,7 +484,7 @@ def image_based_features_per_patch(
             visible_chunk = get_subpcd(pcd_camframe, frame_indices)
             if vis == True:
                 visible_chunk_ablation = get_subpcd(pcd_camframe, frame_indices_vis)
-            # o3d.visualization.draw_geometries([visible_chunk])
+            
             chunk_nc_camframe = copy.deepcopy(chunk_nc).transform(T_pcd2cam)
 
             visible_chunk_tree = o3d.geometry.KDTreeFlann(visible_chunk)
@@ -629,7 +524,6 @@ def image_based_features_per_patch(
                 label_shape[0],
                 label_shape[1],
             )
-            start = time.time()
             if rm_perp:
                 T_cam2pcd = np.linalg.inv(copy.deepcopy(T_pcd2cam))
                 visible_nc_pcdframe = copy.deepcopy(visible_nc_camframe).transform(
@@ -671,25 +565,11 @@ def image_based_features_per_patch(
                     point2dino_nc[nc_indices[point_id], i, :] = dinov2_feature_map[
                         dino_pixel_0, dino_pixel_1, :
                     ]
-            end = time.time() - start
-            end = time.time() - start_loop
-
-            """
-            print("total loop time ", end ," s")
-            print("Percentage HPR ", round(end_hpr/end,4)*100)
-            print("Percentage vis ", round(end_vis/end,4)*100)
-            print("Percentage load", round(end_load/end,4)* 100)
-            print('-------------')
-            """
 
         if sam:
             point2sam_list.append(point2sam_nc)
         if dino:
             point2dino_list.append(point2dino_nc)
-    # if vis == True:
-    #    o3d.visualization.draw_geometries(
-    #        [color_pcd_by_labels(orig_chunk_nc, visibility_mask)]
-    #    )
 
     if sam and dino:
         return point2sam_list, point2dino_list

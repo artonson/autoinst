@@ -10,51 +10,22 @@ import yaml
 src_path = os.path.abspath("../..")
 if src_path not in sys.path:
     sys.path.append(src_path)
-from dataset.kitti_odometry_dataset import (
-    KittiOdometryDataset,
-    KittiOdometryDatasetConfig,
-)
-from dataset.filters.filter_list import FilterList
-from dataset.filters.kitti_gt_mo_filter import KittiGTMovingObjectFilter
-from dataset.filters.range_filter import RangeFilter
-from dataset.filters.apply_pose import ApplyPose
 
-import scipy
-from scipy.spatial.distance import cdist
-from normalized_cut import normalized_cut
 from ncuts_utils import (
     ncuts_chunk,
-    kDTree_1NN_feature_reprojection_colors,
-    get_merge_pcds,
 )
 from dataset_utils import *
 from point_cloud_utils import (
-    get_pcd,
-    transform_pcd,
     kDTree_1NN_feature_reprojection,
-    remove_isolated_points,
-    get_subpcd,
-    get_statistical_inlier_indices,
-    merge_chunks_unite_instances,
 )
-from aggregate_pointcloud import aggregate_pointcloud
 from visualization_utils import (
     generate_random_colors,
     color_pcd_by_labels,
     generate_random_colors_map,
 )
-from sam_label_distace import sam_label_distance
 from chunk_generation import (
-    subsample_positions,
-    chunks_from_pointcloud,
     indices_per_patch,
-    tarl_features_per_patch,
-    image_based_features_per_patch,
-    dinov2_mean,
-    get_indices_feature_reprojection,
 )
-from metrics.metrics_class import Metrics
-from predict_maskpls import RefinerModel
 
 
 alpha = 1.0
@@ -458,7 +429,6 @@ for seq in seqs:
         )
         out_data = []
         for sequence in tqdm(range(0, len(center_ids))):
-            # try :
             print("sequence", sequence)
             try:
                 (
@@ -495,18 +465,6 @@ for seq in seqs:
                     ncuts_threshold=ncuts_threshold,
                 )
 
-                """
-                                                inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
-                                                ground_inliers = get_subpcd(pcd_ground_chunks[sequence], inliers)
-                                                mean_hight = np.mean(np.asarray(ground_inliers.points)[:,2])
-                                                in_idcs = np.where(np.asarray(ground_inliers.points)[:,2] < (mean_hight + 0.6))[0]
-                                                pcd_chunk_ground = get_subpcd(ground_inliers, in_idcs)
-                                                pcd_chunk_ground.paint_uniform_color([0, 0, 0])
-                                                pcd_chunk = pcd_nonground_chunks[sequence]
-                                                #merged_chunk = pcd_chunk + cut_hight
-                                                """
-
-                # kitti_labels['ground']['panoptic'][sequence] = kitti_labels['ground']['panoptic'][sequence][inliers_ground]
                 inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
                     inliers_ground
                 ]
@@ -514,14 +472,8 @@ for seq in seqs:
                     inliers_ground
                 ]
 
-                # clustering_cloud = clustering_logic(copy.deepcopy(pcd_chunk),copy.deepcopy(pcd_chunk_ground))
-                # o3d.visualization.draw_geometries([clustering_cloud])
 
                 name = str(center_ids[sequence]) + ".pcd"
-
-                # import pdb; pdb.set_trace()
-                # kitti_chunk = color_pcd_by_labels(pcd_chunk,kitti_labels['nonground']['panoptic'][sequence].reshape(-1,),
-                #                        colors=colors,gt_labels=kitti_labels_orig['panoptic_nonground'])
 
                 kitti_chunk_instance = color_pcd_by_labels(
                     pcd_chunk,
@@ -559,7 +511,6 @@ for seq in seqs:
                 unique_colors, labels_kitti = np.unique(
                     np.asarray(gt_pcd.colors), axis=0, return_inverse=True
                 )
-                # unique_colors, labels_hdbscan = np.unique(np.asarray(clustering_cloud.colors),axis=0, return_inverse=True)
                 unique_colors, labels_ncuts = np.unique(
                     np.asarray(merged_chunk.colors), axis=0, return_inverse=True
                 )

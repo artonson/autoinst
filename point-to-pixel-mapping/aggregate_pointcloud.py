@@ -1,9 +1,9 @@
 import open3d as o3d
 import numpy as np
 from open3d.pipelines import registration
-from point_cloud_utils import get_pcd, get_subpcd, get_statistical_inlier_indices
+from point_cloud_utils import get_pcd, get_subpcd
 import sys
-
+sys.path.append("/Users/cedric/unsup_3d_instances/point-to-pixel-mapping/utils/pypatchwork/build/patchworkpp/")
 import pypatchworkpp
 from visualization_utils import *
 from tqdm import tqdm
@@ -41,8 +41,6 @@ def aggregate_pointcloud(
     seg_labels_ground = []
     instance_labels_nonground = []
     instance_labels_ground = []
-    moving_ids = []  ##for nuscenes
-    pose_id_dict = {}  # for nuscenes to do moving object filtering
     pcd_grounds = []
     pcd_non_grounds = []
 
@@ -175,7 +173,6 @@ def aggregate_pointcloud(
             map_pcd_ground += pcd_ground.transform(transform)
             map_pcd_nonground += pcd_nonground.transform(transform)
 
-       
         labels = {
             "seg_ground": seg_labels_ground,
             "seg_nonground": seg_labels_nonground,
@@ -187,5 +184,6 @@ def aggregate_pointcloud(
 
         map_pcd_ground.normals = o3d.utility.Vector3dVector([])
         map_pcd_nonground.normals = o3d.utility.Vector3dVector([])
-
+        pcd = map_pcd_ground + map_pcd_nonground
+        
         return map_pcd_ground, map_pcd_nonground, poses, world_pose, labels

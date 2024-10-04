@@ -119,9 +119,6 @@ class MaskedTransformerDecoder(nn.Module):
                 mask_features,
                 pad_mask=last_pad,
             )
-            #breakpoint()
-            #outputs_class = torch.zeros_like(outputs_class)
-            #outputs_class[:,:,1] = 1.0
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 

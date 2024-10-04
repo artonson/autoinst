@@ -121,7 +121,7 @@ class Metrics:
         self.eval_lstq = evaluator(min_points=min_points)
         self.eval_lstq.reset()
         self.semantic_intersection = 0.05
-        self.num_processes = 4
+        self.num_processes = 2
 
         self.labels_dict = {
             0: "unlabeled",
