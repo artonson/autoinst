@@ -27,16 +27,10 @@ from config import *
 
 def ncuts_chunk(
     dataset,
-    indices,
-    pcd_nonground_chunks,
-    pcd_ground_chunks,
-    pcd_nonground_chunks_major_downsampling,
+    chunk_downsample_dict,
     pcd_nonground_minor,
     T_pcd,
-    center_positions,
-    center_ids,
     sampled_indices_global,
-    out_folder=None,
     sequence=None,
     patchwise_indices=None,
     obb=None,
@@ -44,9 +38,9 @@ def ncuts_chunk(
 
     print("Start of sequence", sequence)
     first_id = patchwise_indices[sequence][0]
-    center_id = center_ids[sequence]
-    center_position = center_positions[sequence]
-    chunk_indices = indices[sequence]
+    center_id = chunk_downsample_dict['center_ids'][sequence]
+    center_position = chunk_downsample_dict['center_positions'][sequence]
+    chunk_indices = chunk_downsample_dict['indices'][sequence]
 
     cam_indices_global, _ = get_indices_feature_reprojection(
         sampled_indices_global, first_id, adjacent_frames=ADJACENT_FRAMES_CAM
@@ -55,10 +49,10 @@ def ncuts_chunk(
         sampled_indices_global, center_id, adjacent_frames=ADJACENT_FRAMES_TARL
     )
 
-    pcd_chunk = pcd_nonground_chunks[sequence]
-    pcd_ground_chunk = pcd_ground_chunks[sequence]
+    pcd_chunk = chunk_downsample_dict['pcd_nonground_chunks'][sequence]
+    pcd_ground_chunk = chunk_downsample_dict['pcd_ground_chunks'][sequence]
 
-    chunk_major = pcd_nonground_chunks_major_downsampling[sequence]
+    chunk_major = chunk_downsample_dict['pcd_nonground_chunks_major_downsampling'][sequence]
 
     points_major = np.asarray(chunk_major.points)
     num_points_major = points_major.shape[0]
@@ -208,9 +202,7 @@ def ncuts_chunk(
     cut_hight.paint_uniform_color([0, 0, 0])
     merged_chunk = pcd_chunk + cut_hight
 
-    index_file = str(center_id).zfill(6) + ".pcd"
-    file = os.path.join(out_folder, index_file)
-    return merged_chunk, file, pcd_chunk, cut_hight, inliers, in_idcs
+    return merged_chunk,  pcd_chunk, cut_hight, inliers, in_idcs
 
 
 def get_merge_pcds(out_folder_ncuts):

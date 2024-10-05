@@ -467,15 +467,16 @@ def chunk_and_downsample_point_clouds(
         pcd_ground_chunks_major_downsampling.append(downsampled_ground)
 
     return (
-        pcd_nonground_chunks,
-        pcd_ground_chunks,
-        pcd_nonground_chunks_major_downsampling,
-        pcd_ground_chunks_major_downsampling,
-        indices,
-        indices_ground,
-        center_positions,
-        center_ids,
-        chunk_bounds,
-        kitti_labels,
-        obbs,
+        {'pcd_nonground_chunks':pcd_nonground_chunks,
+        'pcd_ground_chunks':pcd_ground_chunks,
+        'pcd_nonground_chunks_major_downsampling':pcd_nonground_chunks_major_downsampling,
+        'pcd_ground_chunks_major_downsampling':pcd_ground_chunks_major_downsampling,
+        'indices':indices,
+        'indices_ground':indices_ground,
+        'center_positions':center_positions,
+        'center_ids':center_ids,
+        'chunk_bounds':chunk_bounds,
+        'kitti_labels':kitti_labels,
+        'obbs':obbs
+        }
     )

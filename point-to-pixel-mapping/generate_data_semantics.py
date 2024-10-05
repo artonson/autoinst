@@ -57,19 +57,9 @@ def create_folder(name):
     if os.path.exists(name) == False:
         os.makedirs(name)
 
-
-out_folder_instances = OUT_FOLDER + "instances/"
-if os.path.exists(out_folder_instances) == False:
-    os.makedirs(out_folder_instances)
-
-out_folder_ncuts = OUT_FOLDER + CONFIG["out_folder"]
-if os.path.exists(out_folder_ncuts) == False:
-    os.makedirs(out_folder_ncuts)
-
-data_store_train = OUT_FOLDER + "train/"
-if os.path.exists(data_store_train) == False:
-    os.makedirs(data_store_train)
-
+create_folder(OUT_FOLDER_NCUTS)
+create_folder(OUT_FOLDER_INSTANCES)
+create_folder(OUT_FOLDER_TRAIN)
 
 seqs = [0]
 for seq in seqs:
@@ -82,12 +72,10 @@ for seq in seqs:
     chunks_idcs = divide_indices_into_chunks(len(dataset))
 
     data_store_folder = OUT_FOLDER + str(seq) + "/"
-    if os.path.exists(data_store_folder) == False:
-        os.makedirs(data_store_folder)
+    create_folder(data_store_folder)
 
-    data_store_folder_train_cur = data_store_train + str(seq) + "/"
-    if os.path.exists(data_store_folder_train_cur) == False:
-        os.makedirs(data_store_folder_train_cur)
+    data_store_folder_train_cur = OUT_FOLDER_TRAIN + str(seq) + "/"
+    create_folder(data_store_folder_train_cur)
 
     print("STORE FOLDER", data_store_folder)
 
@@ -225,21 +213,8 @@ for seq in seqs:
         )
         )
 
-
         print("chunk downsample")
-        (
-            pcd_nonground_chunks,
-            pcd_ground_chunks,
-            pcd_nonground_chunks_major_downsampling,
-            pcd_ground_chunks_major_downsampling,
-            indices,
-            indices_ground,
-            center_positions,
-            center_ids,
-            chunk_bounds,
-            kitti_labels,
-            _,
-        ) = chunk_and_downsample_point_clouds(
+        chunk_downsample_dict = chunk_and_downsample_point_clouds(
             pcd_nonground_minor,
             pcd_ground_minor,
             T_pcd,
@@ -251,11 +226,11 @@ for seq in seqs:
         print("finished downsample")
 
         out_folder_ncuts_cur = (
-            out_folder_ncuts + str(seq) + "_" + str(cur_idx) + "/"
+            OUT_FOLDER_NCUTS + str(seq) + "_" + str(cur_idx) + "/"
         )
         
         out_folder_instances_cur = (
-            out_folder_instances + str(seq) + "_" + str(cur_idx) + "/"
+            OUT_FOLDER_INSTANCES + str(seq) + "_" + str(cur_idx) + "/"
         )
 
         create_folder(out_folder_ncuts_cur)
@@ -264,16 +239,16 @@ for seq in seqs:
 
         patchwise_indices = indices_per_patch(
             T_pcd,
-            center_positions,
+            chunk_downsample_dict['center_positions'],
             positions,
             first_position,
             sampled_indices_global,
         )
         out_data = []
         semantics_kitti = []
-        for sequence in tqdm(range(start_seq, len(center_ids))):
+        for sequence in tqdm(range(start_seq, len(chunk_downsample_dict['center_ids']))):
             
-            name = str(center_ids[sequence]).zfill(6) + ".pcd" 
+            name = str(chunk_downsample_dict['center_ids'][sequence]).zfill(6) + ".pcd" 
             print("sequence", sequence)
             if (
                 CONFIG["name"] not in ["sam3d", "sam3d_fix", "3duis", "3duis_fix"]
@@ -281,23 +256,16 @@ for seq in seqs:
             ):
                 (
                     merged_chunk,
-                    file_name,
                     pcd_chunk,
                     pcd_chunk_ground,
                     inliers,
                     inliers_ground,
                 ) = ncuts_chunk(
                     dataset,
-                    list(indices),
-                    pcd_nonground_chunks,
-                    pcd_ground_chunks,
-                    pcd_nonground_chunks_major_downsampling,
+                    chunk_downsample_dict,
                     pcd_nonground_minor,
                     T_pcd,
-                    center_positions,
-                    center_ids,
                     list(sampled_indices_global),
-                    out_folder=out_folder_ncuts,
                     sequence=sequence,
                     patchwise_indices=patchwise_indices,
                 )
@@ -305,16 +273,16 @@ for seq in seqs:
                 pred_pcd = pcd_chunk + pcd_chunk_ground
 
             elif "maskpls" in CONFIG["name"]:
-                inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
-                ground_inliers = get_subpcd(pcd_ground_chunks[sequence], inliers)
+                inliers = get_statistical_inlier_indices(chunk_downsample_dict['pcd_ground_chunks'][sequence])
+                ground_inliers = get_subpcd(chunk_downsample_dict['pcd_ground_chunks'][sequence], inliers)
                 mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
                 inliers_ground = np.where(
-                    np.asarray(ground_inliers.points)[:, 2] < (mean_hight + 0.6)
+                    np.asarray(ground_inliers.points)[:, 2] < (mean_hight + MEAN_HEIGHT)
                 )[0]
                 pcd_chunk_ground = get_subpcd(ground_inliers, inliers_ground)
                 pcd_chunk_ground.paint_uniform_color([0, 0, 0])
 
-                input_pcd = pcd_nonground_chunks[sequence] + pcd_chunk_ground
+                input_pcd = chunk_downsample_dict['pcd_nonground_chunks'][sequence] + pcd_chunk_ground
 
                 if "supervised" not in CONFIG["name"]:
                     print("unsupervised")
@@ -323,16 +291,13 @@ for seq in seqs:
                     pred_pcd = maskpls.forward_and_project(input_pcd)
             
             if CONFIG["gt"]:
-                    inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
-                        inliers_ground
-                    ]
-                    seg_ground = kitti_labels["ground"]["semantic"][sequence][inliers][
+                    inst_ground = chunk_downsample_dict['kitti_labels']["ground"]["instance"][sequence][inliers][
                         inliers_ground
                     ]
 
                     kitti_chunk_instance = color_pcd_by_labels(
-                        copy.deepcopy(pcd_nonground_chunks[sequence]),
-                        kitti_labels["nonground"]["instance"][sequence].reshape(
+                        copy.deepcopy(chunk_downsample_dict['pcd_nonground_chunks'][sequence]),
+                        chunk_downsample_dict['kitti_labels']["nonground"]["instance"][sequence].reshape(
                             -1,
                         ),
                         colors=colors,
@@ -366,8 +331,6 @@ for seq in seqs:
                         print_progress=False,
                     )
             
-
-            name = str(center_ids[sequence]).zfill(6) + ".pcd"
 
             unique_colors, labels_ncuts = np.unique(
                 np.asarray(pred_pcd.colors), axis=0, return_inverse=True

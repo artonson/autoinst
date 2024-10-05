@@ -84,3 +84,6 @@ CAM_IDS = [0]
 
 CONFIG = config_spatial
 OUT_FOLDER = "pcd_preprocessed/semantics/"
+OUT_FOLDER_NCUTS = OUT_FOLDER + CONFIG["out_folder"]
+OUT_FOLDER_INSTANCES = OUT_FOLDER + "instances/"
+OUT_FOLDER_TRAIN = OUT_FOLDER + "train/"
