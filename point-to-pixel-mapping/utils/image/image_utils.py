@@ -1,5 +1,5 @@
 import cv2
-from visualization_utils import generate_random_colors
+from utils.visualization_utils import generate_random_colors
 import numpy as np
 
 def downsample(image, scale_factor):

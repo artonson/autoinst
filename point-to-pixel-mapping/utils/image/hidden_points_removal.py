@@ -1,6 +1,6 @@
 # Different functions that accept point clouds as numpy arrays and return mask of visible points
 import numpy as np
-from point_cloud_utils import get_pcd
+from utils.point_cloud.point_cloud_utils import get_pcd
 from scipy.spatial import cKDTree
 
 def hidden_point_removal_o3d(points_np: np.array, camera: list, radius_factor=100):

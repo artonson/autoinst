@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 import open3d as o3d
-from point_cloud_utils import (
+from utils.point_cloud.point_cloud_utils import (
     transform_pcd,
     get_pcd,
     get_statistical_inlier_indices,
@@ -9,9 +9,9 @@ from point_cloud_utils import (
     get_subpcd,
     kDTree_1NN_feature_reprojection,
 )
-from image_utils import masks_to_image
-from hidden_points_removal import hidden_point_removal_o3d
-from point_to_pixels import point_to_pixel
+from utils.image.image_utils import masks_to_image
+from utils.image.hidden_points_removal import hidden_point_removal_o3d
+from utils.image.point_to_pixels import point_to_pixel
 import umap
 import copy
 

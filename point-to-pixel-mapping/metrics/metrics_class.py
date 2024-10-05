@@ -58,44 +58,6 @@ def generate_random_colors_map(N, seed=0):
 
     return list(colors)  # Convert the
 
-
-def color_pcd_by_labels(pcd, labels, colors=None, largest=True):
-
-    if colors == None:
-        colors = generate_random_colors(2000)
-    pcd_colored = copy.deepcopy(pcd)
-    pcd_colors = np.zeros(np.asarray(pcd.points).shape)
-    unique_labels = list(np.unique(labels))
-
-    # background_color = np.array([0,0,0])
-
-    # for i in range(len(pcd_colored.points)):
-    largest_cluster_idx = -10
-    largest = 0
-    if largest:
-        for i in unique_labels:
-            idcs = np.where(labels == i)
-            idcs = idcs[0]
-            if idcs.shape[0] > largest:
-                largest = idcs.shape[0]
-                largest_cluster_idx = i
-
-    for i in unique_labels:
-        if i == -1:
-            continue
-        idcs = np.where(labels == i)
-        idcs = idcs[0]
-        if i == largest_cluster_idx or i == 0:
-            pcd_colors[idcs] = np.array([0, 0, 0])
-        else:
-            pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
-
-        # if labels[i] != (-1):
-        #    pcd_colored.colors[i] = np.array(colors[labels[i]]) / 255
-    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors / 255)
-    return pcd_colored
-
-
 def get_average(l):
     return sum(l) / len(l)
 
@@ -121,7 +83,7 @@ class Metrics:
         self.eval_lstq = evaluator(min_points=min_points)
         self.eval_lstq.reset()
         self.semantic_intersection = 0.05
-        self.num_processes = 2
+        self.num_processes = 1
 
         self.labels_dict = {
             0: "unlabeled",
@@ -172,8 +134,6 @@ class Metrics:
             "other_ground",
             "vegetation",
         ]
-
-        # self.relevant_idcs = {1:'car',3:'fence',4:'truck',6:'vegetation'}
 
         # ap stuff
         self.ap = {}
@@ -413,7 +373,6 @@ class Metrics:
             self.recall.append(self.tp / float(self.tp + self.fn))
 
         ap = np.trapz(self.precision, self.recall)
-        # print("Average Precision @ " + str(iou_thresh), ap)
         return ap
 
     def average_precision_final(self, iou_thresh=0.5):
@@ -517,50 +476,15 @@ class Metrics:
         new_pcd.points = pcd.points
         num_clusters = 0
         for i in np.unique(preds):
-            # new_cols = np.zeros((np.asarray(pcd.points).shape[0],3))
 
             pred_idcs = np.where(preds == i)[0]
             cur_intersect = self.intersect(pred_idcs, gt_idcs)
 
-            # new_cols[pred_idcs] = np.array([1,0,0])
-            # new_pcd.colors = o3d.utility.Vector3dVector(new_cols)
-            # o3d.visualization.draw_geometries([new_pcd])
-
             if cur_intersect > self.semantic_intersection:
-                # print("intersect",cur_intersect)
                 new_ncuts_labels[pred_idcs] = 1
                 num_clusters += 1
-        # o3d.visualization.draw_geometries([color_pcd_by_labels(pcd,new_ncuts_labels,largest=True)])
         return np.where(new_ncuts_labels == 1)[0], num_clusters
 
-    def semantic_eval(self, pred_pcd, pcd_gt, labels):
-        unique_colors_kitti, labels_kitti = np.unique(
-            np.asarray(pcd_gt.colors), axis=0, return_inverse=True
-        )
-        unique_colors, labels_ncuts = np.unique(
-            np.asarray(pred_pcd.colors), axis=0, return_inverse=True
-        )
-
-        for idx in list(np.unique(labels)):
-            print("file idx", idx)
-            print("current class", self.labels_dict[idx])
-            # print("Semantics for class", self.relevant_idcs[idx])
-            gt_pcd, idcs = self.remove_cols(
-                pcd_gt,
-                unique_colors_kitti,
-                labels.reshape(-1, 1),
-                list(np.unique(labels)),
-                idx,
-            )
-
-            # pred_labels, num_clusters = self.get_semantics(
-            #    labels_ncuts, idcs, pred_pcd)
-
-            # cur_iou = self.iou(pred_labels, idcs)
-            # print("--- iou",cur_iou)
-            # print("--- num clusters",num_clusters)
-            # print("--- semantic score", cur_iou/(num_clusters + 1e-8))
-            # print("-------------------")
 
     def calculate_full_stats(self, pred_labels, gt_labels):
         print("full stats")
@@ -588,7 +512,6 @@ class Metrics:
         out["panoptic"] = panoptic
         print(out)
 
-        # out = full_statistics(pred_indices, gt_indices, instanseg.metrics.iou, "iou")
         return out
 
 

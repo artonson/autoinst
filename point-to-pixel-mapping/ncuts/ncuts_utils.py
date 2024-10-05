@@ -2,21 +2,20 @@ import open3d as o3d
 import numpy as np
 import os
 from scipy.spatial.distance import cdist
-from chunk_generation import get_indices_feature_reprojection
-from point_cloud_utils import (
+from utils.point_cloud.point_cloud_utils import (
     remove_isolated_points,
     get_subpcd,
     get_statistical_inlier_indices,
     kDTree_1NN_feature_reprojection,
 )
-from visualization_utils import generate_random_colors 
-from chunk_generation import (
+from utils.visualization_utils import generate_random_colors 
+from utils.point_cloud.chunk_generation import (
     tarl_features_per_patch,
     image_based_features_per_patch,
     dinov2_mean,
     get_indices_feature_reprojection,
 )
-from normalized_cut import normalized_cut
+from ncuts.normalized_cut import normalized_cut
 import scipy
 import copy
 
@@ -185,10 +184,7 @@ def ncuts_chunk(
 
         for dinov2_features_major in dinov2_features_major_list:
             dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
-            # no_dino_mask = ~np.array(dinov2_features_major).any(1)
-            # dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
-            # dinov2_distance[no_dino_mask] = 0
-            # dinov2_distance[:, no_dino_mask] = 0
+
 
             dinov2_edge_weights = dinov2_edge_weights * np.exp(-gamma * dinov2_distance)
 

@@ -11,28 +11,16 @@ import numpy as np
 import copy
 import open3d as o3d
 
-from aggregate_pointcloud import aggregate_pointcloud
-from chunk_generation import subsample_positions, chunks_from_pointcloud
-from visualization_utils import generate_random_colors_map
+from utils.point_cloud.aggregate_pointcloud import aggregate_pointcloud
+from utils.point_cloud.chunk_generation import subsample_positions, chunks_from_pointcloud
+from utils.visualization_utils import generate_random_colors_map, generate_random_colors
 import numpy as np
 import matplotlib.pyplot as plt
-import random
 
 # Generate 30 different colors
 COLORS = plt.cm.viridis(np.linspace(0, 1, 30))
 COLORS = list(list(col) for col in COLORS)
 COLORS = [tuple(col[:3]) for col in COLORS]
-
-
-def generate_random_colors(N):
-    colors = set()  # Use a set to store unique colors
-    while len(colors) < N:  # Keep generating colors until we have N unique ones
-        # Generate a random color and add it to the set
-        colors.add(
-            (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        )
-
-    return list(colors)  # Convert the set to a list before returning
 
 
 def masks_to_colored_image(masks):
@@ -57,9 +45,7 @@ def masks_to_colored_image(masks):
     return image_labels
 
 def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None, semantics=False):
-
-    if colors == None:
-        colors = generate_random_colors(2000)
+ 
     pcd_colored = copy.deepcopy(pcd)
     pcd_colors = np.zeros(np.asarray(pcd.points).shape)
     if gt_labels is None:
@@ -68,21 +54,18 @@ def color_pcd_by_labels(pcd, labels, colors=None, gt_labels=None, semantics=Fals
         unique_labels = list(np.unique(gt_labels))
 
     background_color = np.array([0, 0, 0])
-
+    # for i in range(len(pcd_colored.points)):
     for i in unique_labels:
         if i == -1:
             continue
         idcs = np.where(labels == i)
         idcs = idcs[0]
-        if i == 0:
+        if i == 0 and semantics == False:
             pcd_colors[idcs] = background_color
         else:
             pcd_colors[idcs] = np.array(colors[unique_labels.index(i)])
 
-    if semantics:
-        pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors)
-    else:
-        pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors / 255)
+    pcd_colored.colors = o3d.utility.Vector3dVector(pcd_colors / 255.0)
     return pcd_colored
 
 

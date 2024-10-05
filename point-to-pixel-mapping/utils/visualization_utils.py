@@ -6,8 +6,8 @@ import open3d as o3d
 import random
 import copy
 
-from point_cloud_utils import get_pcd
-from point_to_pixels import pixel_to_point_from_point_to_pixel
+from utils.point_cloud.point_cloud_utils import get_pcd
+from utils.image.point_to_pixels import pixel_to_point_from_point_to_pixel
 
 
 def generate_random_colors_map(N, seed=0):

@@ -162,6 +162,13 @@ def kDTree_1NN_feature_reprojection(
     return features_to
 
 
+def divide_indices_into_chunks(max_index, chunk_size=1000):
+    chunks = []
+    for start in range(0, max_index, chunk_size):
+        end = min(start + chunk_size, max_index)
+        chunks.append((start, end))
+    return chunks
+
 def intersect(pred_indices, gt_indices):
     intersection = np.intersect1d(pred_indices, gt_indices)
     return intersection.size / pred_indices.shape[0]
@@ -193,6 +200,31 @@ def get_subpcd(pcd, indices, colors=False, normals=False):
     return subpcd
 
 
+def downsample_chunk(points):
+    num_points_to_sample = 60000
+    every_k_points = int(points.shape[0] / num_points_to_sample)
+    if every_k_points == 0:
+        every_k_points = 1
+    indeces = uniform_down_sample_with_indices(points, every_k_points)
+
+    points = points[indeces]
+    return points
+
+
+def downsample_chunk_data(points, ncuts_labels, kitti_labels, semantics):
+    num_points_to_sample = 60000
+    every_k_points = int(points.shape[0] / num_points_to_sample)
+    if every_k_points == 0:
+        every_k_points = 1
+    indeces = uniform_down_sample_with_indices(points, every_k_points)
+
+    points = points[indeces]
+    return points, ncuts_labels[indeces], kitti_labels[indeces], semantics[indeces]
+
+def intersect(pred_indices, gt_indices):
+    intersection = np.intersect1d(pred_indices, gt_indices)
+    return intersection.size / pred_indices.shape[0]
+
 def process_batch(unique_pred, preds, labels, gt_idcs, threshold, new_ncuts_labels):
     pred_idcs = np.where(preds == unique_pred)[0]
     cur_intersect = np.sum(np.isin(pred_idcs, gt_idcs))
@@ -206,7 +238,7 @@ def remove_semantics(labels, preds, threshold=0.8, num_threads=4):
     unique_preds = np.unique(preds)
 
     if num_threads is None:
-        num_threads = min(len(unique_preds), 8)  # Default to 8 threads if not specified
+        num_threads = min(len(unique_preds), 4)  # Default to 8 threads if not specified
 
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = []
@@ -230,6 +262,19 @@ def remove_semantics(labels, preds, threshold=0.8, num_threads=4):
     return new_ncuts_labels
 
 
+def uniform_down_sample_with_indices(points, every_k_points):
+    # Create a new point cloud for the downsampled output
+
+    # List to hold the indices of the points that are kept
+    indices = []
+    # Iterate over the points and keep every k-th point
+    for i in range(0, points.shape[0], every_k_points):
+        indices.append(i)
+
+    return indices
+
+
+
 def get_merge_pcds(out_folder_ncuts):
     point_clouds = []
 
@@ -247,7 +292,6 @@ def get_merge_pcds(out_folder_ncuts):
         point_clouds.append(point_cloud)
     return point_clouds
 
-
 def merge_unite_gt(chunks):
     last_chunk = chunks[0]
     merge = o3d.geometry.PointCloud()
@@ -258,6 +302,48 @@ def merge_unite_gt(chunks):
 
     merge.remove_duplicated_points()
     return merge
+
+def merge_unite_gt_labels(chunks, semantic_maps):
+    # Assuming pcd1 and pcd2 are your Open3D point cloud objects
+    last_chunk = chunks[0]
+    merge = o3d.geometry.PointCloud()
+    merge += last_chunk
+    output_semantics = semantic_maps[0]
+
+    j = 1
+    for new_chunk in chunks[1:]:
+        pcd1_tree = o3d.geometry.KDTreeFlann(merge)
+        points_pcd1 = np.asarray(merge.points)
+        points_new = np.asarray(new_chunk.points)
+        keep_idcs = []
+        for i, point in enumerate(points_new):
+            # Find the nearest neighbor in pcd1
+            [k, idx, _] = pcd1_tree.search_knn_vector_3d(point, 1)
+            if k > 0:
+                # Check if the nearest neighbor is an exact match (distance = 0)
+                if np.allclose(points_pcd1[idx[0]], point):
+                    pass
+                else:
+                    keep_idcs.append(i)
+
+        new_chunk.points = o3d.utility.Vector3dVector(
+            np.asarray(new_chunk.points)[keep_idcs]
+        )
+        output_semantics = np.hstack(
+            (
+                output_semantics.reshape(
+                    -1,
+                ),
+                semantic_maps[j][keep_idcs].reshape(
+                    -1,
+                ),
+            )
+        )
+        j += 1
+
+        merge += new_chunk
+
+    return output_semantics
 
 
 def merge_chunks_unite_instances2(chunks: list, icp=False):
