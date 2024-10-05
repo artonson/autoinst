@@ -9,10 +9,14 @@ from utils.point_cloud.point_cloud_utils import (
     kDTree_1NN_feature_reprojection,
 )
 from utils.visualization_utils import generate_random_colors 
+from utils.image.image_utils import (
+    sam_label_distance,
+    dinov2_mean,
+    image_based_features_per_patch,
+)
+
 from utils.point_cloud.chunk_generation import (
     tarl_features_per_patch,
-    image_based_features_per_patch,
-    dinov2_mean,
     get_indices_feature_reprojection,
 )
 from ncuts.normalized_cut import normalized_cut
