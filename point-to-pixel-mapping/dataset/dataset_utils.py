@@ -16,6 +16,7 @@ from utils.point_cloud.chunk_generation import subsample_positions, chunks_from_
 from utils.visualization_utils import generate_random_colors_map, generate_random_colors
 import numpy as np
 import matplotlib.pyplot as plt
+from config import *
 
 # Generate 30 different colors
 COLORS = plt.cm.viridis(np.linspace(0, 1, 30))
@@ -144,16 +145,13 @@ def process_and_save_point_clouds(
     ind_start,
     ind_end,
     ground_segmentation_method="patchwork",
-    icp=True,
-    minor_voxel_size=0.05,
-    major_voxel_size=0.35,
-    out_folder=None,
+    icp=False,
     sequence_num=7,
     cur_idx=0,
 ):
 
-    if os.path.exists(out_folder) == False:
-        os.makedirs(out_folder)
+    if os.path.exists(OUT_FOLDER) == False:
+        os.makedirs(OUT_FOLDER)
 
     pcd_ground, pcd_nonground, all_poses, T_pcd, labels = aggregate_pointcloud(
         dataset,
@@ -167,14 +165,14 @@ def process_and_save_point_clouds(
     sequence_num = str(sequence_num)
     if pcd_ground is not None:
         o3d.io.write_point_cloud(
-            f"{out_folder}ground{sequence_num}_{cur_idx}.pcd",
+            f"{OUT_FOLDER}ground{sequence_num}_{cur_idx}.pcd",
             pcd_ground,
             write_ascii=False,
             compressed=False,
             print_progress=False,
         )
     o3d.io.write_point_cloud(
-        f"{out_folder}non_ground{sequence_num}_{cur_idx}.pcd",
+        f"{OUT_FOLDER}non_ground{sequence_num}_{cur_idx}.pcd",
         pcd_nonground,
         write_ascii=False,
         compressed=False,
@@ -182,12 +180,12 @@ def process_and_save_point_clouds(
     )
 
     np.savez(
-        f"{out_folder}all_poses_" + str(sequence_num) + "_" + str(cur_idx) + ".npz",
+        f"{OUT_FOLDER}all_poses_" + str(sequence_num) + "_" + str(cur_idx) + ".npz",
         all_poses=all_poses,
         T_pcd=T_pcd,
     )
     np.savez(
-        f"{out_folder}kitti_labels_" + str(sequence_num) + "_" + str(cur_idx) + ".npz",
+        f"{OUT_FOLDER}kitti_labels_" + str(sequence_num) + "_" + str(cur_idx) + ".npz",
         seg_ground=np.vstack(labels["seg_ground"]),
         seg_nonground=np.vstack(labels["seg_nonground"]),
         instance_ground=np.vstack(labels["instance_ground"]),
@@ -198,7 +196,7 @@ def process_and_save_point_clouds(
 
 
 def load_and_downsample_point_clouds(
-    out_folder, sequence_num, minor_voxel_size=0.05, ground_mode=True, cur_idx=0
+    out_folder, sequence_num, ground_mode=True, cur_idx=0
 ):
     # Load saved data
     with np.load(f"{out_folder}all_poses_{sequence_num}_{cur_idx}.npz") as data:
@@ -277,10 +275,10 @@ def load_and_downsample_point_clouds(
     )
     kitti_data = {}
     pcd_ground_minor, _, _ = pcd_ground.voxel_down_sample_and_trace(
-        minor_voxel_size, pcd_ground.get_min_bound(), pcd_ground.get_max_bound(), False
+        MINOR_VOXEL_SIZE, pcd_ground.get_min_bound(), pcd_ground.get_max_bound(), False
     )
     pcd_nonground_minor, _, _ = pcd_nonground.voxel_down_sample_and_trace(
-        minor_voxel_size,
+        MINOR_VOXEL_SIZE,
         pcd_nonground.get_min_bound(),
         pcd_nonground.get_max_bound(),
         False,
@@ -375,7 +373,7 @@ def load_and_downsample_point_clouds(
 
 
 def subsample_and_extract_positions(
-    all_poses, voxel_size=1, ind_start=0, sequence_num=0, out_folder=None, cur_idx=0
+    all_poses, voxel_size=1, ind_start=0, sequence_num=0, cur_idx=0
 ):
 
     # Extracting positions from poses
@@ -394,7 +392,7 @@ def subsample_and_extract_positions(
     positions = np.array(all_positions)[sampled_indices_local]
 
     np.savez(
-        f"{out_folder}subsampled_data{sequence_num}_{cur_idx}.npz",
+        f"{OUT_FOLDER}subsampled_data{sequence_num}_{cur_idx}.npz",
         poses=poses,
         positions=positions,
         sampled_indices_global=sampled_indices_global,
@@ -405,16 +403,12 @@ def subsample_and_extract_positions(
 
 
 def chunk_and_downsample_point_clouds(
-    dataset,
     pcd_nonground_minor,
     pcd_ground_minor,
     T_pcd,
     positions,
     first_position,
     sampled_indices_global,
-    chunk_size=np.array([25, 25, 25]),
-    overlap=3,
-    major_voxel_size=0.35,
     kitti_labels=None,
 ):
     # Creating chunks
@@ -427,31 +421,23 @@ def chunk_and_downsample_point_clouds(
         kitti_out,
         obbs,
     ) = chunks_from_pointcloud(
-        dataset,
         pcd_nonground_minor,
         T_pcd,
         positions,
         first_position,
         sampled_indices_global,
-        chunk_size,
-        overlap,
         labels=kitti_labels,
-        chunk_size=chunk_size,
     )
 
     pcd_ground_chunks, indices_ground, _, _, _, kitti_out_ground, obbs = (
         chunks_from_pointcloud(
-            dataset,
             pcd_ground_minor,
             T_pcd,
             positions,
             first_position,
             sampled_indices_global,
-            chunk_size,
-            overlap,
             labels=kitti_labels,
             ground=True,
-            chunk_size=chunk_size,
         )
     )
 
@@ -460,8 +446,8 @@ def chunk_and_downsample_point_clouds(
     pcd_nonground_chunks_major_downsampling = []
     pcd_ground_chunks_major_downsampling = []
     for ground, nonground in zip(pcd_ground_chunks, pcd_nonground_chunks):
-        downsampled_nonground = nonground.voxel_down_sample(voxel_size=major_voxel_size)
-        downsampled_ground = ground.voxel_down_sample(voxel_size=major_voxel_size)
+        downsampled_nonground = nonground.voxel_down_sample(voxel_size=MAJOR_VOXEL_SIZE)
+        downsampled_ground = ground.voxel_down_sample(voxel_size=MAJOR_VOXEL_SIZE)
         print(
             "Downsampled from",
             np.asarray(nonground.points).shape,

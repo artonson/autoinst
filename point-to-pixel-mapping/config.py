@@ -8,6 +8,7 @@ config_tarl_spatial_dino = {
     "gamma": 0.1,
     "alpha": 1.0,
     "theta": 0.5,
+    'beta':0.0,
     "T": 0.005,
     "gt": True,
 }
@@ -18,6 +19,7 @@ config_tarl_spatial = {
     "gamma": 0.0,
     "alpha": 1.0,
     "theta": 0.5,
+    'beta':0.0,
     "T": 0.03,
     "gt": True,
 }
@@ -28,6 +30,7 @@ config_spatial = {
     "gamma": 0.0,
     "alpha": 1.0,
     "theta": 0.0,
+    'beta':0.0,
     "T": 0.075,
     "gt": True,
 }
@@ -38,6 +41,7 @@ config_maskpls_tarl_spatial = {
     "gamma": 0.0,
     "alpha": 0.0,
     "theta": 0.0,
+    'beta':0.0,
     "T": 0.0,
     "gt": True,
 }
@@ -49,6 +53,7 @@ config_maskpls_tarl_spatial_dino = {
     "gamma": 0.0,
     "alpha": 0.0,
     "theta": 0.0,
+    'beta':0.0,
     "T": 0.0,
     "gt": True,
 }
@@ -58,15 +63,24 @@ start_seq = 0
 seqs = list(range(0, 11))
 exclude = [1, 4] #these only have static scenes
 
-minor_voxel_size = 0.05
-major_voxel_size = 0.35
-chunk_size = np.array([25, 25, 25])  # meters
-overlap = 3  # meters
+MINOR_VOXEL_SIZE = 0.05
+MAJOR_VOXEL_SIZE = 0.35
+CHUNK_SIZE = np.array([25, 25, 25])  # meters
+OVERLAP = 3  # meters
 ground_segmentation_method = "patchwork"
 NCUT_ground = False
+SPLIT_LIM = 0.01
 
-beta = 0.0
-tarl_norm = False
-proximity_threshold = 1.0
+BETA = 0.0
+TARL_NORM = False
+PROXIMITY_THRESHOLD = 1.0
+HPR_RADIUS = 1000
+NUM_DINO_FEATURES = 384
+MEAN_HEIGHT = 0.6
 
-out_folder = "pcd_preprocessed/semantics/"
+ADJACENT_FRAMES_CAM=(16, 13)
+ADJACENT_FRAMES_TARL=(10, 10)
+CAM_IDS = [0]
+
+CONFIG = config_spatial
+OUT_FOLDER = "pcd_preprocessed/semantics/"

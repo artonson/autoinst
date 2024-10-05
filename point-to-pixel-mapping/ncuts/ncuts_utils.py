@@ -22,7 +22,7 @@ from utils.point_cloud.chunk_generation import (
 from ncuts.normalized_cut import normalized_cut
 import scipy
 import copy
-
+from config import *
 
 
 def ncuts_chunk(
@@ -35,30 +35,11 @@ def ncuts_chunk(
     T_pcd,
     center_positions,
     center_ids,
-    positions,
-    first_position,
     sampled_indices_global,
-    chunk_size,
-    major_voxel_size=0.35,
-    alpha=1,
-    beta=0,
-    gamma=0,
-    theta=0,
-    proximity_threshold=1,
-    ncuts_threshold=0.03,
-    cams=["cam2", "cam3"],
-    cam_ids=[0],
     out_folder=None,
-    ground_mode=True,
     sequence=None,
     patchwise_indices=None,
-    adjacent_frames_cam=(16, 13),
-    adjacent_frames_tarl=(10, 10),
-    use_z=False,
-    norm=False,
-    split_lim=0.01,
     obb=None,
-    mean_height=0.2,
 ):
 
     print("Start of sequence", sequence)
@@ -68,25 +49,14 @@ def ncuts_chunk(
     chunk_indices = indices[sequence]
 
     cam_indices_global, _ = get_indices_feature_reprojection(
-        sampled_indices_global, first_id, adjacent_frames=adjacent_frames_cam
+        sampled_indices_global, first_id, adjacent_frames=ADJACENT_FRAMES_CAM
     )
     tarl_indices_global, _ = get_indices_feature_reprojection(
-        sampled_indices_global, center_id, adjacent_frames=adjacent_frames_tarl
+        sampled_indices_global, center_id, adjacent_frames=ADJACENT_FRAMES_TARL
     )
 
-    if ground_mode == False:
-        pcd_chunk = pcd_nonground_chunks[sequence]
-        pcd_ground_chunk = pcd_ground_chunks[sequence]
-    else:
-        pcd_chunk = pcd_nonground_chunks
-        chunk_major = pcd_nonground_chunks_major_downsampling[sequence]
-        inliers = get_statistical_inlier_indices(chunk_major)
-        ground_inliers = get_subpcd(chunk_major, inliers)
-        mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
-        in_idcs = np.where(
-            np.asarray(ground_inliers.points)[:, 2] < (mean_hight + mean_height)
-        )[0]
-        chunk_major = get_subpcd(ground_inliers, in_idcs)
+    pcd_chunk = pcd_nonground_chunks[sequence]
+    pcd_ground_chunk = pcd_ground_chunks[sequence]
 
     chunk_major = pcd_nonground_chunks_major_downsampling[sequence]
 
@@ -95,51 +65,36 @@ def ncuts_chunk(
 
     print(num_points_major, "points in downsampled chunk (major)")
     spatial_distance = cdist(points_major, points_major)
-    if use_z == True:
-        spatial_distance = cdist(
-            points_major[:, 2].reshape(-1, 1), points_major[:, 2].reshape(-1, 1)
-        )
-    mask = np.where(spatial_distance <= proximity_threshold, 1, 0)
+    mask = np.where(spatial_distance <= PROXIMITY_THRESHOLD, 1, 0)
 
-    if alpha:
-        spatial_edge_weights = mask * np.exp(-alpha * spatial_distance)
+    if CONFIG['alpha']:
+        spatial_edge_weights = mask * np.exp(-CONFIG['alpha'] * spatial_distance)
     else:
         spatial_edge_weights = mask
 
 
-    if beta and not gamma:
+    if CONFIG['beta'] and not CONFIG['gamma']:
         sam_features_major_list = image_based_features_per_patch(
             dataset,
             pcd_nonground_minor,
             chunk_indices,
             chunk_major,
-            major_voxel_size,
             T_pcd,
             cam_indices_global,
-            cams,
-            cam_ids=cam_ids,
-            hpr_radius=1000,
             sam=True,
             dino=False,
-            rm_perp=0.0,
         )
 
-    elif gamma and not beta:
+    elif CONFIG['gamma'] and not CONFIG['beta']:
         point2dino_list, vis_mask = image_based_features_per_patch(
             dataset,
             pcd_nonground_minor,
             chunk_indices,
             chunk_major,
-            major_voxel_size,
             T_pcd,
             cam_indices_global,
-            cams,
-            cam_ids=cam_ids,
-            hpr_radius=1000,
-            num_dino_features=384,
             sam=False,
             dino=True,
-            rm_perp=0.0,
             pcd_chunk=pcd_chunk,
             obb=obb,
         )
@@ -147,22 +102,16 @@ def ncuts_chunk(
         for point2dino in point2dino_list:
             dinov2_features_major_list.append(dinov2_mean(point2dino))
 
-    elif beta and gamma:
+    elif CONFIG['beta'] and CONFIG['gamma']:
         sam_features_major_list, point2dino_list = image_based_features_per_patch(
             dataset,
             pcd_nonground_minor,
             chunk_indices,
             chunk_major,
-            major_voxel_size,
             T_pcd,
             cam_indices_global,
-            cams,
-            cam_ids=cam_ids,
-            hpr_radius=1000,
-            num_dino_features=384,
             sam=True,
             dino=True,
-            rm_perp=0.0,
             obb=obb,
         )
         dinov2_features_major_list = []
@@ -172,17 +121,17 @@ def ncuts_chunk(
     sam_edge_weights = copy.deepcopy(mask)
     dinov2_edge_weights = copy.deepcopy(mask)
 
-    if beta:
+    if CONFIG['beta']:
         if len(sam_features_major_list) == 0:
             raise ValueError("The length should be longer than 0!")
 
         for sam_features_major in sam_features_major_list:
             sam_edge_weights_cam, _ = sam_label_distance(
-                sam_features_major, spatial_distance, proximity_threshold, beta
+                sam_features_major, spatial_distance, PROXIMITY_THRESHOLD, CONFIG['beta']
             )
             sam_edge_weights = sam_edge_weights * sam_edge_weights_cam
 
-    if gamma:
+    if CONFIG['gamma']:
         if len(dinov2_features_major_list) == 0:
             raise ValueError("The length should be longer than 0!")
 
@@ -190,25 +139,22 @@ def ncuts_chunk(
             dinov2_distance = cdist(dinov2_features_major, dinov2_features_major)
 
 
-            dinov2_edge_weights = dinov2_edge_weights * np.exp(-gamma * dinov2_distance)
+            dinov2_edge_weights = dinov2_edge_weights * np.exp(-CONFIG['gamma'] * dinov2_distance)
 
-    if theta:
+    if CONFIG['theta']:
         tarl_features = tarl_features_per_patch(
             dataset,
             chunk_major,
             T_pcd,
             center_position,
             tarl_indices_global,
-            chunk_size,
-            search_radius=major_voxel_size / 2,
-            norm=norm,
             obb=obb,
         )
         no_tarl_mask = ~np.array(tarl_features).any(1)
         tarl_distance = cdist(tarl_features, tarl_features)
         tarl_distance[no_tarl_mask] = 0
         tarl_distance[:, no_tarl_mask] = 0
-        tarl_edge_weights = mask * np.exp(-theta * tarl_distance)
+        tarl_edge_weights = mask * np.exp(-CONFIG['theta'] * tarl_distance)
     else:
         tarl_edge_weights = mask
 
@@ -233,13 +179,10 @@ def ncuts_chunk(
         A,
         num_points_major,
         np.arange(num_points_major),
-        T=ncuts_threshold,
-        split_lim=split_lim,
+        T=CONFIG['T'],
+        split_lim=SPLIT_LIM,
     )
 
-    sorted_groups = sorted(grouped_labels, key=lambda x: len(x))
-    num_points_top3 = np.sum([len(g) for g in sorted_groups[-3:]])
-    top3_ratio = num_points_top3 / num_points_major
 
     random_colors = generate_random_colors(600)
 
@@ -255,25 +198,19 @@ def ncuts_chunk(
     )
     pcd_chunk.colors = o3d.utility.Vector3dVector(colors)
 
-    if ground_mode == False:
-        inliers = get_statistical_inlier_indices(pcd_ground_chunk)
-        ground_inliers = get_subpcd(pcd_ground_chunk, inliers)
-        mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
-        in_idcs = np.where(
-            np.asarray(ground_inliers.points)[:, 2] < (mean_hight + mean_height)
-        )[0]
-        cut_hight = get_subpcd(ground_inliers, in_idcs)
-        cut_hight.paint_uniform_color([0, 0, 0])
-        merged_chunk = pcd_chunk + cut_hight
-    else:
-        merged_chunk = pcd_chunk
+    inliers = get_statistical_inlier_indices(pcd_ground_chunk)
+    ground_inliers = get_subpcd(pcd_ground_chunk, inliers)
+    mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
+    in_idcs = np.where(
+        np.asarray(ground_inliers.points)[:, 2] < (mean_hight + MEAN_HEIGHT)
+    )[0]
+    cut_hight = get_subpcd(ground_inliers, in_idcs)
+    cut_hight.paint_uniform_color([0, 0, 0])
+    merged_chunk = pcd_chunk + cut_hight
 
     index_file = str(center_id).zfill(6) + ".pcd"
     file = os.path.join(out_folder, index_file)
-    if ground_mode == False:
-        return merged_chunk, file, pcd_chunk, cut_hight, inliers, in_idcs
-    else:
-        return merged_chunk, file
+    return merged_chunk, file, pcd_chunk, cut_hight, inliers, in_idcs
 
 
 def get_merge_pcds(out_folder_ncuts):

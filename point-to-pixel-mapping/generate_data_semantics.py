@@ -48,34 +48,28 @@ from metrics.metrics_class import Metrics
 from config import *
 
 
-config = config_spatial 
-if 'maskpls' in config["name"]:
+if 'maskpls' in CONFIG["name"]:
     from utils.maskpls.predict_maskpls import RefinerModel
 
-print("Starting with config ", config)
+print("Starting with config ", CONFIG)
 
 def create_folder(name):
     if os.path.exists(name) == False:
         os.makedirs(name)
 
 
-out_folder_instances = out_folder + "instances/"
+out_folder_instances = OUT_FOLDER + "instances/"
 if os.path.exists(out_folder_instances) == False:
     os.makedirs(out_folder_instances)
 
-out_folder_ncuts = out_folder + config["out_folder"]
+out_folder_ncuts = OUT_FOLDER + CONFIG["out_folder"]
 if os.path.exists(out_folder_ncuts) == False:
     os.makedirs(out_folder_ncuts)
 
-data_store_train = out_folder + "train/"
+data_store_train = OUT_FOLDER + "train/"
 if os.path.exists(data_store_train) == False:
     os.makedirs(data_store_train)
 
-
-alpha = config["alpha"]
-theta = config["theta"]
-gamma = config["gamma"]
-ncuts_threshold = config["T"]
 
 seqs = [0]
 for seq in seqs:
@@ -87,7 +81,7 @@ for seq in seqs:
     )
     chunks_idcs = divide_indices_into_chunks(len(dataset))
 
-    data_store_folder = out_folder + str(seq) + "/"
+    data_store_folder = OUT_FOLDER + str(seq) + "/"
     if os.path.exists(data_store_folder) == False:
         os.makedirs(data_store_folder)
 
@@ -110,11 +104,11 @@ for seq in seqs:
         print("ind start", ind_start)
         print("ind end", ind_end)
 
-        if "maskpls" in config["name"] and config["name"] != "maskpls_supervised":
+        if "maskpls" in CONFIG["name"] and CONFIG["name"] != "maskpls_supervised":
             maskpls = RefinerModel(dataset="kitti")
 
         if (
-            os.path.exists(f"{out_folder}non_ground{seq}_{cur_idx}.pcd")
+            os.path.exists(f"{OUT_FOLDER}non_ground{seq}_{cur_idx}.pcd")
             == False
         ):
             print("process poses")
@@ -122,18 +116,13 @@ for seq in seqs:
                 dataset,
                 ind_start,
                 ind_end,
-                minor_voxel_size=minor_voxel_size,
-                major_voxel_size=major_voxel_size,
-                icp=False,
-                out_folder=out_folder,
                 sequence_num=seq,
-                ground_segmentation_method=ground_segmentation_method,
                 cur_idx=cur_idx,
             )
 
         if (
             os.path.exists(
-                f"{out_folder}pcd_nonground_minor{seq}_{cur_idx}.pcd"
+                f"{OUT_FOLDER}pcd_nonground_minor{seq}_{cur_idx}.pcd"
             )
             == False
         ):
@@ -146,9 +135,8 @@ for seq in seqs:
                 first_position,
                 kitti_labels,
             ) = load_and_downsample_point_clouds(
-                out_folder,
+                OUT_FOLDER,
                 seq,
-                minor_voxel_size,
                 ground_mode=ground_segmentation_method,
                 cur_idx=cur_idx,
             )
@@ -156,14 +144,14 @@ for seq in seqs:
             print("write pcds")
             print(pcd_ground_minor)
             o3d.io.write_point_cloud(
-                f"{out_folder}pcd_ground_minor{seq}_{cur_idx}.pcd",
+                f"{OUT_FOLDER}pcd_ground_minor{seq}_{cur_idx}.pcd",
                 pcd_ground_minor,
                 write_ascii=False,
                 compressed=False,
                 print_progress=True,
             )
             o3d.io.write_point_cloud(
-                f"{out_folder}pcd_nonground_minor{seq}_{cur_idx}.pcd",
+                f"{OUT_FOLDER}pcd_nonground_minor{seq}_{cur_idx}.pcd",
                 pcd_nonground_minor,
                 write_ascii=False,
                 compressed=False,
@@ -171,7 +159,7 @@ for seq in seqs:
             )
             print("write labels")
             np.savez(
-                f"{out_folder}kitti_labels_preprocessed{seq}_{cur_idx}.npz",
+                f"{OUT_FOLDER}kitti_labels_preprocessed{seq}_{cur_idx}.npz",
                 instance_nonground=kitti_labels["instance_nonground"],
                 instance_ground=kitti_labels["instance_ground"],
                 seg_ground=kitti_labels["seg_ground"],
@@ -179,16 +167,16 @@ for seq in seqs:
             )
         print("load pcd")
         pcd_ground_minor = o3d.io.read_point_cloud(
-            f"{out_folder}pcd_ground_minor{seq}_{cur_idx}.pcd"
+            f"{OUT_FOLDER}pcd_ground_minor{seq}_{cur_idx}.pcd"
         )
         pcd_nonground_minor = o3d.io.read_point_cloud(
-            f"{out_folder}pcd_nonground_minor{seq}_{cur_idx}.pcd"
+            f"{OUT_FOLDER}pcd_nonground_minor{seq}_{cur_idx}.pcd"
         )
 
         print("load data")
         kitti_labels_orig = {}
         with np.load(
-            f"{out_folder}kitti_labels_preprocessed{seq}_{cur_idx}.npz"
+            f"{OUT_FOLDER}kitti_labels_preprocessed{seq}_{cur_idx}.npz"
         ) as data:
             kitti_labels_orig["instance_ground"] = data["instance_ground"]
             kitti_labels_orig["instance_nonground"] = data["instance_nonground"]
@@ -196,7 +184,7 @@ for seq in seqs:
             kitti_labels_orig["seg_ground"] = data["seg_ground"]
 
         with np.load(
-            f"{out_folder}all_poses_" + str(seq) + "_" + str(cur_idx) + ".npz"
+            f"{OUT_FOLDER}all_poses_" + str(seq) + "_" + str(cur_idx) + ".npz"
         ) as data:
             all_poses = data["all_poses"]
             T_pcd = data["T_pcd"]
@@ -204,7 +192,7 @@ for seq in seqs:
 
         print("pose downsample")
         if (
-            os.path.exists(f"{out_folder}subsampled_data{seq}_{cur_idx}.npz")
+            os.path.exists(f"{OUT_FOLDER}subsampled_data{seq}_{cur_idx}.npz")
             == False
         ):
             poses, positions, sampled_indices_local, sampled_indices_global = (
@@ -212,13 +200,12 @@ for seq in seqs:
                     all_poses,
                     ind_start=ind_start,
                     sequence_num=seq,
-                    out_folder=out_folder,
                     cur_idx=cur_idx,
                 )
             )
 
         with np.load(
-            f"{out_folder}subsampled_data{seq}_{cur_idx}.npz"
+            f"{OUT_FOLDER}subsampled_data{seq}_{cur_idx}.npz"
         ) as data:
             poses = data["poses"]
             positions = data["positions"]
@@ -253,16 +240,12 @@ for seq in seqs:
             kitti_labels,
             _,
         ) = chunk_and_downsample_point_clouds(
-            dataset,
             pcd_nonground_minor,
             pcd_ground_minor,
             T_pcd,
             positions,
             first_position,
             sampled_indices_global,
-            chunk_size=chunk_size,
-            overlap=overlap,
-            major_voxel_size=major_voxel_size,
             kitti_labels=kitti_labels_orig,
         )
         print("finished downsample")
@@ -276,7 +259,7 @@ for seq in seqs:
         )
 
         create_folder(out_folder_ncuts_cur)
-        if config["gt"]:
+        if CONFIG["gt"]:
             create_folder(out_folder_instances_cur)
 
         patchwise_indices = indices_per_patch(
@@ -285,7 +268,6 @@ for seq in seqs:
             positions,
             first_position,
             sampled_indices_global,
-            chunk_size,
         )
         out_data = []
         semantics_kitti = []
@@ -294,8 +276,8 @@ for seq in seqs:
             name = str(center_ids[sequence]).zfill(6) + ".pcd" 
             print("sequence", sequence)
             if (
-                config["name"] not in ["sam3d", "sam3d_fix", "3duis", "3duis_fix"]
-                and "maskpls" not in config["name"]
+                CONFIG["name"] not in ["sam3d", "sam3d_fix", "3duis", "3duis_fix"]
+                and "maskpls" not in CONFIG["name"]
             ):
                 (
                     merged_chunk,
@@ -314,28 +296,15 @@ for seq in seqs:
                     T_pcd,
                     center_positions,
                     center_ids,
-                    positions,
-                    first_position,
                     list(sampled_indices_global),
-                    chunk_size=chunk_size,
-                    major_voxel_size=major_voxel_size,
-                    cam_ids=[0],
-                    alpha=alpha,
-                    beta=beta,
-                    gamma=gamma,
-                    theta=theta,
-                    proximity_threshold=proximity_threshold,
                     out_folder=out_folder_ncuts,
-                    ground_mode=False,
                     sequence=sequence,
                     patchwise_indices=patchwise_indices,
-                    ncuts_threshold=ncuts_threshold,
-                    mean_height=0.6,
                 )
 
                 pred_pcd = pcd_chunk + pcd_chunk_ground
 
-            elif "maskpls" in config["name"]:
+            elif "maskpls" in CONFIG["name"]:
                 inliers = get_statistical_inlier_indices(pcd_ground_chunks[sequence])
                 ground_inliers = get_subpcd(pcd_ground_chunks[sequence], inliers)
                 mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
@@ -347,13 +316,13 @@ for seq in seqs:
 
                 input_pcd = pcd_nonground_chunks[sequence] + pcd_chunk_ground
 
-                if "supervised" not in config["name"]:
+                if "supervised" not in CONFIG["name"]:
                     print("unsupervised")
                     pred_pcd = maskpls.forward_and_project(input_pcd)
                 else:
                     pred_pcd = maskpls.forward_and_project(input_pcd)
             
-            if config["gt"]:
+            if CONFIG["gt"]:
                     inst_ground = kitti_labels["ground"]["instance"][sequence][inliers][
                         inliers_ground
                     ]
@@ -421,7 +390,7 @@ for seq in seqs:
             )
 
 
-        if config["gt"]:
+        if CONFIG["gt"]:
 
             map_instances = merge_unite_gt(
                 get_merge_pcds(out_folder_instances_cur[:-1])
@@ -434,11 +403,11 @@ for seq in seqs:
             
 
         
-        if "maskpls" in config["name"]:
+        if "maskpls" in CONFIG["name"]:
 
             with open(
                 data_store_folder
-                + config["name"]
+                + CONFIG["name"]
                 + "_confs"
                 + str(seq)
                 + "_"
@@ -451,14 +420,14 @@ for seq in seqs:
         zero_idcs = np.where(labels_instances == 0)[0]
         
         
-        metrics = Metrics(config['name'] + ' ' + str(seq))
+        metrics = Metrics(CONFIG['name'] + ' ' + str(seq))
         colors, labels_ncuts_all = np.unique(
             np.asarray(merge_ncuts.colors), axis=0, return_inverse=True
         )
         
         o3d.io.write_point_cloud(
             data_store_folder
-            + config["name"]
+            + CONFIG["name"]
             + str(seq)
             + "_"
             + str(cur_idx)
@@ -483,7 +452,7 @@ for seq in seqs:
         )
         
         instance_preds = remove_semantics(labels_instances, copy.deepcopy(labels_ncuts_all))
-        if 'maskpls' in config['name']:
+        if 'maskpls' in CONFIG['name']:
             label_to_confidence = {}
             
             pcd_cols = np.asarray(merge_ncuts.colors)

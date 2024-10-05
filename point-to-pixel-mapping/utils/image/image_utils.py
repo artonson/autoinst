@@ -17,7 +17,7 @@ from utils.point_cloud.point_cloud_utils import (
 from utils.image.hidden_points_removal import (
     hidden_point_removal_o3d
 )
-
+from config import *
 
 def is_perpendicular_and_upward(point, normal, boundary=0.1):
     """
@@ -93,22 +93,16 @@ def image_based_features_per_patch(
     pcd,
     chunk_indices,
     chunk_nc,
-    voxel_size,
     T_pcd2world,
     cam_indices,
-    cams,
-    cam_ids: list,
-    hpr_radius=1000,
-    num_dino_features=384,
     hpr_masks=None,
     sam=True,
     dino=True,
     rm_perp=0.0,
     pcd_chunk=None,
-    obb=None,
     vis=False,
 ):
-
+    cams = ['cam2','cam3']
     orig_chunk_nc = copy.deepcopy(chunk_nc)
     num_points_nc = np.asarray(chunk_nc.points).shape[0]
 
@@ -131,7 +125,7 @@ def image_based_features_per_patch(
     if dino:
         point2dino_list = []
 
-    for cam_id in cam_ids:
+    for cam_id in CAM_IDS:
 
         if sam:
             point2sam_nc = (-1) * np.ones(
@@ -140,7 +134,7 @@ def image_based_features_per_patch(
 
         if dino:
             point2dino_nc = np.zeros(
-                (num_points_nc, len(cam_indices), num_dino_features)
+                (num_points_nc, len(cam_indices), NUM_DINO_FEATURES)
             )
 
         image = dataset.get_image(cams[cam_id], 0)
@@ -190,7 +184,7 @@ def image_based_features_per_patch(
                     visible_indices = hidden_point_removal_o3d(
                         np.asarray(pcd_camframe_hpr.points),
                         camera=[0, 0, 0],
-                        radius_factor=hpr_radius,
+                        radius_factor=HPR_RADIUS,
                     )
                 except:
                     print("hpr skip")
@@ -228,7 +222,7 @@ def image_based_features_per_patch(
 
             # Load the DINOV2 feature map
             if dino:
-                if num_dino_features < 384:
+                if NUM_DINO_FEATURES < 384:
                     dinov2_original = dataset.get_dinov2_features(
                         cams[cam_id], points_index
                     )
@@ -242,7 +236,7 @@ def image_based_features_per_patch(
                     fit = umap.UMAP(
                         n_neighbors=50,
                         min_dist=0.0,
-                        n_components=num_dino_features,
+                        n_components=NUM_DINO_FEATURES,
                         metric="euclidean",
                     )
                     u = fit.fit_transform(dino_reshape)
@@ -255,7 +249,7 @@ def image_based_features_per_patch(
                         ),
                     )
 
-                elif num_dino_features == 384:
+                elif NUM_DINO_FEATURES == 384:
                     dinov2_feature_map = dataset.get_dinov2_features(
                         cams[cam_id], points_index
                     )
@@ -279,7 +273,7 @@ def image_based_features_per_patch(
 
                 if (
                     np.linalg.norm(point - np.asarray(visible_chunk.points)[idx[0]])
-                    < voxel_size / 2
+                    < MAJOR_VOXEL_SIZE / 2
                 ):
                     nc_indices.append(j)
 
@@ -297,7 +291,7 @@ def image_based_features_per_patch(
                         np.linalg.norm(
                             point - np.asarray(visible_chunk_ablation.points)[idx[0]]
                         )
-                        < voxel_size / 2
+                        < MAJOR_VOXEL_SIZE / 2
                     ):
                         nc_indices_visbility.append(j)
                 visibility_mask[nc_indices_visbility] = 1
@@ -320,7 +314,7 @@ def image_based_features_per_patch(
                     visible_nc_pcdframe,
                     np.asarray(pcd_chunk_final.normals),
                     pcd_chunk_final,
-                    max_radius=voxel_size / 2,
+                    max_radius=MAJOR_VOXEL_SIZE / 2,
                     no_feature_label=[0, 0, 0],
                 )
                 visible_nc_pcdframe_points = np.asarray(visible_nc_pcdframe.points)

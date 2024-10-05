@@ -11,6 +11,7 @@ from utils.point_cloud.point_cloud_utils import (
 import numpy as np
 from scipy.spatial.distance import cdist
 from tqdm import tqdm
+from config import *
 
 
 def subsample_positions(positions, voxel_size=1, batch_size=1000):
@@ -93,17 +94,13 @@ def are_points_inside_obb(points, obb):
 
 
 def chunks_from_pointcloud(
-    dataset,
     pcd,
     T_pcd,
     positions,
     first_position,
     indices,
-    R,
-    overlap,
     labels=None,
     ground=False,
-    chunk_size=np.array([25, 25, 25]),
 ):
 
     points = np.asarray(pcd.points)
@@ -125,14 +122,14 @@ def chunks_from_pointcloud(
     for position, index in tqdm(zip(positions, indices), total=len(positions)):
         if last_position is not None:
             distance += np.linalg.norm(position - last_position)
-            if distance > (min(R[0], R[1]) - overlap):  # New chunk
+            if distance > (min(CHUNK_SIZE[0], CHUNK_SIZE[1]) - OVERLAP):  # New chunk
 
                 pos_pcd = position - first_position
                 rot = np.linalg.inv(T_pcd[:3, :3])
                 pos_pcd = rot @ pos_pcd
 
-                max_position = pos_pcd + (0.5 * R)
-                min_position = pos_pcd - (0.5 * R)
+                max_position = pos_pcd + (0.5 * CHUNK_SIZE)
+                min_position = pos_pcd - (0.5 * CHUNK_SIZE)
 
                 ids = np.where(
                         np.all(points > min_position, axis=1)
@@ -167,7 +164,7 @@ def chunks_from_pointcloud(
                 chunk_indices.append(ids)
                 center_pos.append(pos_pcd)
                 center_ids.append(index)
-                chunk_bounds.append(((pos_pcd - 0.5 * R), (pos_pcd + 0.5 * R)))
+                chunk_bounds.append(((pos_pcd - 0.5 * CHUNK_SIZE), (pos_pcd + 0.5 * CHUNK_SIZE)))
 
                 distance = 0
         last_position = position
@@ -184,7 +181,7 @@ def chunks_from_pointcloud(
 
 
 def indices_per_patch(
-    T_pcd, center_positions, positions, first_position, global_indices, chunk_size
+    T_pcd, center_positions, positions, first_position, global_indices 
 ):
 
     patchwise_indices = []
@@ -198,7 +195,7 @@ def indices_per_patch(
             rot = np.linalg.inv(T_pcd[:3, :3])
             pos_pcd = rot @ pos_pcd
 
-            if np.linalg.norm(center - pos_pcd) < 0.5 * chunk_size[1]:
+            if np.linalg.norm(center - pos_pcd) < 0.5 * CHUNK_SIZE[1]:
                 indices.append(index)
         patchwise_indices.append(indices)
 
@@ -211,19 +208,15 @@ def tarl_features_per_patch(
     T_pcd,
     center_position,
     tarl_indices,
-    chunk_size,
-    search_radius=0.1,
-    norm=False,
-    obb=None,
 ):
-
+    search_radius = MAJOR_VOXEL_SIZE/2.
     concatenated_tarl_points = np.zeros((0, 3))
     concatenated_tarl_features = np.zeros((0, 96))
 
     num_points = np.asarray(pcd.points).shape[0]
 
-    max_position = center_position + 0.5 * chunk_size
-    min_position = center_position - 0.5 * chunk_size
+    max_position = center_position + 0.5 * CHUNK_SIZE
+    min_position = center_position - 0.5 * CHUNK_SIZE
 
     for points_index in tarl_indices:
 
@@ -257,7 +250,7 @@ def tarl_features_per_patch(
 
         if not features_in_radius.shape[0] == 0:
             tarl_features[i, :] = np.mean(features_in_radius, axis=0)
-            if norm:
+            if TARL_NORM:
                 tarl_features[i] /= np.linalg.norm(tarl_features[i])
         else:
             continue
