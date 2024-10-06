@@ -315,6 +315,19 @@ def merge_unite_gt(chunks):
     merge.remove_duplicated_points()
     return merge
 
+def get_corrected_ground(chunk_downsample_dict,sequence,mean_height=0.6):
+    inliers = get_statistical_inlier_indices(chunk_downsample_dict['pcd_ground_chunks'][sequence])
+    ground_inliers = get_subpcd(chunk_downsample_dict['pcd_ground_chunks'][sequence], inliers)
+    mean_hight = np.mean(np.asarray(ground_inliers.points)[:, 2])
+    inliers_ground = np.where(
+        np.asarray(ground_inliers.points)[:, 2] < (mean_hight + mean_height)
+    )[0]
+    pcd_chunk_ground = get_subpcd(ground_inliers, inliers_ground)
+    pcd_chunk_ground.paint_uniform_color([0, 0, 0])
+    input_pcd = chunk_downsample_dict['pcd_nonground_chunks'][sequence] + pcd_chunk_ground
+    inst_ground = chunk_downsample_dict['kitti_labels']["ground"]["instance"][sequence][inliers][inliers_ground]
+    return input_pcd, inst_ground
+
 def merge_unite_gt_labels(chunks, semantic_maps):
     # Assuming pcd1 and pcd2 are your Open3D point cloud objects
     last_chunk = chunks[0]

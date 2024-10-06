@@ -414,6 +414,76 @@ def subsample_and_extract_positions(
         sampled_indices_local=sampled_indices_local,
     )
 
+def load_downsampled_pcds(seq,cur_idx):
+    print("load pcd")
+    pcd_ground_minor = o3d.io.read_point_cloud(
+        f"{OUT_FOLDER}pcd_ground_minor{seq}_{cur_idx}.pcd"
+    )
+    pcd_nonground_minor = o3d.io.read_point_cloud(
+        f"{OUT_FOLDER}pcd_nonground_minor{seq}_{cur_idx}.pcd"
+    )
+
+    print("load data")
+    kitti_labels_orig = {}
+    with np.load(
+        f"{OUT_FOLDER}kitti_labels_preprocessed{seq}_{cur_idx}.npz"
+    ) as data:
+        kitti_labels_orig["instance_ground"] = data["instance_ground"]
+        kitti_labels_orig["instance_nonground"] = data["instance_nonground"]
+        kitti_labels_orig["seg_nonground"] = data["seg_nonground"]
+        kitti_labels_orig["seg_ground"] = data["seg_ground"]
+
+    with np.load(
+        f"{OUT_FOLDER}all_poses_" + str(seq) + "_" + str(cur_idx) + ".npz"
+    ) as data:
+        all_poses = data["all_poses"]
+        T_pcd = data["T_pcd"]
+    
+    instances = np.hstack(
+        (
+            kitti_labels_orig["instance_nonground"].reshape(
+                -1,
+            ),
+            kitti_labels_orig["instance_ground"].reshape(
+                -1,
+            ),
+        )
+        )
+        
+    return pcd_ground_minor,pcd_nonground_minor,kitti_labels_orig,instances,all_poses,T_pcd
+
+def load_subsampled_data(seq,cur_idx):
+    with np.load(
+            f"{OUT_FOLDER}subsampled_data{seq}_{cur_idx}.npz"
+        ) as data:
+            poses = data["poses"]
+            positions = data["positions"]
+            sampled_indices_local = list(data["sampled_indices_local"])
+            sampled_indices_global = list(data["sampled_indices_global"])
+    return poses,positions,sampled_indices_local,sampled_indices_global
+
+def write_gt_chunk(out_folder_instances_cur,name,chunk_downsample_dict,sequence,
+            colors,instances,pcd_chunk_ground,inst_ground):
+
+    kitti_chunk_instance = color_pcd_by_labels(
+        copy.deepcopy(chunk_downsample_dict['pcd_nonground_chunks'][sequence]),
+        chunk_downsample_dict['kitti_labels']["nonground"]["instance"][sequence].reshape(
+            -1,
+        ),
+        colors=colors,
+        gt_labels=instances,
+    )
+
+    kitti_chunk_instance_ground = color_pcd_by_labels(
+        copy.deepcopy(pcd_chunk_ground),
+        inst_ground.reshape(
+            -1,
+        ),
+        colors=colors,
+        gt_labels=instances,
+    )
+    instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
+    write_pcd(out_folder_instances_cur,name,instance_pcd)
 
 def chunk_and_downsample_point_clouds(
     pcd_nonground_minor,
@@ -423,7 +493,8 @@ def chunk_and_downsample_point_clouds(
     first_position,
     sampled_indices_global,
     kitti_labels=None,
-):
+):  
+    print('downsample pcd')
     # Creating chunks
     (
         pcd_nonground_chunks,

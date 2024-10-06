@@ -10,6 +10,7 @@ import open3d as o3d
 from visualization_utils import  generate_random_colors
 from point_cloud_utils import kDTree_1NN_feature_reprojection
 import copy
+import json
 
 
 def getDir(obj):
@@ -140,7 +141,35 @@ class RefinerModel:
 
         pcd_full.colors = o3d.utility.Vector3dVector(colors_new)
         return pcd_full
-
+    
+    def label_to_conf(self,merge_ncuts,instance_preds):
+        label_to_confidence = {}
+        pcd_cols = np.asarray(merge_ncuts.colors)
+        for label in list(np.unique(instance_preds)):
+                idcs = np.where(instance_preds == label)[0]
+                cur_color = pcd_cols[idcs[0]]
+                key = (
+                    str(int(cur_color[0] * 255))
+                    + "|"
+                    + str(int(cur_color[1] * 255))
+                    + "|"
+                    + str(int(cur_color[2] * 255))
+                )
+                label_to_confidence[label] = self.confs_dict[key]
+        return label_to_confidence
+    
+    def store_conf_dict(self,data_store_folder,name,seq,cur_idx):
+        with open(
+                data_store_folder
+                + name
+                + "_confs"
+                + str(seq)
+                + "_"
+                + str(cur_idx)
+                + ".json",
+                "w",
+            ) as fp:
+                json.dump(self.confs_dict, fp)
 
 if __name__ == "__main__":
     model = RefinerModel()
