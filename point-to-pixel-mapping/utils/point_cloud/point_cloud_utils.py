@@ -222,6 +222,19 @@ def downsample_chunk(points):
     points = points[indeces]
     return points
 
+def downsample_chunk_train(points, kitti_chunk_labels, kitti_semantics, cluster_labels):
+    num_points_to_sample = 60000
+    every_k_points = int(kitti_chunk_labels.shape[0] / num_points_to_sample)
+    if every_k_points == 0:
+        every_k_points = 1
+    indeces = uniform_down_sample_with_indices(kitti_chunk_labels, every_k_points)
+
+    points = points[indeces]
+    # import pdb; pdb.set_trace()
+    kitti_chunk_labels = kitti_chunk_labels[indeces]
+    return points, kitti_chunk_labels, kitti_semantics[indeces], cluster_labels[indeces]
+
+
 
 def downsample_chunk_data(points, ncuts_labels, kitti_labels, semantics):
     num_points_to_sample = 60000

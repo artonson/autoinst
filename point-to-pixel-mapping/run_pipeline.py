@@ -23,7 +23,8 @@ from dataset.dataset_utils import (
     subsample_and_extract_positions, 
     load_downsampled_pcds,
     load_subsampled_data,
-    write_gt_chunk
+    write_gt_chunk,
+    store_train_chunks
 )
 
 from utils.point_cloud.point_cloud_utils import (
@@ -33,6 +34,7 @@ from utils.point_cloud.point_cloud_utils import (
     remove_semantics,
     write_pcd,
     get_corrected_ground,
+    downsample_chunk_train,
     
 )
 
@@ -162,7 +164,8 @@ for seq in seqs:
                     merged_chunk,
                     pcd_chunk,
                     pcd_chunk_ground,
-                    inst_ground
+                    inst_ground,
+                    seg_ground
                 ) = ncuts_chunk(
                     dataset,
                     chunk_downsample_dict,
@@ -179,10 +182,12 @@ for seq in seqs:
                 pred_pcd = maskpls.forward_and_project(chunk_downsample_dict['pcd_nonground_chunks'][sequence] + pcd_chunk_ground)
                 
             if CONFIG["gt"]:
-                    print('pre enter non ground from dict',chunk_downsample_dict['pcd_nonground_chunks'][sequence])
-
-                    write_gt_chunk(out_folder_instances_cur,name,chunk_downsample_dict,
+                    gt_pcd = write_gt_chunk(out_folder_instances_cur,name,chunk_downsample_dict,
                                 sequence,colors,instances,pcd_chunk_ground,inst_ground)
+            
+            if GEN_SELF_TRAIN_DATA :
+                store_train_chunks(data_store_folder_train_cur,name,merged_chunk,gt_pcd,chunk_downsample_dict,sequence)
+                continue
 
             write_pcd(out_folder_ncuts_cur,name,pred_pcd)
             gc.collect()

@@ -3,7 +3,6 @@ import numpy as np
 from open3d.pipelines import registration
 from utils.point_cloud.point_cloud_utils import get_pcd, get_subpcd
 import sys
-sys.path.append("/Users/cedric/unsup_3d_instances/point-to-pixel-mapping/utils/pypatchwork/build/patchworkpp/")
 import pypatchworkpp
 from utils.visualization_utils import *
 from tqdm import tqdm

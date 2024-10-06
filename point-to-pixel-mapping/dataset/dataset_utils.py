@@ -11,7 +11,7 @@ import numpy as np
 import copy
 import open3d as o3d
 
-from utils.point_cloud.point_cloud_utils import write_pcd
+from utils.point_cloud.point_cloud_utils import write_pcd,downsample_chunk_train
 from utils.point_cloud.aggregate_pointcloud import aggregate_pointcloud
 from utils.point_cloud.chunk_generation import subsample_positions, chunks_from_pointcloud
 from utils.visualization_utils import generate_random_colors_map, generate_random_colors
@@ -484,6 +484,7 @@ def write_gt_chunk(out_folder_instances_cur,name,chunk_downsample_dict,sequence,
     )
     instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
     write_pcd(out_folder_instances_cur,name,instance_pcd)
+    return instance_pcd
 
 def chunk_and_downsample_point_clouds(
     pcd_nonground_minor,
@@ -563,4 +564,48 @@ def chunk_and_downsample_point_clouds(
         'kitti_labels':kitti_labels,
         'obbs':obbs
         }
+    )
+    
+def store_train_chunks(data_store_folder_train_cur,name,merged_chunk,gt_pcd,chunk_downsample_dict,sequence):
+    kitti_semantics = np.hstack(
+        (
+            chunk_downsample_dict['kitti_labels']["nonground"]["semantic"][sequence].reshape(
+                -1,
+            ),
+            chunk_downsample_dict['kitti_labels']["ground"]["semantic"][sequence].reshape(
+                -1,
+            ),
+        )
+    )
+                
+                
+    sem_labels = np.vectorize(learning_map.__getitem__)(kitti_semantics)
+
+    unique_colors, labels_kitti = np.unique(
+        np.asarray(gt_pcd.colors), axis=0, return_inverse=True
+    )
+    unique_colors, labels_ncuts = np.unique(
+        np.asarray(merged_chunk.colors), axis=0, return_inverse=True
+    )
+
+    pts = np.asarray(merged_chunk.points)
+    points, labels_kitti, kitti_semantics, labels_ncuts = downsample_chunk_train(
+        pts, labels_kitti, kitti_semantics, labels_ncuts
+    )
+
+    if (
+        labels_kitti.shape[0]
+        != points.shape[0]
+        != kitti_semantics.shape[0]
+        != labels_ncuts.shape[0]
+    ):
+        AssertionError
+
+    np.savez(
+        data_store_folder_train_cur + name.split(".")[0] + ".npz",
+        pts=points,
+        ncut_labels=labels_ncuts,
+        kitti_labels=labels_kitti,
+        cluster_labels=np.zeros_like(labels_ncuts),
+        semantic=kitti_semantics,
     )

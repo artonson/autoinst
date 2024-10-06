@@ -1,4 +1,5 @@
 import numpy as np 
+import yaml 
 
 DATASET_PATH = '/Users/cedric/Datasets/semantic_kitti/'
 
@@ -81,6 +82,14 @@ MEAN_HEIGHT = 0.6
 ADJACENT_FRAMES_CAM=(16, 13)
 ADJACENT_FRAMES_TARL=(10, 10)
 CAM_IDS = [0]
+
+GEN_SELF_TRAIN_DATA = True
+if GEN_SELF_TRAIN_DATA:
+    OVERLAP = 24  # high overlap for self-training data generation
+
+with open("utils/semantic-kitti.yaml", "r") as stream:
+    semyaml = yaml.safe_load(stream)
+learning_map = semyaml["learning_map"]
 
 CONFIG = config_tarl_spatial
 OUT_FOLDER = "pcd_preprocessed/semantics/"

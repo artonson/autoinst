@@ -202,8 +202,9 @@ def ncuts_chunk(
     merged_chunk = pcd_chunk + cut_hight
     
     inst_ground = chunk_downsample_dict['kitti_labels']["ground"]["instance"][sequence][inliers][in_idcs]
+    seg_ground = chunk_downsample_dict['kitti_labels']["ground"]["semantic"][sequence][inliers][in_idcs]
 
-    return merged_chunk,  pcd_chunk, cut_hight,inst_ground
+    return merged_chunk,  pcd_chunk, cut_hight,inst_ground,seg_ground
 
 
 def get_merge_pcds(out_folder_ncuts):
