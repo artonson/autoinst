@@ -11,6 +11,7 @@ import numpy as np
 import copy
 import open3d as o3d
 
+from utils.point_cloud.point_cloud_utils import write_pcd
 from utils.point_cloud.aggregate_pointcloud import aggregate_pointcloud
 from utils.point_cloud.chunk_generation import subsample_positions, chunks_from_pointcloud
 from utils.visualization_utils import generate_random_colors_map, generate_random_colors
@@ -149,6 +150,9 @@ def process_and_save_point_clouds(
     sequence_num=7,
     cur_idx=0,
 ):
+    if os.path.exists(f"{OUT_FOLDER}non_ground{sequence_num}_{cur_idx}.pcd"):
+        return
+    print("process poses")
 
     if os.path.exists(OUT_FOLDER) == False:
         os.makedirs(OUT_FOLDER)
@@ -192,12 +196,16 @@ def process_and_save_point_clouds(
         instance_nonground=np.vstack(labels["instance_nonground"]),
     )
 
-    return labels
 
 
 def load_and_downsample_point_clouds(
     out_folder, sequence_num, ground_mode=True, cur_idx=0
-):
+):  
+    if os.path.exists(f"{OUT_FOLDER}pcd_nonground_minor{sequence_num}_{cur_idx}.pcd"):
+        return
+    print("load and downsample points")
+            
+            
     # Load saved data
     with np.load(f"{out_folder}all_poses_{sequence_num}_{cur_idx}.npz") as data:
         all_poses = data["all_poses"]
@@ -362,19 +370,26 @@ def load_and_downsample_point_clouds(
     kitti_data["seg_nonground"] = np.asarray(new_labels)
 
     print("done downsample")
-    return (
-        pcd_ground_minor,
-        pcd_nonground_minor,
-        all_poses,
-        T_pcd,
-        first_position,
-        kitti_data,
+    print("write pcds")
+    write_pcd(OUT_FOLDER,'pcd_ground_minor',pcd_ground_minor,sequence_num,cur_idx)
+    write_pcd(OUT_FOLDER,'pcd_nonground_minor',pcd_nonground_minor,sequence_num,cur_idx)
+
+    print("write labels")
+    np.savez(
+        f"{OUT_FOLDER}kitti_labels_preprocessed{sequence_num}_{cur_idx}.npz",
+        instance_nonground=kitti_data["instance_nonground"],
+        instance_ground=kitti_data["instance_ground"],
+        seg_ground=kitti_data["seg_ground"],
+        seg_nonground=kitti_data["seg_nonground"],
     )
 
 
 def subsample_and_extract_positions(
     all_poses, voxel_size=1, ind_start=0, sequence_num=0, cur_idx=0
-):
+):  
+    if os.path.exists(f"{OUT_FOLDER}subsampled_data{sequence_num}_{cur_idx}.npz"):
+        return
+    print('pose downsample')
 
     # Extracting positions from poses
     all_positions = [tuple(p[:3, 3]) for p in all_poses]
@@ -398,8 +413,6 @@ def subsample_and_extract_positions(
         sampled_indices_global=sampled_indices_global,
         sampled_indices_local=sampled_indices_local,
     )
-
-    return poses, positions, sampled_indices_local, sampled_indices_global
 
 
 def chunk_and_downsample_point_clouds(

@@ -62,6 +62,18 @@ def filter_points_from_list(points, filter_list):
     inds = np.array(list(filter_list))
     return points[inds]
 
+def write_pcd(folder,name,pcd,seq=None,cur_idx=None):
+    out_fn = f"{folder}{name}{seq}_{cur_idx}.pcd"
+    if seq is None : 
+        out_fn = f"{folder}{name}"
+    o3d.io.write_point_cloud(
+                out_fn,
+                pcd,
+                write_ascii=False,
+                compressed=False,
+                print_progress=True,
+    )
+
 
 def point_to_label(
     point_to_pixel: dict, label_map, label_is_color=True, label_is_instance=False

@@ -31,6 +31,7 @@ from utils.point_cloud.point_cloud_utils import (
     divide_indices_into_chunks,
     merge_unite_gt,
     remove_semantics,
+    write_pcd,
     
 )
 
@@ -92,67 +93,25 @@ for seq in seqs:
         print("ind start", ind_start)
         print("ind end", ind_end)
 
-        if "maskpls" in CONFIG["name"] and CONFIG["name"] != "maskpls_supervised":
+        if "maskpls" in CONFIG["name"]:
             maskpls = RefinerModel(dataset="kitti")
 
-        if (
-            os.path.exists(f"{OUT_FOLDER}non_ground{seq}_{cur_idx}.pcd")
-            == False
-        ):
-            print("process poses")
-            process_and_save_point_clouds(
+        
+        process_and_save_point_clouds(
                 dataset,
                 ind_start,
                 ind_end,
                 sequence_num=seq,
                 cur_idx=cur_idx,
             )
-
-        if (
-            os.path.exists(
-                f"{OUT_FOLDER}pcd_nonground_minor{seq}_{cur_idx}.pcd"
-            )
-            == False
-        ):
-            print("load and downsample points")
-            (
-                pcd_ground_minor,
-                pcd_nonground_minor,
-                all_poses,
-                T_pcd,
-                first_position,
-                kitti_labels,
-            ) = load_and_downsample_point_clouds(
+        
+        load_and_downsample_point_clouds(
                 OUT_FOLDER,
                 seq,
                 ground_mode=ground_segmentation_method,
                 cur_idx=cur_idx,
             )
-
-            print("write pcds")
-            print(pcd_ground_minor)
-            o3d.io.write_point_cloud(
-                f"{OUT_FOLDER}pcd_ground_minor{seq}_{cur_idx}.pcd",
-                pcd_ground_minor,
-                write_ascii=False,
-                compressed=False,
-                print_progress=True,
-            )
-            o3d.io.write_point_cloud(
-                f"{OUT_FOLDER}pcd_nonground_minor{seq}_{cur_idx}.pcd",
-                pcd_nonground_minor,
-                write_ascii=False,
-                compressed=False,
-                print_progress=True,
-            )
-            print("write labels")
-            np.savez(
-                f"{OUT_FOLDER}kitti_labels_preprocessed{seq}_{cur_idx}.npz",
-                instance_nonground=kitti_labels["instance_nonground"],
-                instance_ground=kitti_labels["instance_ground"],
-                seg_ground=kitti_labels["seg_ground"],
-                seg_nonground=kitti_labels["seg_nonground"],
-            )
+            
         print("load pcd")
         pcd_ground_minor = o3d.io.read_point_cloud(
             f"{OUT_FOLDER}pcd_ground_minor{seq}_{cur_idx}.pcd"
@@ -178,19 +137,13 @@ for seq in seqs:
             T_pcd = data["T_pcd"]
             first_position = T_pcd[:3, 3]
 
-        print("pose downsample")
-        if (
-            os.path.exists(f"{OUT_FOLDER}subsampled_data{seq}_{cur_idx}.npz")
-            == False
-        ):
-            poses, positions, sampled_indices_local, sampled_indices_global = (
-                subsample_and_extract_positions(
+
+        subsample_and_extract_positions(
                     all_poses,
                     ind_start=ind_start,
                     sequence_num=seq,
                     cur_idx=cur_idx,
                 )
-            )
 
         with np.load(
             f"{OUT_FOLDER}subsampled_data{seq}_{cur_idx}.npz"
@@ -199,8 +152,6 @@ for seq in seqs:
             positions = data["positions"]
             sampled_indices_local = list(data["sampled_indices_local"])
             sampled_indices_global = list(data["sampled_indices_global"])
-        
-        pcd_col = color_pcd_by_labels(pcd_nonground_minor,kitti_labels_orig['instance_nonground'],colors=colors)
         
         instances = np.hstack(
         (
@@ -322,29 +273,15 @@ for seq in seqs:
 
                     instance_pcd = kitti_chunk_instance + kitti_chunk_instance_ground
                     print("output", data_store_folder + name.split(".")[0])
-
-                    o3d.io.write_point_cloud(
-                        out_folder_instances_cur + name,
-                        instance_pcd,
-                        write_ascii=False,
-                        compressed=False,
-                        print_progress=False,
-                    )
-            
+                    
+                    write_pcd(out_folder_instances_cur,name,instance_pcd)
 
             unique_colors, labels_ncuts = np.unique(
                 np.asarray(pred_pcd.colors), axis=0, return_inverse=True
             )
 
-            o3d.io.write_point_cloud(
-                out_folder_ncuts_cur + name,
-                pred_pcd,
-                write_ascii=False,
-                compressed=False,
-                print_progress=False,
-            )
-            
-            
+            write_pcd(out_folder_ncuts_cur,name,pred_pcd)
+
 
             gc.collect()
 
@@ -388,31 +325,8 @@ for seq in seqs:
             np.asarray(merge_ncuts.colors), axis=0, return_inverse=True
         )
         
-        o3d.io.write_point_cloud(
-            data_store_folder
-            + CONFIG["name"]
-            + str(seq)
-            + "_"
-            + str(cur_idx)
-            + ".pcd",
-            merge_ncuts,
-            write_ascii=False,
-            compressed=False,
-            print_progress=False,
-        )
-        
-        o3d.io.write_point_cloud(
-            data_store_folder
-            + "kitti_instances_"
-            + str(seq)
-            + "_"
-            + str(cur_idx)
-            + ".pcd",
-            map_instances,
-            write_ascii=False,
-            compressed=False,
-            print_progress=False,
-        )
+        write_pcd(data_store_folder,CONFIG['name'],merge_ncuts,seq,cur_idx)
+        write_pcd(data_store_folder,'kitti_instances_',map_instances,seq,cur_idx)
         
         instance_preds = remove_semantics(labels_instances, copy.deepcopy(labels_ncuts_all))
         if 'maskpls' in CONFIG['name']:
