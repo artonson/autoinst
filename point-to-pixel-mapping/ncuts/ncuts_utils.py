@@ -142,7 +142,6 @@ def ncuts_chunk(
             T_pcd,
             center_position,
             tarl_indices_global,
-            obb=obb,
         )
         no_tarl_mask = ~np.array(tarl_features).any(1)
         tarl_distance = cdist(tarl_features, tarl_features)
