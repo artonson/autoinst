@@ -81,7 +81,7 @@ learning_map = semyaml["learning_map"]
 
 MASKPLS_weights = '/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial/mask_pls_oversegmented_epoch=07.ckpt'
 TEST_MAP = True #breaks the code after the first sample map
-CONFIG = config_spatial
+CONFIG = config_tarl_spatial 
 OUT_FOLDER = "pcd_preprocessed/instances/"
 OUT_FOLDER_NCUTS = OUT_FOLDER + CONFIG["out_folder"]
 OUT_FOLDER_INSTANCES = OUT_FOLDER + "instances/"
