@@ -33,7 +33,6 @@ def ncuts_chunk(
     sampled_indices_global,
     sequence=None,
     patchwise_indices=None,
-    obb=None,
 ):
 
     print("Start of sequence", sequence)
@@ -90,7 +89,6 @@ def ncuts_chunk(
             sam=False,
             dino=True,
             pcd_chunk=pcd_chunk,
-            obb=obb,
         )
         dinov2_features_major_list = []
         for point2dino in point2dino_list:
@@ -106,7 +104,6 @@ def ncuts_chunk(
             cam_indices_global,
             sam=True,
             dino=True,
-            obb=obb,
         )
         dinov2_features_major_list = []
         for point2dino in point2dino_list:

@@ -7,10 +7,11 @@ import torch
 from utils.maskpls.mask_model import MaskPS
 import numpy as np
 import open3d as o3d
-from visualization_utils import  generate_random_colors
-from point_cloud_utils import kDTree_1NN_feature_reprojection
+from utils.visualization_utils import  generate_random_colors
+from utils.point_cloud.point_cloud_utils import kDTree_1NN_feature_reprojection
 import copy
 import json
+from config import *
 
 
 def getDir(obj):
@@ -23,28 +24,26 @@ class RefinerModel:
 
         model_cfg = edict(
             yaml.safe_load(
-                open(join(getDir(__file__), "utils/maskpls/config/model.yaml"))
+                open(join(getDir(__file__), "config/model.yaml"))
             )
         )
 
         backbone_cfg = edict(
             yaml.safe_load(
-                open(join(getDir(__file__), "utils/maskpls/config/backbone.yaml"))
+                open(join(getDir(__file__), "config/backbone.yaml"))
             )
         )
 
         decoder_cfg = edict(
             yaml.safe_load(
-                open(join(getDir(__file__), "utils/maskpls/config/decoder.yaml"))
+                open(join(getDir(__file__), "config/decoder.yaml"))
             )
         )
         cfg = edict({**model_cfg, **backbone_cfg, **decoder_cfg})
         cfg.EVALUATE = True
 
         self.model = MaskPS(cfg)
-        w = "/media/cedric/Datasets2/Weights/KITTI/TARL_Spatial/mask_pls_oversegmented_epoch=07.ckpt"
-        if dataset == "nuscenes":
-            w = "/media/cedric/Datasets21/Weights/Nuscenes/checkpoints/mask_pls_oversegmented_epoch=05.ckpt"
+        w = MASKPLS_weights
         print("using weights", w)
         w = torch.load(w, map_location="cpu")
         self.model.load_state_dict(w["state_dict"])

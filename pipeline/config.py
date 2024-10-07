@@ -1,7 +1,7 @@
 import numpy as np 
 import yaml 
 
-DATASET_PATH = '/Users/cedric/Datasets/semantic_kitti/'
+DATASET_PATH = '/media/cedric/Datasets2/semantic_kitti/'
 
 config_tarl_spatial_dino = {
     "name": "spatial_1.0_tarl_0.5_dino_0.1_t_0.005",
@@ -37,20 +37,8 @@ config_spatial = {
 }
 
 config_maskpls_tarl_spatial = {
-    "name": "maskpls_comp_",
-    "out_folder": "maskpls_7/",
-    "gamma": 0.0,
-    "alpha": 0.0,
-    "theta": 0.0,
-    'beta':0.0,
-    "T": 0.0,
-    "gt": True,
-}
-
-
-config_maskpls_tarl_spatial_dino = {
-    "name": "maskpls_no_filter_5_",
-    "out_folder": "maskpls_no_filter_5/",
+    "name": "maskpls_tarl_spatial_",
+    "out_folder": "maskpls_tarl_spatial/",
     "gamma": 0.0,
     "alpha": 0.0,
     "theta": 0.0,
@@ -83,7 +71,7 @@ ADJACENT_FRAMES_CAM=(16, 13)
 ADJACENT_FRAMES_TARL=(10, 10)
 CAM_IDS = [0]
 
-GEN_SELF_TRAIN_DATA = True
+GEN_SELF_TRAIN_DATA = False
 if GEN_SELF_TRAIN_DATA:
     OVERLAP = 24  # high overlap for self-training data generation
 
@@ -91,8 +79,10 @@ with open("utils/semantic-kitti.yaml", "r") as stream:
     semyaml = yaml.safe_load(stream)
 learning_map = semyaml["learning_map"]
 
-CONFIG = config_tarl_spatial
-OUT_FOLDER = "pcd_preprocessed/semantics/"
+MASKPLS_weights = '/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial/mask_pls_oversegmented_epoch=07.ckpt'
+TEST_MAP = True #breaks the code after the first sample map
+CONFIG = config_spatial
+OUT_FOLDER = "pcd_preprocessed/instances/"
 OUT_FOLDER_NCUTS = OUT_FOLDER + CONFIG["out_folder"]
 OUT_FOLDER_INSTANCES = OUT_FOLDER + "instances/"
 OUT_FOLDER_TRAIN = OUT_FOLDER + "train/"

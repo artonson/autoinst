@@ -22,10 +22,15 @@ We provide the scripts for extracting the relevant image and point-based feature
 
 We also provide the complete data (including extracted aggregated maps) for the first map for testing out our code. 
 Please download the dataset related files [here](https://drive.google.com/drive/folders/1G3mEC8WLI2rGbsm3nkCuyeRFL49bUgbk?usp=sharing) and unzip the subdirectories. 
+Then set ``DATASET_PATH`` in ``config.py`` to this directory.
+
+
 
 ### Pre-computed sample map
 
-Preprocessing the maps requires more memory (our machine used 128GB), while chunk-based GraphCuts can be run on a laptop. Therefore we also provide the aggregation data for the first map [here](https://drive.google.com/drive/folders/1JpSTnZ8vBXzhLJVBAIltullTaACLQ7oX?usp=drive_link). 
+Preprocessing the maps requires more memory (our machine used 128GB), while chunk-based GraphCuts can be run on a laptop. Therefore we also provide the aggregation data for the first map [here](https://drive.google.com/drive/folders/1JpSTnZ8vBXzhLJVBAIltullTaACLQ7oX?usp=drive_link).
+You should then set ``OUT_FOLDER`` in ``config.py`` to this directory so the maps can be loaded correctly. 
+
 
 ## Running the Pipeline Code 
 
@@ -49,22 +54,18 @@ You can download one of the set of weights [here]().
 To generate training chunks, simply set the [flag]() in ```autoinst/pipeline/config.py``` to True. 
 Metrics computation is skipped and the output is stored in the according . 
 
-### Expected Results for provided sample map 
-
-to do : add metrics table
-
 ### Self-Training 
 
-For self-training, please refer to the [corresponding self-training readme](https://github.com/artonson/autoinst/tree/cleanup/self-training). 
+For self-training, please refer to the [corresponding self-training readme](https://github.com/artonson/autoinst/tree/cleanup/self-training).  This readme also contains the info for MaskPLS inference. 
 
 ### Expected Results for sample map 
 
 | Method                  | AP    | P/R/F1            | S_assoc     |
 |-------------------------|-------|-------------------|-------|
-| NCuts Spatial           | 41.74 | 86.15/75.67/80.57 | 70.19 |
-| NCuts TARL/Spatial      | 53.74 | 87.69/77.02/82.01 | 71.05 |
-| NCuts TARL/Spatial/Dino | tbd     |   tbd                | tbd      |
-| MaskPLS Tarl/Spatial    |       |                   |       |
+| NCuts Spatial           | 41.74% | 86.15%/75.67%/80.57% | 70.19% |
+| NCuts TARL/Spatial      | 53.74% | 87.69%/77.02%/82.01% | 71.05% |
+| NCuts TARL/Spatial/Dino | 34.33%     |   81.65%/60.13%/69.26%                | 60.00%      |
+| MaskPLS Tarl/Spatial    | 65.93%      | 91.53%/80.40%/85.61%                  | 78.42% |
 
 
 ## Acknowledgements 

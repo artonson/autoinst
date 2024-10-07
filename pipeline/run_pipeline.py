@@ -64,10 +64,12 @@ create_folder(OUT_FOLDER_NCUTS)
 create_folder(OUT_FOLDER_INSTANCES)
 create_folder(OUT_FOLDER_TRAIN)
 
-seqs = [0]
 for seq in seqs:
     if seq in exclude:
         continue
+
+    if TEST_MAP and seq > 0:
+        break
     print("Sequence", seq)
     dataset = create_kitti_odometry_dataset(
         DATASET_PATH, seq, ncuts_mode=True
@@ -234,3 +236,6 @@ for seq in seqs:
                 instance_preds,
                 labels_instances,
         )
+        
+        if TEST_MAP:
+            break
