@@ -4,6 +4,9 @@
 
 ![Screenshot from 2024-10-07 23-03-51](https://github.com/user-attachments/assets/37aff41d-f375-4d82-885d-78dea1d3fdd6)
 
+## ToDo 
+- [ ] Add requirements.txt for pipeline code
+
 ## Requirements 
 
 For running our NCuts extraction, install the requirements. We ran the NCuts pipeline with both Python 3.9 and 3.10 (on x86 AMD CPU and without the RAM intensive map creation on M1/M2 Macbook Air). 
