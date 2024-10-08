@@ -5,7 +5,13 @@
 ![Screenshot from 2024-10-07 23-03-51](https://github.com/user-attachments/assets/37aff41d-f375-4d82-885d-78dea1d3fdd6)
 
 ## Requirements 
-- ToDo
+
+For running our NCuts extraction, install the requirements. We ran the NCuts pipeline with both Python 3.9 and 3.10 (on x86 AMD CPU and without the RAM intensive map creation on M1/M2 Macbook Air). 
+```bash
+pip install -r requirements.txt
+```
+
+For running the refined MaskPLS model, please refer to the additional instructions in [self-training readme](https://github.com/artonson/autoinst/tree/cleanup/self-training)
 
 ## Dataset
 
@@ -65,7 +71,7 @@ For self-training, please refer to the [corresponding self-training readme](http
 | NCuts Spatial           | 41.74% | 86.15%/75.67%/80.57% | 70.19% |
 | NCuts TARL/Spatial      | 53.74% | 87.69%/77.02%/82.01% | 71.05% |
 | NCuts TARL/Spatial/Dino | 34.33%     |   81.65%/60.13%/69.26%                | 60.00%      |
-| MaskPLS Tarl/Spatial    | 65.93%      | 91.53%/80.40%/85.61%                  | 78.42% |
+| MaskPLS Tarl/Spatial    | **65.93%**      | **91.53%**/**80.40%**/**85.61%**                  | **78.42%** |
 
 
 ## Acknowledgements 
