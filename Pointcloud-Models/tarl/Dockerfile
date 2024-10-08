@@ -32,12 +32,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY tarl/requirements.txt .
+RUN pip3 install networkx
 RUN pip3 install -r requirements.txt
 
 RUN git clone --recursive "https://github.com/NVIDIA/MinkowskiEngine" \
     && cd MinkowskiEngine; python3 setup.py install --force_cuda --blas=openblas
 
-
+RUN pip3 install numpy==1.23.5
 RUN curl ${CHECKPOINT_URL} --output /tmp/tarl.pt 
 
 WORKDIR /tmp
