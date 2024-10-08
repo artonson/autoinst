@@ -7,7 +7,6 @@ import yaml
 from easydict import EasyDict as edict
 from mask_pls.datasets.semantic_dataset import SemanticDatasetModule
 from mask_pls.datasets.pseudo_dataset import PseudoSemanticDatasetModule
-from mask_pls.datasets.pseudo_dataset_oversegmented import PseudoSemanticDatasetOversegmentedModule
 from mask_pls.models.mask_model import MaskPS
 from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
@@ -32,9 +31,7 @@ def main(w, ckpt, nuscenes):
     if nuscenes:
         cfg.MODEL.DATASET = "NUSCENES"
 
-    #data = SemanticDatasetModule(cfg)
     data = PseudoSemanticDatasetModule(cfg)
-    #data = PseudoSemanticDatasetOversegmentedModule(cfg)
     model = MaskPS(cfg)
     if w:
         w = torch.load(w, map_location="cpu")
@@ -60,8 +57,6 @@ def main(w, ckpt, nuscenes):
         mode="max",
         save_last=True,
     )
-    
-
     
     epoch_callback = ModelCheckpoint(
     save_top_k=-1,  # set to save all checkpoints
@@ -90,5 +85,3 @@ if __name__ == "__main__":
     main()
 
 
-
-#trainer = Trainer(accelerator="gpu",logger=tb_logger,max_epochs=cfg.TRAIN.MAX_EPOCH,callbacks=[lr_monitor, pq_ckpt, iou_ckpt,epoch_callback],log_every_n_steps=1,gradient_clip_val=0.5,accumulate_grad_batches=cfg.TRAIN.BATCH_ACC)

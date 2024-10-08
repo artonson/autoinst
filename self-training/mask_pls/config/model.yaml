@@ -1,5 +1,5 @@
 EXPERIMENT:
-    ID: mask_pls_oversegmented
+    ID: mask_pls_self_trained
 
 TRAIN:
     STEP: 80
@@ -30,7 +30,7 @@ LOSS:
         WEIGHTS: [2,6] #Ce, Lovasz
 
 KITTI:
-    PATH: data/kitti
+    PATH: /media/cedric/Datasets2/Training Labels/TARL_SPATIAL_1_Ncuts/
     CONFIG: datasets/semantic-kitti.yaml
     NUM_CLASSES: 1
     IGNORE_LABEL: 0

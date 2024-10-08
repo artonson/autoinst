@@ -70,4 +70,13 @@ For self-training, please refer to the [corresponding self-training readme](http
 
 ## Acknowledgements 
 
-Among others, our project was inspired from/uses code from [Unscene3D](https://github.com/RozDavid/UnScene3D), [MaskPLS](https://github.com/PRBonn/MaskPLS),[TARL](https://github.com/PRBonn/TARL), [Dinov2](https://github.com/facebookresearch/dinov2), [semantic kitti api](https://github.com/PRBonn/semantic-kitti-api) and we would like to thank the authors for their valuable work.  
+Among others, our project was inspired from/uses code from [Unscene3D](https://github.com/RozDavid/UnScene3D), [MaskPLS](https://github.com/PRBonn/MaskPLS),[TARL](https://github.com/PRBonn/TARL), [Dinov2](https://github.com/facebookresearch/dinov2), [semantic kitti api](https://github.com/PRBonn/semantic-kitti-api) and we would like to thank the authors for their valuable work. 
+
+If you use parts of our code or find our project useful, please consider citing our paper : 
+```bibtex
+@article{perauer2024autoinst,
+  title={AutoInst: Automatic Instance-Based Segmentation of LiDAR 3D Scans},
+  author={Perauer, Cedric and Heidrich, Laurenz Adrian and Zhang, Haifan and Nie{\ss}ner, Matthias and Kornilova, Anastasiia and Artemov, Alexey},
+  journal={arXiv preprint arXiv:2403.16318},
+  year={2024}
+}

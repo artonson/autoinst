@@ -9,24 +9,31 @@ The code has been tested on RTX 4090 & RTX 3080 running [Cuda 11.8](https://deve
 * Install the maskpls package by running in the root directory of this repo:
 
 ```
-pip3 install -U -e .
+cd self-training/
+pip install -U -e .
+pip install -r requirements.txt
 ```
-
-* Install the packages in [requirements.txt](requirements.txt).
 
 ## Data preparation (Chunk Extraction) 
 
-### SemanticKITTI
+To create the data yourself, you can run NCuts in data generation mode (please refer to the main readme). We also provide our training dataset on [google drive](https://drive.google.com/file/d/1f4huUeliHthBdp2sVrWa9ULmrbJhcf1r/view?usp=sharing). 
 
-TODO : 
-- [ ] add chunk extraction dataset
-- [ ] add install instructions 
-- [ ] add training instructions 
+Just download the dataset and configure the ``KITTI`` ``PATH`` variable in ``self-training/mask_pls/config/model.yaml`` to point to this directory. 
 
+## Run Training
+
+Train the model with : 
+
+```
+python scripts/train_model.py
+```
+
+Checkpoints will be saved automatically after every epoch. By default we do not implement the validation step as we train on all the pseudo labeled sequences for refinement.
+We recommend training for 7-8 epochs. We provide the weights for 7 epochs of training [here](https://drive.google.com/file/d/1tdsVv10vfaWJSU4MNpVVkh3-BNiPXUlT/view?usp=drive_link). 
 
 ## Citation
 
-If you use parts of this code, please cite our, as well as the original paper : 
+If you find this project useful, please consider citing our paper, as well as the original MaskPLS paper : 
 
 ```bibtex
 @article{perauer2024autoinst,

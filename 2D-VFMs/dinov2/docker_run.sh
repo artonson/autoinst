@@ -2,8 +2,7 @@
 
 # Define the arrays for images and sequences
 images=("image_2" "image_3")
-#sequences=("01" "02" "03" "04" "06" "07" "08" "09" "10")
-sequences=("00")
+sequences=("00" "01" "02" "03" "05" "06" "07" "08" "09" "10")
 
 
 # Loop over sequences

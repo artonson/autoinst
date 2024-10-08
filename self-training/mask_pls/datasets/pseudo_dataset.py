@@ -21,7 +21,7 @@ class PseudoSemanticDatasetModule(LightningDataModule):
 
     def setup(self, stage=None):
         train_set = PseudoSemanticDataset(
-            self.cfg[self.cfg.MODEL.DATASET].PATH + "/sequences/",
+            self.cfg[self.cfg.MODEL.DATASET].PATH,
             self.cfg[self.cfg.MODEL.DATASET].CONFIG,
             split="train",
             dataset=self.dataset,
@@ -37,7 +37,7 @@ class PseudoSemanticDatasetModule(LightningDataModule):
         )
 
         val_set = PseudoSemanticDataset(
-            self.cfg[self.cfg.MODEL.DATASET].PATH + "/sequences/",
+            self.cfg[self.cfg.MODEL.DATASET].PATH,
             self.cfg[self.cfg.MODEL.DATASET].CONFIG,
             split="valid",
             dataset=self.dataset,
@@ -45,19 +45,6 @@ class PseudoSemanticDatasetModule(LightningDataModule):
         self.val_mask_set = PseudoMaskSemanticDataset(
             dataset=val_set,
             split="valid",
-            min_pts=self.cfg[self.cfg.MODEL.DATASET].MIN_POINTS,
-            space=self.cfg[self.cfg.MODEL.DATASET].SPACE,
-        )
-
-        test_set = PseudoSemanticDataset(
-            self.cfg[self.cfg.MODEL.DATASET].PATH + "/sequences/",
-            self.cfg[self.cfg.MODEL.DATASET].CONFIG,
-            split="test",
-            dataset=self.dataset,
-        )
-        self.test_mask_set = PseudoMaskSemanticDataset(
-            dataset=test_set,
-            split="test",
             min_pts=self.cfg[self.cfg.MODEL.DATASET].MIN_POINTS,
             space=self.cfg[self.cfg.MODEL.DATASET].SPACE,
         )
@@ -130,55 +117,25 @@ class PseudoSemanticDataset(Dataset):
         self.labels = semyaml["labels"]
         self.learning_map = semyaml["learning_map"]
         self.inv_learning_map = semyaml["learning_map_inv"]
-        #data_path = '/mnt/hdd/Datasets/test_data/'
-        #data_path = '/mnt/hdd/KITTI_ODOMETRY/velodyne_sequences/dataset/sequences/'
-        #data_path = '/home/perauer/mask_pls/MaskPLS/chunk_data/'
-        #data_path = '/home/cedric/unsup_3d_instances/point-to-pixel-mapping/output_files/downsampled_7/'
-        #data_path = '/media/cedric/Datasets1/semantic_kitti/ncuts_labels_tarl_nonground/'
-        #data_path = '/media/cedric/Datasets1/semantic_kitti/ncut_labels_train1_tarl/'
-        #data_path = '/media/cedric/Datasets1/semantic_kitti/ncuts_labels_training/'
-        #data_path = '/media/cedric/Datasets1/semantic_kitti/ncuts_labels_tarl/'
-        #data_path = '/media/cedric/Datasets1/semantic_kitti/ncut_labels_train1/'
-        #data_path = '/media/cedric/Datasets/Chunks/chunk_undersegmented/chunk_undersegmented/'
-        #data_path = '/home/perauer/Datasets/output_chunk_maskpls/overseg/'
-        #data_path = '/home/cedric/unsup_3d_instances/point-to-pixel-mapping/output_files/7_original/'
-        data_path = '/media/cedric/Datasets1/semantic_kitti/pseudo_labels/kitti/'
         
-        seqs = ['00','01']
         self.im_idx = []
         self.split = split
         
         split = None ## currently we are not using splits 
-        pose_files = []
-        calib_files = []
         token_files = []
-        fill = 2 if dataset == "KITTI" else 4
         
-        
-        '''
-        data_paths = [data_path + seq + '/clustered_labels' for seq in seqs]
-        for data_path in data_paths:
-            self.im_idx += absoluteFilePaths(data_path) ##gets all the files in the folder 
-        '''
         fs = os.listdir(data_path) 
         self.im_idx = []
         
         for f in fs : 
-            #if f != '07': 
-            #    continue
             
             cur_files = os.listdir(data_path + f)
             for fn in cur_files:
                 if fn.endswith(".npz"):
                     self.im_idx.append(data_path + f + '/' + fn)
         
-        #for f in fs : 
-        #    self.im_idx.append(data_path + f)
-        
         self.im_idx = [f for f in self.im_idx if f.endswith('.npz')]
         self.im_idx.sort() 
-        ## some testing 
-        #self.poses = load_poses(pose_files, calib_files)
         self.tokens = load_tokens(token_files)
 
     def __len__(self):
@@ -245,34 +202,9 @@ class PseudoMaskSemanticDataset(Dataset):
     def __getitem__(self, index):
         empty = True
         while empty == True:
-            
-            
-            
-            
+ 
             data = self.dataset[index]
             xyz, sem_labels, ins_labels, intensity, fname,  token, kitti_labels,cluster_labels = data
-
-            
-            #print(np.unique(ins_labels))
-            '''
-            keep = np.argwhere(
-                (self.xlim[0] < xyz[:, 0])
-                & (xyz[:, 0] < self.xlim[1])
-                & (self.ylim[0] < xyz[:, 1])
-                & (xyz[:, 1] < self.ylim[1])
-                & (self.zlim[0] < xyz[:, 2])
-                & (xyz[:, 2] < self.zlim[1])
-            )[:, 0]
-            xyz = xyz[keep]
-            sem_labels = sem_labels[keep]
-            ins_labels = ins_labels[keep]
-            kitti_labels = kitti_labels[keep]
-            intensity = intensity[keep]
-            cluster_labels = cluster_labels[keep]
-            '''
-            
-            #print(fname)
-            #print("size",ins_labels.shape)
 
             # skip scans without instances in train set
             if self.split != "train":
@@ -325,8 +257,6 @@ class PseudoMaskSemanticDataset(Dataset):
         # filter small masks
         keep_st = np.argwhere(st_cnt > self.min_points)[:, 0]
         stuff_cls = stuff_cls[keep_st][1:]
-        #print('stuff count',st_cnt)
-        #rint('stuff labels',np.unique(stuff_labels))
         if len(stuff_cls):
             stuff_masks = np.array(
                 [np.where(stuff_labels == i, 1.0, 0.0) for i in stuff_cls]
@@ -337,7 +267,6 @@ class PseudoMaskSemanticDataset(Dataset):
         
         # things masks
         ins_labels = ins_labels.reshape(-1,1)
-        #print('ins labels',np.unique(ins_labels))
         ins_sems = np.where(ins_labels == 0, 0, sem_labels)
         _ins_labels = ins_sems + ins_labels 
         _ins_labels = (ins_labels).reshape(-1, 1) 
@@ -347,8 +276,6 @@ class PseudoMaskSemanticDataset(Dataset):
 
         # filter small instances
         keep_th = np.argwhere(th_cnt > self.min_points)[:, 0] 
-        #if 0 in things_ids:  ## filter for sparse training 
-        #    keep_th = keep_th[1:]
         
         things_ids = things_ids[keep_th]
         th_idx = th_idx[keep_th]
@@ -369,17 +296,6 @@ class PseudoMaskSemanticDataset(Dataset):
         stuff_masks_ids.extend(things_masks_ids)
         masks_ids = stuff_masks_ids
         
-        #print('_ins_labels',np.unique(_ins_labels))
-        #print("stuff masks",things_masks)
-        #print("things masks",np.unique(stuff_masks_ids))
-        
-        #print('mask_ids',masks_ids)
-        #print('suff masks',stuff_masks_ids)
-
-        #masks = masks[:100,:]
-        #masks_cls = masks_cls[:100]
-        #masks_ids = masks_ids[:100]
-        #print('masks classes',masks_cls.shape)
         assert (
             masks.shape[0] == masks_cls.shape[0]
         ), f"not same number masks and classes: masks {masks.shape[0]}, classes {masks_cls.shape[0]} "
