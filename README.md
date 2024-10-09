@@ -4,17 +4,31 @@
 
 ![Screenshot from 2024-10-07 23-03-51](https://github.com/user-attachments/assets/37aff41d-f375-4d82-885d-78dea1d3fdd6)
 
-## ToDo 
-- [ ] Add requirements.txt for pipeline code
 
 ## Requirements 
 
 For running our NCuts extraction, install the requirements. We ran the NCuts pipeline with both Python 3.9 and 3.10 (on x86 AMD CPU and without the RAM intensive map creation on M1/M2 Macbook Air). 
+
+### Python Libraries
+
 ```bash
-pip install -r requirements.txt
+sh setup.sh
 ```
 
 For running the refined MaskPLS model, please refer to the additional instructions in [self-training readme](https://github.com/artonson/autoinst/tree/cleanup/self-training)
+
+### Patchwork++ 
+
+Install the python bindings for Patchwork++ : 
+
+```bash
+git clone git@github.com:url-kaist/patchwork-plusplus.git
+sudo apt-get install g++ build-essential libeigen3-dev python3-pip python3-dev cmake -y
+conda activate autoinst
+make pyinstall
+```
+
+For more details please see their [original rep](https://github.com/url-kaist/patchwork-plusplus)
 
 ## Dataset
 
@@ -45,7 +59,8 @@ You should then set ``OUT_FOLDER`` in ``config.py`` to this directory so the map
 
 Make sure to set the dataset path in ```autoinst/pipeline/config.py``` accordingly. You can also configure the feature combinations/use of MaskPLS in config.py accordingly (by default TARL/Spatial is used). By default, the first map is run for which we provide the data (see links above) and the metrics are computed.  
 
-```bash 
+```bash
+conda activate autoinst
 cd autoinst/pipeline/
 python run_pipeline.py 
 ```
@@ -79,7 +94,7 @@ For self-training, please refer to the [corresponding self-training readme](http
 
 ## Acknowledgements 
 
-Among others, our project was inspired from/uses code from [Unscene3D](https://github.com/RozDavid/UnScene3D), [MaskPLS](https://github.com/PRBonn/MaskPLS),[TARL](https://github.com/PRBonn/TARL), [Dinov2](https://github.com/facebookresearch/dinov2), [semantic kitti api](https://github.com/PRBonn/semantic-kitti-api) and we would like to thank the authors for their valuable work. 
+Among others, our project was inspired from/uses code from [Unscene3D](https://github.com/RozDavid/UnScene3D), [MaskPLS](https://github.com/PRBonn/MaskPLS),[TARL](https://github.com/PRBonn/TARL), [Dinov2](https://github.com/facebookresearch/dinov2), [semantic kitti api](https://github.com/PRBonn/semantic-kitti-api), [Patchwork++](https://github.com/url-kaist/patchwork-plusplus) and we would like to thank the authors for their valuable work. 
 
 If you use parts of our code or find our project useful, please consider citing our paper : 
 ```bibtex
