@@ -7,12 +7,13 @@
 
 ## Requirements 
 
-For running our NCuts extraction, install the requirements. We ran the NCuts pipeline with both Python 3.9 and 3.10 (on x86 AMD CPU and without the RAM intensive map creation on M1/M2 Macbook Air). 
+For running our NCuts extraction, install the requirements. We ran the NCuts pipeline with both Python 3.9 (on x86 AMD CPU and without the RAM intensive map creation on M1/M2 Macbook Air). 
 
 ### Python Libraries
 
 ```bash
-sh setup.sh
+cd autoinst/
+sh setup.sh #creates conda env named autoinst
 ```
 
 For running the refined MaskPLS model, please refer to the additional instructions in [self-training readme](https://github.com/artonson/autoinst/tree/cleanup/self-training)
@@ -60,7 +61,6 @@ You should then set ``OUT_FOLDER`` in ``config.py`` to this directory so the map
 Make sure to set the dataset path in ```autoinst/pipeline/config.py``` accordingly. You can also configure the feature combinations/use of MaskPLS in config.py accordingly (by default TARL/Spatial is used). By default, the first map is run for which we provide the data (see links above) and the metrics are computed.  
 
 ```bash
-conda activate autoinst
 cd autoinst/pipeline/
 python run_pipeline.py 
 ```
