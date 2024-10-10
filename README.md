@@ -1,6 +1,8 @@
 # AutoInst : Automatic Instance-Based Segmentation of LiDAR 3D Scans [IROS 2024]
 
-
+[![Project Page](https://badgen.net/badge/color/Project%20Page/purple?icon=atom&label)](https://artonson.github.io/publications/2024-autoinst/)
+[![arXiv](https://img.shields.io/badge/arXiv-2210.07233-b31b1b.svg)](https://arxiv.org/abs/2403.16318)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ![Screenshot from 2024-10-07 23-03-51](https://github.com/user-attachments/assets/37aff41d-f375-4d82-885d-78dea1d3fdd6)
 
