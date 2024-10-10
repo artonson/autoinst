@@ -99,6 +99,29 @@ For self-training, please refer to the [corresponding self-training readme](http
 | NCuts TARL/Spatial/Dino | 34.33%     |   81.65%/60.13%/69.26%                | 60.00%      |
 | MaskPLS Tarl/Spatial    | **65.93%**      | **91.53%**/**80.40%**/**85.61%**                  | **78.42%** |
 
+## Running Full Pipeline 
+
+To run the full pipeline/evaluation of our main method follow these steps : 
+
+1. Extract TARL Features based on [autoinst/Pointcloud-Models/tarl](https://github.com/artonson/autoinst/tree/cleanup/Pointcloud-Models/tarl#readme)
+2. Run NCuts to generate the training data, setting the [config](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L85) to ``config_tarl_spatial`` and [GEN_SELF_TRAIN_DATA](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L75) to True: 
+```bash
+cd pipeline/
+python run_pipeline.py
+```
+3. Run Self-Training according to the instructions in the [corresponding self-training readme](https://github.com/artonson/autoinst/tree/cleanup/self-training)
+4. Run the pipeline with MaskPLS to obtain full map results : 
+Make sure the ``TEST_MAP`` [test mode](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L84) is set to False.  
+Set the [config](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L85) to ``config_maskpls_tarl_spatial`` and set the [weights path](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L83) accordingly.
+```bash
+cd pipeline/
+python run_pipeline.py
+```
+5. The main scripts stores the per sequence results in ``pipeline/results``, to average them and obtain the final metrics run (printed out by the script) : 
+```bash
+cd pipeline/
+python metrics/average_sequences.py
+```
 
 ## Acknowledgements 
 
