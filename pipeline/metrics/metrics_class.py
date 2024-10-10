@@ -7,6 +7,7 @@ import open3d as o3d
 import random
 import copy
 import matplotlib.pyplot as plt
+from config import *
 
 
 COLORS_arr = plt.cm.viridis(np.linspace(0, 1, 30))
@@ -16,51 +17,6 @@ COLORS = [list(col[:3]) for col in COLORS]
 instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
 instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
 from tqdm import tqdm
-
-
-def iou(pred_indices, gt_indices):
-    intersection = np.intersect1d(pred_indices, gt_indices)
-    union = np.union1d(pred_indices, gt_indices)
-
-    return intersection.size / union.size
-
-
-def find_index_2d_list(my_list, target_sublist):
-    for i, sublist in enumerate(my_list):
-        print(sublist)
-        print(target_sublist)
-        print(sublist == list(target_sublist))
-        if sublist == list(target_sublist):
-
-            return i
-    return None  # Sublist not found in the list
-
-
-def generate_random_colors(N, seed=0):
-    colors = set()  # Use a set to store unique colors
-    while len(colors) < N:  # Keep generating colors until we have N unique ones
-        # Generate a random color and add it to the set
-        colors.add(
-            (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        )
-
-    return list(colors)  # Convert the set to a list before returning
-
-
-def generate_random_colors_map(N, seed=0):
-    random.seed(42)
-    colors = set()  # Use a set to store unique colors
-    while len(colors) < N:  # Keep generating colors until we have N unique ones
-        # Generate a random color and add it to the set
-        colors.add(
-            (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        )
-
-    return list(colors)  # Convert the
-
-def get_average(l):
-    return sum(l) / len(l)
-
 
 class Metrics:
 
@@ -73,9 +29,6 @@ class Metrics:
         self.min_points = min_points
         self.background_label = 0
         self.mode = "normal"
-        self.num_merges = 0
-        self.num_splits = 0
-        self.sem2sem_splits = 0
         print("start")
         self.pred_indices = {}
         self.gt_indices = {}
@@ -83,57 +36,8 @@ class Metrics:
         self.eval_lstq = evaluator(min_points=min_points)
         self.eval_lstq.reset()
         self.semantic_intersection = 0.05
-        self.num_processes = 1
-
-        self.labels_dict = {
-            0: "unlabeled",
-            1: "outlier",
-            10: "car",
-            11: "bicycle",
-            13: "bus",
-            15: "motorcycle",
-            16: "on-rails",
-            18: "truck",
-            20: "other-vehicle",
-            30: "person",
-            31: "bicyclist",
-            32: "motorcyclist",
-            40: "road",
-            44: "parking",
-            48: "sidewalk",
-            49: "other-ground",
-            50: "building",
-            51: "fence",
-            52: "other-structure",
-            60: "lane-marking",
-            70: "vegetation",
-            71: "trunk",
-            72: "terrain",
-            80: "pole",
-            81: "traffic-sign",
-            99: "other-object",
-            252: "moving-car",
-            253: "moving-bicyclist",
-            254: "moving-person",
-            255: "moving-motorcyclist",
-            256: "moving-on-rails",
-            257: "moving-bus",
-            258: "moving-truck",
-            259: "moving-other-vehicle",
-        }
+        self.num_processes = METRICS_THREADS
         self.cols = COLORS
-        class_names = [
-            "unlabeled",
-            "car",
-            "parking",
-            "sidewalk",
-            "fence",
-            "trailer",
-            "truck",
-            "traffic_sign",
-            "other_ground",
-            "vegetation",
-        ]
 
         # ap stuff
         self.ap = {}
@@ -206,7 +110,6 @@ class Metrics:
                     self.all_matches[iou_thresh].append(
                         {"result": "tp", "iou": cur_iou, "conf": confs[pred_label]}
                     )
-
             else:
                 false_positives += 1
                 if confs == []:
@@ -219,18 +122,11 @@ class Metrics:
         return true_positive, false_positives
 
     def worker_function(self, data):
-        # This function will be executed by each process
-        # 'data' contains a subset of predictions and other necessary information
         pred, ins_labels, confs, iou_thresh = data
-        # Perform the calculation for this chunk
-        # Return the partial results (e.g., precision and recall for this
-        # chunk)
+       
         return self.average_precision(pred, ins_labels, confs, iou_thresh)
 
     def average_precision_parallel(self, pred, ins_labels, confs, iou_thresh=0.5):
-        # Split the predictions into chunks
-
-        # Prepare data for each chunk
         data_for_processes = [(pred, ins_labels, confs, iou) for iou in self.overlaps]
 
         # Create a pool of worker processes
@@ -281,43 +177,6 @@ class Metrics:
 
         return out, {"0.25": self.ap[0.25], "0.5": self.ap[0.5], "ap": ap, "lstq": lstq}
 
-    def add_stats(
-        self,
-        all_labels,
-        pred_labels,
-        gt_labels,
-        confs=[],
-        calc_all=True,
-        calc_lstq=True,
-    ):
-
-        pred_labels = self.filter_labels(pred_labels)
-        all_labels = self.filter_labels(all_labels)
-
-        for pred_label in tqdm(np.unique(pred_labels)):
-            if pred_label == 0:
-                continue
-            pred_indices = np.where(pred_labels == pred_label)[0]
-            self.pred_indices[pred_label] = pred_indices
-
-        for gt in np.unique(gt_labels):
-            if gt == 0:
-                continue
-            gt_indices = np.where(gt_labels == gt)[0]
-            self.gt_indices[gt] = gt_indices
-
-        self.eval_lstq.add_batch(all_labels, gt_labels)
-
-        for overlap in tqdm(self.overlaps):
-            tps, fps = self.get_tp_fp(
-                pred_labels, gt_labels, iou_thresh=overlap, confs=confs
-            )
-
-            if 0 in gt_labels:
-                self.all_gt_size[overlap] += np.unique(gt_labels).shape[0] - 1
-            self.all_pred_size[overlap] += np.unique(pred_labels).shape[0] - 1
-            self.all_tp[overlap] += tps
-
     def average_precision(self, pred, ins_labels, confs, iou_thresh=0.5):
         self.precision = [1.0]
         self.recall = [0.0]  ##Init with values to ensure correct computation
@@ -328,7 +187,6 @@ class Metrics:
         unique_pred_labels.remove(0)
         unique_gt_labels.remove(0)
 
-        pred_used = set()
         instance_conf = {}
         for instance_id, i in enumerate(unique_pred_labels):
             if confs == []:
@@ -454,37 +312,9 @@ class Metrics:
                 label[cur_idcs] = self.background_label
         return label
 
-    def remove_cols(self, pcd, cols, labels, unique_labels, idx=1):
-
-        new_pcd = o3d.geometry.PointCloud()
-        new_pcd.points = pcd.points
-        new_cols = np.zeros((np.asarray(pcd.points).shape[0], 3))
-        pcd_cols = np.asarray(pcd.colors)
-        idcs = np.where(labels == idx)[0]
-        new_cols[idcs] = cols[unique_labels.index(idx)]
-        new_pcd.colors = o3d.utility.Vector3dVector(new_cols)
-        o3d.visualization.draw_geometries([new_pcd])
-        return new_pcd, idcs
-
     def intersect(self, pred_indices, gt_indices):
         intersection = np.intersect1d(pred_indices, gt_indices)
         return intersection.size / pred_indices.shape[0]
-
-    def get_semantics(self, preds, gt_idcs, pcd):
-        new_ncuts_labels = np.zeros_like(preds)
-        new_pcd = o3d.geometry.PointCloud()
-        new_pcd.points = pcd.points
-        num_clusters = 0
-        for i in np.unique(preds):
-
-            pred_idcs = np.where(preds == i)[0]
-            cur_intersect = self.intersect(pred_idcs, gt_idcs)
-
-            if cur_intersect > self.semantic_intersection:
-                new_ncuts_labels[pred_idcs] = 1
-                num_clusters += 1
-        return np.where(new_ncuts_labels == 1)[0], num_clusters
-
 
     def calculate_full_stats(self, pred_labels, gt_labels):
         print("full stats")

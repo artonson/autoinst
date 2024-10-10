@@ -1,7 +1,7 @@
 import numpy as np 
 import yaml 
 
-DATASET_PATH = '/media/cedric/Datasets2/semantic_kitti/'
+DATASET_PATH = '/Users/cedric/Datasets/semantic_kitti/'
 
 config_tarl_spatial_dino = {
     "name": "spatial_1.0_tarl_0.5_dino_0.1_t_0.005",
@@ -70,6 +70,7 @@ MEAN_HEIGHT = 0.6
 ADJACENT_FRAMES_CAM=(16, 13)
 ADJACENT_FRAMES_TARL=(10, 10)
 CAM_IDS = [0]
+METRICS_THREADS = 4
 
 GEN_SELF_TRAIN_DATA = False
 if GEN_SELF_TRAIN_DATA:
@@ -79,7 +80,7 @@ with open("utils/semantic-kitti.yaml", "r") as stream:
     semyaml = yaml.safe_load(stream)
 learning_map = semyaml["learning_map"]
 
-MASKPLS_weights = '/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial/mask_pls_oversegmented_epoch=07.ckpt'
+MASKPLS_weights = '/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial/mask_pls_self_trained_epoch=07.ckpt'
 TEST_MAP = True #breaks the code after the first sample map
 CONFIG = config_tarl_spatial 
 OUT_FOLDER = "pcd_preprocessed/instances/"
