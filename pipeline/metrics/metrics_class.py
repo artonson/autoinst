@@ -1,21 +1,15 @@
 import numpy as np
-import instanseg
-from instanseg.metrics import full_statistics
 from metrics.modified_LSTQ import evaluator
 from multiprocessing import Pool
-import open3d as o3d
-import random
-import copy
 import matplotlib.pyplot as plt
+import os
 from config import *
-
+import json
 
 COLORS_arr = plt.cm.viridis(np.linspace(0, 1, 30))
 COLORS = list(list(col) for col in COLORS_arr)
 COLORS = [list(col[:3]) for col in COLORS]
 
-instanseg.metrics.constants.UNSEGMENTED_LABEL = 0
-instanseg.metrics.constants.IOU_THRESHOLD_FULL = 0.5
 from tqdm import tqdm
 
 class Metrics:
@@ -38,6 +32,7 @@ class Metrics:
         self.semantic_intersection = 0.05
         self.num_processes = METRICS_THREADS
         self.cols = COLORS
+        self.sequence_metrics = {'ap0.5':[],'ap0.25':[],'ap':[],'p':[],'r':[],'f1':[],'S_assoc':[]}
 
         # ap stuff
         self.ap = {}
@@ -126,6 +121,9 @@ class Metrics:
        
         return self.average_precision(pred, ins_labels, confs, iou_thresh)
 
+    def average(self,list):
+        return sum(list)/float(len(list))
+
     def average_precision_parallel(self, pred, ins_labels, confs, iou_thresh=0.5):
         data_for_processes = [(pred, ins_labels, confs, iou) for iou in self.overlaps]
 
@@ -166,14 +164,17 @@ class Metrics:
         if calc_lstq:
             self.eval_lstq.add_batch(all_labels, gt_labels)
             lstq = self.eval_lstq.get_eval()
-            print("S_assoc score : ", lstq)
         if self.calc_ap:
             self.average_precision_parallel(pred_labels, gt_labels, confs)
-            print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
-            print("AP @ 0.5", round(self.ap[0.5] * 100, 3))
             aps_list = [self.ap[o] for o in self.ap_overlaps]
             ap = sum(aps_list) / float(len(aps_list))
-            print("AP @ [0.5:0.95]", round(ap * 100, 3))
+            self.sequence_metrics['p'].append(out['precision'])
+            self.sequence_metrics['r'].append(out['recall'])
+            self.sequence_metrics['f1'].append(out['fScore'])
+            self.sequence_metrics['ap0.25'].append(self.ap[0.25])
+            self.sequence_metrics['ap0.5'].append(self.ap[0.5])
+            self.sequence_metrics['ap'].append(ap)
+            self.sequence_metrics['S_assoc'].append(lstq)
 
         return out, {"0.25": self.ap[0.25], "0.5": self.ap[0.5], "ap": ap, "lstq": lstq}
 
@@ -256,38 +257,33 @@ class Metrics:
             self.precision_all[iou_thresh].append(tp / float(tp + fp))
             self.recall_all[iou_thresh].append(tp / float(tp + fn))
 
-    def compute_stats_final(self):
-
-        for overlap in self.overlaps:
-            self.average_precision_final(iou_thresh=overlap)
-            self.ap[overlap] = np.trapz(
-                self.precision_all[overlap], self.recall_all[overlap]
-            )
-
-        prec = self.all_tp[self.thresh] / self.all_pred_size[self.thresh]
-        rec = self.all_tp[self.thresh] / self.all_gt_size[self.thresh]
-        f1 = 2 * (prec * rec) / (prec + rec)
-        lstq = self.eval_lstq.get_eval()
-
-        print("Precison @ " + str(self.thresh), prec)
-        print("Recall @ " + str(self.thresh), rec)
-        print("F Score @ " + str(self.thresh), f1)
-        mean = self.mean()
-        print("Mean @ " + str(self.thresh), mean)
-        print("Panoptic @ " + str(self.thresh), mean * f1)
-        print("S_assoc score", lstq)
-
-        print("AP @ 0.25", round(self.ap[0.25] * 100, 3))
-        print("AP @ 0.5", round(self.ap[0.5] * 100, 3))
-        aps_list = [self.ap[o] for o in self.ap_overlaps]
-        ap = sum(aps_list) / float(len(aps_list))
-        print("AP @ [0.5:0.95]", round(ap * 100, 3))
-        return {
-            "precision": prec,
-            "recall": rec,
-            "fScore": f1,
-            "panoptic": mean * f1,
-        }, {"lstq": lstq, "0.25": self.ap[0.25], "0.5": self.ap[0.5], "ap": ap}
+    def sequence_stats(self,out_dir='results/'):
+        
+        sequence_results = {'p':self.average(self.sequence_metrics['p']),
+                            'r':self.average(self.sequence_metrics['r']),
+                            'f1':self.average(self.sequence_metrics['f1']),
+                            'ap':self.average(self.sequence_metrics['ap']),
+                            'ap0.25':self.average(self.sequence_metrics['ap0.25']),
+                            'ap0.5':self.average(self.sequence_metrics['ap0.5']),
+                            'S_assoc':self.average(self.sequence_metrics['S_assoc']),
+                            }
+        
+        print("Precison @ " + str(self.thresh), sequence_results['p'])
+        print("Recall @ " + str(self.thresh), sequence_results['r'])
+        print("F Score @ " + str(self.thresh), sequence_results['f1'])
+        print("S_assoc score", sequence_results['S_assoc'])
+        print("AP @ 0.25", sequence_results['ap0.25'])
+        print("AP @ 0.5", sequence_results['ap0.5'])
+        print("AP @ [0.5:0.95]",sequence_results['ap'])
+        
+        if os.path.exists(out_dir) == False : 
+            os.makedirs(out_dir)
+        
+        with open(f'{out_dir}/{self.name}', 'w') as file:
+            json.dump(sequence_results, file)
+        
+        
+        
 
     def mean(self):
         mean_array = []
@@ -340,10 +336,5 @@ class Metrics:
         out["precision"] = prec
         out["recall"] = rec
         out["panoptic"] = panoptic
-        print(out)
 
         return out
-
-
-if __name__ == "__main__":
-    metrics_class = Metrics("test")

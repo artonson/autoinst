@@ -239,3 +239,5 @@ for seq in seqs:
         
         if TEST_MAP:
             break
+        
+    metrics.sequence_stats()

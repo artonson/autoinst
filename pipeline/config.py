@@ -70,7 +70,7 @@ MEAN_HEIGHT = 0.6
 ADJACENT_FRAMES_CAM=(16, 13)
 ADJACENT_FRAMES_TARL=(10, 10)
 CAM_IDS = [0]
-METRICS_THREADS = 4
+METRICS_THREADS = 1
 
 GEN_SELF_TRAIN_DATA = False
 if GEN_SELF_TRAIN_DATA:
@@ -82,6 +82,8 @@ learning_map = semyaml["learning_map"]
 
 MASKPLS_weights = '/media/cedric/Datasets21/Weights/KITTI/TARL_Spatial/mask_pls_self_trained_epoch=07.ckpt'
 TEST_MAP = True #breaks the code after the first sample map
+if GEN_SELF_TRAIN_DATA:
+    TEST_MAP = False
 CONFIG = config_tarl_spatial 
 OUT_FOLDER = "pcd_preprocessed/instances/"
 OUT_FOLDER_NCUTS = OUT_FOLDER + CONFIG["out_folder"]
