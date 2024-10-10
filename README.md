@@ -1,5 +1,8 @@
 # AutoInst : Automatic Instance-Based Segmentation of LiDAR 3D Scans [IROS 2024]
 
+Cedric Perauer, Laurenz Adrian Heidrich, Haifan Zhang,
+Matthias Nießner, Anastasiia Kornilova, and Alexey Artemov
+
 [![Project Page](https://badgen.net/badge/color/Project%20Page/purple?icon=atom&label)](https://artonson.github.io/publications/2024-autoinst/)
 [![arXiv](https://img.shields.io/badge/arXiv-2210.07233-b31b1b.svg)](https://arxiv.org/abs/2403.16318)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,9 +12,12 @@
 
 ## Requirements 
 
-For running our NCuts extraction, install the requirements. We ran the NCuts pipeline with both Python 3.9 (on x86 AMD CPU and without the RAM intensive map creation on M1/M2 Macbook Air). 
+We ran the NCuts pipeline with both Python 3.9 (on x86 AMD CPU with Ubuntu 20.04, 128GB RAM and without the RAM intensive map creation on M1/M2 Macbook Air). 
+For self-training/MaskPLS inference we used 3080 and 4090 GPUs with Cuda 11.8.
 
 ### Python Libraries
+
+For Ncuts based extraction install the packages below :
 
 ```bash
 cd autoinst/
@@ -48,14 +54,14 @@ We provide the scripts for extracting the relevant image and point-based feature
 
 We also provide the complete data (including extracted aggregated maps) for the first map for testing out our code. 
 Please download the dataset related files [here](https://drive.google.com/drive/folders/1G3mEC8WLI2rGbsm3nkCuyeRFL49bUgbk?usp=sharing) and unzip the subdirectories. 
-Then set ``DATASET_PATH`` in ``config.py`` to this directory.
+Then set ``DATASET_PATH`` in [config.py](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L4) to this directory.
 
 
 
 ### Pre-computed sample map
 
 Preprocessing the maps requires more memory (our machine used 128GB), while chunk-based GraphCuts can be run on a laptop. Therefore we also provide the aggregation data for the first map [here](https://drive.google.com/drive/folders/1JpSTnZ8vBXzhLJVBAIltullTaACLQ7oX?usp=drive_link).
-You should then set ``OUT_FOLDER`` in ``config.py`` to this directory so the maps can be loaded correctly. 
+You should then set ``OUT_FOLDER`` in [config.py](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L86) to this directory so the maps can be loaded correctly. 
 
 
 ## Running the Pipeline Code 
@@ -67,18 +73,18 @@ cd autoinst/pipeline/
 python run_pipeline.py 
 ```
 
-#### Simple 3D Graph Cuts exmaple
+#### Simple 3D Graph Cuts example
 
 If you are interested in using our GraphCuts implementation for your own project, we provide a simple implementation that only uses spatial distances [here](https://github.com/Cedric-Perauer/Ncuts_Example). 
 
 
 ### Using MaskPLS 
-To use MaskPLS inference, simply set the [config] in ```autoinst/pipeline/config.py``` to ``config_maskpls_tarl_spatial``.
-You can download one of the set of weights [here](). 
+To use MaskPLS inference, simply set the [config](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L85) to ``config_maskpls_tarl_spatial``.
+You can download one of the set of weights [here](https://drive.usercontent.google.com/download?id=1tdsVv10vfaWJSU4MNpVVkh3-BNiPXUlT&export=download&authuser=0). 
  
 ### Generating Training Chunks 
-To generate training chunks, simply set the [flag]() in ```autoinst/pipeline/config.py``` to True. 
-Metrics computation is skipped and the output is stored in the according . 
+To generate training chunks, simply set the [flag](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L75) in ```autoinst/pipeline/config.py``` to True. 
+Metrics computation is skipped and the output is stored in the according [directory](https://github.com/artonson/autoinst/blob/88f9b7bba8c96168cbe05e48268dd127dea39975/pipeline/config.py#L89). 
 
 ### Self-Training 
 
