@@ -68,6 +68,9 @@ class Adapter():
             pbar = tqdm(self.image_path, total=len(self.image_path))
             for image_path in pbar:
                 filename = os.path.join(self.output_path, os.path.basename(image_path).split(".")[0] + ".npz")
+                if os.path.exists(filename) == True: 
+                    print("file already exists, not extracting !") 
+                    continue 
                 pbar.set_description(f'Processing {image_path}, Saving prediction to {filename}')
                 features = self._extract_features(image_path, extractor)
                 self._save_features(filename, features)

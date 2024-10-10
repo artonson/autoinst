@@ -1,0 +1,50 @@
+EXPERIMENT:
+    ID: mask_pls_self_trained
+
+TRAIN:
+    STEP: 80
+    DECAY: 1.0 ##standard decay is 0.1
+    LR: 0.0001 ##standard lr is 0.0001
+    MAX_EPOCH: 500
+    BATCH_SIZE: 1
+    BATCH_ACC: 4
+    NUM_WORKERS: 6
+    N_GPUS: -1
+
+    AUG: False 
+    SUBSAMPLE: True
+
+MODEL:
+    DATASET: KITTI
+    OVERLAP_THRESHOLD: 0.8
+
+LOSS:
+    WEIGHTS_KEYS: ['loss_ce','loss_dice','loss_mask','loss_box',"loss_center"]
+    WEIGHTS: [2.0, 5.0, 5.0,0.5,1.0]
+    EOS_COEF: 0.1
+    FREEPOINT_LOSS: False
+    NUM_POINTS: 50000 
+    NUM_MASK_PTS: 500 # points to sample within each mask
+    P_RATIO: 0.4 # ratio of total points to use for the matching
+    SEM:
+        WEIGHTS: [2,6] #Ce, Lovasz
+
+KITTI:
+    PATH: /media/cedric/Datasets2/Training Labels/TARL_SPATIAL_1_Ncuts/
+    CONFIG: datasets/semantic-kitti.yaml
+    NUM_CLASSES: 1
+    IGNORE_LABEL: 0
+    MIN_POINTS: 100 #smallest mask
+    SPACE: # coord limits
+        [[-48.0,48.0],[-48.0,48.0],[-4.0,1.5]]
+    SUB_NUM_POINTS: 80000 
+
+NUSCENES:
+    PATH: data/nuscenes
+    CONFIG: datasets/semantic-nuscenes.yaml
+    NUM_CLASSES: 17
+    IGNORE_LABEL: 0
+    MIN_POINTS: 10 #smallest mask
+    SPACE: # coord limits
+        [[-50.0,50.0],[-50.0,50.0],[-5.0,3]]
+    SUB_NUM_POINTS: 50000

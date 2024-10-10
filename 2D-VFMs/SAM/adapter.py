@@ -58,6 +58,9 @@ class Adapter():
         for image_path in pbar:
             image = np.asarray(Image.open(image_path))
             filename = os.path.join(self.output_path, os.path.basename(image_path).split(".")[0] + ".npz")
+            if os.path.exists(filename) == True : 
+                print("output sam file already exists, skipping") 
+                continue 
             pbar.set_description(f'Processing {image_path}, Saving prediction to {filename}')
             masks = self._predict(image, mask_generator)
             processed_masks = self._post_process_prediction(masks)

@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+experiments/
 build/
 develop-eggs/
 dist/
@@ -51,6 +52,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+wandb/
 
 # Translations
 *.mo
@@ -155,7 +157,12 @@ cython_debug/
 
 # VSCode
 .vscode/
-
+*.pt 
+*.mp4
+*.pcd
+*.pth 
+*.ckpt
+*.swp
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
