@@ -37,7 +37,7 @@ conda activate autoinst
 make pyinstall
 ```
 
-For more details please see their [original rep](https://github.com/url-kaist/patchwork-plusplus)
+For more details please see their [original repo](https://github.com/url-kaist/patchwork-plusplus)
 
 ## Dataset
 
