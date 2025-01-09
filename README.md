@@ -129,9 +129,14 @@ Among others, our project was inspired from/uses code from [Unscene3D](https://g
 
 If you use parts of our code or find our project useful, please consider citing our paper : 
 ```bibtex
-@article{perauer2024autoinst,
-  title={AutoInst: Automatic Instance-Based Segmentation of LiDAR 3D Scans},
-  author={Perauer, Cedric and Heidrich, Laurenz Adrian and Zhang, Haifan and Nie{\ss}ner, Matthias and Kornilova, Anastasiia and Artemov, Alexey},
-  journal={arXiv preprint arXiv:2403.16318},
-  year={2024}
-}
+@INPROCEEDINGS{10803059,
+  author={Perauer, Cedric and Heidrich, Laurenz Adrian and Zhang, Haifan and Nießner, Matthias and Kornilova, Anastasiia and Artemov, Alexey},
+  booktitle={2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 
+  title={AutoInst: Automatic Instance-Based Segmentation of LiDAR 3D Scans}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={12340-12347},
+  keywords={Instance segmentation;Point cloud compression;Solid modeling;Three-dimensional displays;Laser radar;Annotations;Refining;Prediction algorithms;Sensors;Proposals;3D mapping;normalized cuts;instance segmentation;unsupervised learning},
+  doi={10.1109/IROS58592.2024.10803059}}
+
